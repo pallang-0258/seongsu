@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>근무표</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f5f4f0; color: #1a1a1a; font-size: 13px; }
+
+.header { background:#fff; border-bottom:1px solid #e8e6e0; padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:52px; position:sticky; top:0; z-index:100; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.header-title { font-size:15px; font-weight:600; }
+.header-tabs { display:flex; gap:2px; }
+.tab { padding:6px 14px; border-radius:8px; border:none; background:transparent; color:#888; cursor:pointer; font-size:13px; font-family:inherit; transition:background .15s; }
+.tab:hover { background:#f0ede8; color:#1a1a1a; }
+.tab.active { background:#f0ede8; color:#1a1a1a; font-weight:600; }
+.viewer-badge { font-size:11px; background:#e8f5e9; color:#2e7d32; padding:3px 10px; border-radius:20px; font-weight:600; }
+
+.layout { display:flex; height:calc(100vh - 52px); }
+.sidebar { width:190px; min-width:190px; background:#fff; border-right:1px solid #e8e6e0; padding:12px 8px; overflow-y:auto; }
+.main { flex:1; padding:16px; overflow-y:auto; }
+
+.sidebar-label { font-size:10px; font-weight:600; color:#aaa; letter-spacing:.07em; text-transform:uppercase; padding:0 6px; margin-bottom:5px; margin-top:10px; }
+.emp-item { display:flex; align-items:center; gap:7px; padding:5px 8px; border-radius:8px; cursor:pointer; transition:background .1s; }
+.emp-item:hover { background:#f5f4f0; }
+.emp-item.selected { background:#e8f0fe; }
+
+/* 모바일 사이드바 오버레이 */
+.sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:149; }
+.sidebar-overlay.open { display:block; }
+
+/* 검색창 토글 */
+.search-wrap { overflow:hidden; transition:max-height .25s ease, opacity .25s ease; max-height:0; opacity:0; }
+.search-wrap.open { max-height:60px; opacity:1; }
+
+/* 모바일 하단 탭바 */
+.mobile-tabbar { display:none; }
+
+@media (max-width: 768px) {
+  .header { padding:0 12px; height:48px; }
+  .header-title { font-size:14px; }
+  .header-tabs { display:none; }
+  .viewer-badge { display:none; }
+
+  .layout { height:calc(100vh - 48px - 56px); }
+
+  .sidebar {
+    position:fixed; left:-220px; top:48px; bottom:56px;
+    width:220px; min-width:220px; z-index:150;
+    transition:left .25s ease;
+  }
+  .sidebar.mobile-open {
+    left:0;
+    box-shadow:4px 0 16px rgba(0,0,0,.15);
+  }
+  .sidebar-overlay.open { display:block; }
+
+  .main { padding:10px; }
+
+  .mobile-tabbar {
+    display:flex; position:fixed; bottom:0; left:0; right:0; height:56px;
+    background:#fff; border-top:1px solid #e8e6e0;
+    z-index:100; box-shadow:0 -2px 8px rgba(0,0,0,.06);
+  }
+  .mobile-tab {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; border:none; background:transparent; color:#aaa; font-size:9px;
+    font-family:inherit; cursor:pointer; transition:color .15s; padding:6px 2px;
+  }
+  .mobile-tab .mt-icon { font-size:18px; line-height:1; }
+  .mobile-tab.active { color:#1a1a1a; font-weight:600; }
+
+  .stats-grid { grid-template-columns:repeat(3,1fr); gap:7px; }
+  .card { padding:10px 12px; }
+  .card-header { flex-wrap:wrap; gap:8px; }
+
+  /* 가로 스크롤 완전 제거 */
+  body { overflow-x:hidden; }
+  .sch-wrap { overflow-x:visible; }
+  .sum-wrap { overflow-x:visible; }
+
+  .sch-table { min-width:0 !important; font-size:11px !important; }
+  .sch-table th { font-size:11px !important; padding:4px 1px !important; }
+  .sch-table td { height:30px !important; }
+  .emp-cell { padding:2px 4px !important; font-size:13px !important; }
+  .dept-cell { font-size:11px !important; padding:2px 2px !important; }
+  .shift-cell { height:28px !important; }
+  .shift-pill { font-size:14px !important; padding:3px 6px !important; border-radius:3px !important; }
+
+  .sum-table { min-width:0 !important; font-size:9px !important; }
+  .sum-table th { font-size:9px !important; padding:3px 1px !important; }
+  .sum-dept-cell { font-size:8px !important; padding:2px 2px !important; width:28px !important; }
+  .sum-name-cell { font-size:9px !important; padding:2px 3px !important; line-height:1.5 !important; }
+  .sum-shift-cell { width:24px !important; }
+  .sum-shift-inner { padding:2px 3px !important; }
+
+  /* 달력 */
+  .cal-grid { min-width:0 !important; }
+  .cal-cell { min-height:50px !important; padding:3px 3px !important; font-size:13px !important; }
+  .cal-day-hd { font-size:13px !important; }
+  .cal-date { font-size:13px !important; }
+  .cal-tag { font-size:12px !important; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .header-title { font-size:13px; }
+}
+.avatar { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; flex-shrink:0; }
+.emp-name-s { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.btn { padding:6px 12px; border-radius:8px; border:1px solid #d8d5cf; background:#fff; color:#1a1a1a; cursor:pointer; font-size:12px; font-family:inherit; transition:background .15s; white-space:nowrap; }
+.btn:hover { background:#f5f4f0; }
+.btn.sm { padding:4px 10px; font-size:11px; }
+
+.card { background:#fff; border:1px solid #e8e6e0; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+.card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.card-title { font-size:14px; font-weight:600; }
+
+.stats-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+.stat-card { background:#f5f4f0; border-radius:10px; padding:12px 14px; }
+.stat-label { font-size:11px; color:#888; margin-bottom:4px; }
+.stat-value { font-size:22px; font-weight:600; }
+.stat-sub { font-size:11px; color:#aaa; margin-top:1px; }
+
+.wk-badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.confirm-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.confirmed   { background:#e8f5e9; color:#2e7d32; }
+.unconfirmed { background:#fff8e1; color:#f57f17; }
+
+.sch-wrap { overflow-x:auto; }
+.sch-table { width:100%; border-collapse:collapse; font-size:12px; }
+.sch-table th, .sch-table td { border:1px solid #e8e6e0; padding:0; text-align:center; }
+.sch-table th { background:#f5f4f0; font-weight:600; padding:7px 10px; color:#666; font-size:11px; }
+.sch-table th.wknd { color:#c0392b; }
+.sch-table td { height:40px; position:relative; }
+.emp-cell { text-align:left; padding:4px 12px; background:#fff; white-space:nowrap; }
+.dept-cell { text-align:center; padding:4px 8px; background:#f9f8f6; font-size:11px; color:#888; white-space:nowrap; }
+.shift-cell { width:100%; height:36px; display:flex; align-items:center; justify-content:center; }
+.shift-pill { padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; }
+.s-1020 { background:#e8f5e9; color:#2e7d32; }
+.s-1019 { background:#e8f5e9; color:#2e7d32; }
+.s-1323 { background:#ede7f6; color:#4527a0; }
+.s-annual { background:#fff8e1; color:#f57f17; }
+.s-half { background:#fce4ec; color:#880e4f; }
+
+.sum-wrap { overflow-x:auto; }
+.sum-table { width:100%; border-collapse:collapse; font-size:11px; }
+.sum-table th, .sum-table td { border:1px solid #dedad4; }
+.sum-table th { background:#f5f4f0; font-weight:600; text-align:center; padding:6px 10px; font-size:11px; color:#555; }
+.sum-table th.wknd { color:#c0392b; }
+.sum-shift-cell { background:#f0f0ee; text-align:center; padding:0; vertical-align:middle; width:44px; }
+.sum-shift-inner { display:flex; align-items:center; justify-content:center; height:100%; padding:4px 6px; }
+.sum-dept-cell { background:#fafaf8; font-size:10px; font-weight:600; color:#888; text-align:center; padding:4px 8px; white-space:nowrap; width:72px; }
+.sum-name-cell { padding:4px 10px; font-size:11px; line-height:1.7; color:#222; vertical-align:top; }
+
+.lv-table { width:100%; border-collapse:collapse; }
+.lv-table th, .lv-table td { border-bottom:1px solid #f0ede8; padding:9px 10px; text-align:left; font-size:12px; }
+.lv-table th { font-weight:600; color:#888; background:#f9f8f6; }
+.lv-table tr:last-child td { border-bottom:none; }
+.lv-table tr:hover td { background:#fafaf8; }
+.badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+.badge-approved { background:#e8f5e9; color:#2e7d32; }
+.leave-bar { height:6px; border-radius:3px; background:#e8e6e0; overflow:hidden; margin-top:4px; }
+.leave-bar-fill { height:100%; border-radius:3px; }
+
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; min-width:560px; }
+.cal-day-hd { text-align:center; font-size:11px; font-weight:600; color:#888; padding:4px 0; }
+.cal-day-hd.wknd { color:#c0392b; }
+.cal-cell { border:1px solid #f0ede8; border-radius:8px; min-height:76px; padding:5px 6px; font-size:11px; background:#fff; }
+.cal-cell.other-month { background:#fafaf8; }
+.cal-cell.today { border-color:#1a1a1a; }
+.cal-date { font-size:11px; font-weight:600; color:#555; }
+.cal-date.wknd { color:#c0392b; }
+.cal-date.today-num { background:#1a1a1a; color:#fff; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; }
+.cal-tag { display:block; border-radius:3px; padding:1px 5px; font-size:10px; font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cal-tag.annual { background:#fff8e1; color:#f57f17; }
+.cal-tag.half    { background:#fce4ec; color:#880e4f; }
+.cal-tag.half_pm { background:#ede7f6; color:#4527a0; }
+.cal-emp-filter { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px; }
+.cal-emp-btn { padding:3px 10px; border-radius:20px; border:1px solid #d8d5cf; background:#fff; font-size:11px; cursor:pointer; transition:all .15s; font-family:inherit; }
+.cal-emp-btn:hover { background:#f5f4f0; }
+.cal-emp-btn.active { border-color:transparent; font-weight:600; }
+
+.no-data { text-align:center; color:#aaa; padding:32px; font-size:13px; }
+.no-data-icon { font-size:32px; margin-bottom:8px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="mobileSidebarBtn" class="btn sm" onclick="toggleMobileSidebar()" style="display:none;padding:4px 10px;font-size:16px;border:none;background:none">☰</button>
+    <div class="header-title" id="siteTitle">📋 근무관리 시스템</div>
+  </div>
+  <div class="header-tabs">
+    <button class="tab active" onclick="switchTab('schedule')">근무표</button>
+    <button class="tab" onclick="switchTab('leave')">연차/반차</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span id="syncIndicator" style="font-size:11px;color:#888;min-width:80px;text-align:right"></span>
+    <button class="btn sm" onclick="manualRefresh()" title="최신 데이터 불러오기">🔄 새로고침</button>
+    <button class="btn sm" onclick="openViewerSettingModal()" title="연동 URL 설정">⚙ 설정</button>
+    <div class="viewer-badge">👁 직원 뷰어</div>
+  </div>
+</div>
+
+<!-- 모바일 사이드바 오버레이 -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+<!-- 모바일 하단 탭바 -->
+<div class="mobile-tabbar">
+  <button class="mobile-tab active" id="mtab-schedule" onclick="switchTab('schedule')">
+    <span class="mt-icon">📋</span>근무표
+  </button>
+  <button class="mobile-tab" id="mtab-leave" onclick="switchTab('leave')">
+    <span class="mt-icon">📅</span>연차/반차
+  </button>
+  <button class="mobile-tab" onclick="manualRefresh()">
+    <span class="mt-icon">🔄</span>새로고침
+  </button>
+</div>
+
+<div class="layout">
+  <!-- 사이드바: 근무표 탭에서만 표시 -->
+  <div class="sidebar" id="sidebar">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:600;color:#aaa;letter-spacing:.05em">직원 필터</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn sm" onclick="toggleSearch()" title="검색" style="padding:3px 8px;font-size:13px;border:none;background:none;color:#888">🔍</button>
+        <button class="btn sm" onclick="clearSearch()" style="font-size:11px">전체</button>
+      </div>
+    </div>
+    <div class="search-wrap" id="searchWrap">
+      <input type="text" id="searchEmp" placeholder="직원 검색"
+        style="height:30px;font-size:12px;width:100%;border-radius:8px;border:1px solid #d8d5cf;padding:0 8px;font-family:inherit;margin-bottom:6px"
+        oninput="renderSidebar()">
+    </div>
+    <div id="empList"></div>
+    <div style="margin-top:14px;border-top:1px solid #f0ede8;padding-top:12px">
+      <div class="sidebar-label">범례</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;padding:0 4px">
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#d4edda"></div>오전 (10-20)</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#e2d9f3"></div>오후 (13-23)</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#fff3cd"></div>연차</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#f0f0f0;border:1px solid #ddd"></div>격주 미근무</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- 근무표 탭 -->
+    <div id="tabSchedule">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">전체 직원</div><div class="stat-value" id="statTotal">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">약사</div><div class="stat-value" id="statDept0">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">일본어</div><div class="stat-value" id="statDept1">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">중국어</div><div class="stat-value" id="statDept2">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">물류</div><div class="stat-value" id="statDept3">-</div><div class="stat-sub">명</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="weekYearSel" onchange="onWeekSelChange()" style="height:32px;font-size:12px;width:76px"></select>
+            <select id="weekMonthSel" onchange="onWeekSelChange()" style="height:32px;font-size:12px;width:60px"></select>
+            <select id="weekPickSel" onchange="onWeekPick()" style="height:32px;font-size:13px;font-weight:600;width:200px"></select>
+            <button class="btn sm" onclick="changeWeek(-1)">◀</button>
+            <button class="btn sm" onclick="changeWeek(1)">▶</button>
+            <button class="btn sm" onclick="goToThisWeek()">이번 주</button>
+            <div class="wk-badge" id="weekTypeBadge" style="background:#e8f5e9;color:#2e7d32">홀수 주</div>
+            <div class="confirm-badge unconfirmed" id="confirmBadge">● 미확정</div>
+          </div>
+        </div>
+        <div class="sch-wrap"><table class="sch-table" id="screenSchTable"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">요일별 근무 명단 요약</div>
+        <div class="sum-wrap"><table class="sum-table" id="screenSummary"></table></div>
+      </div>
+    </div>
+
+    <!-- 연차/반차 탭 -->
+    <div id="tabLeave" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">연차 / 반차 현황</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="leaveTableYear" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="leaveTableMonth" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+          </div>
+        </div>
+        <table class="lv-table" id="leaveTable"></table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">연차/반차 달력</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn sm" onclick="calChangeMonth(-1)">◀</button>
+            <div style="font-weight:600;font-size:13px;min-width:90px;text-align:center" id="calMonthLabel"></div>
+            <button class="btn sm" onclick="calChangeMonth(1)">▶</button>
+          </div>
+        </div>
+        <div class="cal-emp-filter" id="calEmpFilter"></div>
+        <div style="overflow-x:auto"><div class="cal-grid" id="calGrid"></div></div>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8e1"></div>연차</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차(오전)</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#ede7f6"></div>반차(오후)</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px">연차 잔여 현황</div>
+        <table class="lv-table" id="leaveBalanceSimpleTable"></table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">직원별 사용 내역</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="leaveEmpFilter" onchange="renderLeaveHistory()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
+            <select id="leaveYearFilter" onchange="renderLeaveHistory()" style="height:32px;font-size:12px;width:90px"></select>
+          </div>
+        </div>
+        <div id="leaveHistory"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 연동 URL 설정 모달 -->
+<div style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center" id="viewerSettingModal">
+  <div style="background:#fff;border-radius:14px;padding:24px;width:440px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.15)">
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px">☁ 연동 URL 설정</div>
+    <p style="font-size:12px;color:#888;margin-bottom:16px;line-height:1.6">관리자에게 웹앱 URL을 받아서 아래에 입력하세요.<br>한 번만 설정하면 다음부터는 자동으로 연결됩니다.</p>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:#888;display:block;margin-bottom:4px">웹앱 URL</label>
+      <input type="text" id="viewerGasUrlInput" placeholder="https://script.google.com/macros/s/..." style="width:100%;height:36px;border-radius:8px;border:1px solid #d8d5cf;padding:0 10px;font-size:13px;font-family:inherit">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+      <button class="btn sm" onclick="testViewerConnection()" style="color:#1565c0;border-color:#90caf9">연결 테스트</button>
+      <span id="viewerTestResult" style="font-size:11px"></span>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeViewerSettingModal()">취소</button>
+      <button class="btn primary" onclick="saveViewerGasUrl()">저장 후 불러오기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TODAY = new Date();
+const DAY_KO = ['월','화','수','목','금','토','일'];
+const DEPTS = ['약사','일본어','중국어','물류'];
+const AM_KEYS = ['1020','1019'];
+const PM_KEYS = ['1323'];
+const PM_EXCLUDE_DEPTS = ['물류'];
+const SHIFT_LABEL = {'1020':'10-20','1019':'10-19','1323':'13-23',annual:'연차',half:'반차(오전)',half_pm:'반차(오후)',off:''};
+const SHIFT_CLS   = {'1020':'s-1020','1019':'s-1019','1323':'s-1323',annual:'s-annual',half:'s-half',half_pm:'s-half',off:''};
+const HALF_TIME = {
+  '1020': { half:'15-20', half_pm:'10-15' },
+  '1019': { half:'14-19', half_pm:'10-14' },
+  '1323': { half:'18-23', half_pm:'13-18' },
+};
+function getHalfLabel(baseShift, halfType) {
+  const map = HALF_TIME[baseShift];
+  if (!map) return halfType === 'half' ? '반차(오전)' : '반차(오후)';
+  return map[halfType] || (halfType === 'half' ? '반차(오전)' : '반차(오후)');
+}
+const COLORS = [
+  ['#e8f5e9','#2e7d32'],['#e8eaf6','#283593'],['#f3e5f5','#6a1b9a'],
+  ['#fff8e1','#f57f17'],['#fce4ec','#880e4f'],['#e0f7fa','#00695c'],
+  ['#fbe9e7','#bf360c'],['#f1f8e9','#33691e'],['#fafafa','#424242'],
+  ['#e0f2f1','#004d40'],['#fff3e0','#e65100'],['#e8eaf6','#1a237e'],
+];
+
+// ── 기본 데이터 (관리자 페이지 localStorage 없을 때 폴백) ──
+let employees = [];
+let leaveRequests = [];
+let schedules = {}, confirmed = {};
+const DEFAULT_SHIFT = {};
+
+// ── Google Apps Script URL (관리자 페이지와 동일한 값 자동 공유) ──
+let GAS_URL = localStorage.getItem('wms_gas_url') || 'https://script.google.com/macros/s/AKfycbzJNkdS9Y-429satbzJrXuUx3Em16dS2Y0cAFk_zxOBclub74kr_pZLiRCisMnAoPksaw/exec';
+
+// ── 관리자 페이지 localStorage 또는 Google Sheets에서 데이터 로드 ──
+function load() {
+  try {
+    const raw = localStorage.getItem('wms_v6');
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d.employees)     employees     = d.employees;
+      if (d.leaveRequests) leaveRequests = d.leaveRequests;
+      if (d.schedules)     schedules     = d.schedules;
+      if (d.confirmed)     confirmed     = d.confirmed;
+      if (d.defaultShift)  Object.assign(DEFAULT_SHIFT, d.defaultShift);
+    }
+  } catch(e) {}
+}
+
+function loadFromSheets(callback) {
+  if (!GAS_URL) { if(callback) callback(false); return; }
+  const indicator = document.getElementById('syncIndicator');
+  if (indicator) { indicator.textContent = '☁ 불러오는 중…'; indicator.style.color='#888'; }
+  fetch(GAS_URL + '?action=load')
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok && res.data && res.data.employees) {
+        const d = res.data;
+        if (d.employees)     employees     = d.employees;
+        if (d.leaveRequests) leaveRequests = d.leaveRequests;
+        if (d.schedules)     schedules     = d.schedules;
+        if (d.confirmed)     confirmed     = d.confirmed;
+        if (d.defaultShift)  Object.assign(DEFAULT_SHIFT, d.defaultShift);
+        if (indicator) { indicator.textContent = '☁ 최신 데이터'; indicator.style.color='#2e7d32'; }
+        if (callback) callback(true);
+      } else {
+        if (indicator) { indicator.textContent = ''; }
+        if (callback) callback(false);
+      }
+    })
+    .catch(() => {
+      if (indicator) { indicator.textContent = '☁ 연결 실패'; indicator.style.color='#c0392b'; }
+      if (callback) callback(false);
+    });
+}
+
+// ── 주기적으로 Google Sheets에서 새로고침 (5분마다) ──
+function startAutoRefresh() {
+  setInterval(() => {
+    if (GAS_URL) {
+      loadFromSheets(ok => {
+        if (ok) {
+          renderSchedule();
+          if (document.getElementById('tabLeave').style.display !== 'none') {
+            renderLeaveTable(); renderCalendar(); renderLeaveBalanceSimple(); renderLeaveHistory();
+          }
+        }
+      });
+    }
+  }, 5 * 60 * 1000);
+}
+
+// ── 주차 계산 ──
+function getWeekStart(off) {
+  const d = new Date(TODAY);
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1) + off * 7);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function getWeekDays(off) {
+  const m = getWeekStart(off);
+  return Array.from({length:7}, (_,i) => { const d = new Date(m); d.setDate(d.getDate()+i); return d; });
+}
+function toLocalDateStr(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function weekKey(off) { return toLocalDateStr(getWeekStart(off)); }
+function isOddWeek(off) {
+  const sun = getWeekDays(off)[6];
+  return Math.ceil(sun.getDate()/7) % 2 === 1;
+}
+function shouldWork(emp, di, off) {
+  const wd = emp.workDays ? emp.workDays[di] : 1;
+  if (!wd) return false;
+  if (emp.workType === 'biweek_odd')  return isOddWeek(off);
+  if (emp.workType === 'biweek_even') return !isOddWeek(off);
+  return true;
+}
+function isResigned(emp) {
+  if (!emp.leaveDate) return false;
+  return new Date(emp.leaveDate) < TODAY;
+}
+function isActiveForWeek(emp, off) {
+  if (emp.joinDate) {
+    const weekSun = new Date(getWeekStart(off)); weekSun.setDate(weekSun.getDate()+6);
+    if (new Date(emp.joinDate) > weekSun) return false;
+  }
+  if (emp.leaveDate) {
+    const weekMon = getWeekStart(off);
+    if (new Date(emp.leaveDate) < weekMon) return false;
+  }
+  return true;
+}
+function getShift(emp, di, off) {
+  const dayDate = getWeekDays(off)[di];
+  const dateStr = toLocalDateStr(dayDate);
+  const lr = (leaveRequests||[]).find(r => r.empId===emp.id && r.status==='approved' && dateStr>=r.start && dateStr<=r.end);
+  if (lr) return lr.type==='half_pm' ? 'half_pm' : lr.type==='half' ? 'half' : 'annual';
+  const k = weekKey(off);
+  const ov = schedules[k]?.[emp.id]?.[di];
+  if (ov !== undefined) return ov;
+  if (!shouldWork(emp, di, off)) return '__off__';
+  const pat = DEFAULT_SHIFT[emp.id];
+  return pat ? (pat[di] || 'off') : 'off';
+}
+function getBaseShift(emp, di, off) {
+  if (!shouldWork(emp, di, off)) return '__off__';
+  const k = weekKey(off);
+  const ov = schedules[k]?.[emp.id]?.[di];
+  if (ov !== undefined && ov!=='half' && ov!=='half_pm' && ov!=='annual') return ov;
+  const pat = DEFAULT_SHIFT[emp.id];
+  return pat ? (pat[di] || 'off') : 'off';
+}
+
+// ── 연차 계산 ──
+function calcEarnedAnnual(joinDateStr) {
+  if (!joinDateStr) return 0;
+  const join = new Date(joinDateStr); const now = TODAY;
+  if (now < join) return 0;
+  let months = (now.getFullYear()-join.getFullYear())*12 + (now.getMonth()-join.getMonth());
+  const anniv = new Date(now.getFullYear(), now.getMonth(), join.getDate());
+  if (now < anniv) months--;
+  return Math.min(Math.max(months,0), 15);
+}
+function calcUsedAnnual(empId) {
+  return leaveRequests.filter(r => r.empId===empId && r.status==='approved').reduce((s,r) => {
+    if (r.type==='annual') { const d=Math.round((new Date(r.end)-new Date(r.start))/864e5)+1; return s+d; }
+    return s+0.5;
+  }, 0);
+}
+
+// ── 사이드바 ──
+let selectedEmpId = null;
+function renderSidebar() {
+  const q = (document.getElementById('searchEmp').value||'').trim().toLowerCase();
+  let html = '';
+  DEPTS.forEach(dept => {
+    const emps = employees.filter(e => e.dept===dept && !isResigned(e) && (!q || e.name.includes(q)));
+    if (!emps.length) return;
+    html += '<div class="sidebar-label">'+dept+'</div>';
+    emps.forEach(e => {
+      const [bg,fg] = COLORS[e.color%COLORS.length];
+      const tag = e.workType==='biweek_odd' ? '<span style="font-size:9px;color:#999"> 홀수</span>'
+                : e.workType==='biweek_even' ? '<span style="font-size:9px;color:#999"> 짝수</span>' : '';
+      html += '<div class="emp-item'+(selectedEmpId===e.id?' selected':'')+'" onclick="selectEmp('+e.id+')">'
+        +'<div class="avatar" style="background:'+bg+';color:'+fg+'">'+e.name[0]+'</div>'
+        +'<div class="emp-name-s">'+e.name+tag+'</div></div>';
+    });
+  });
+  document.getElementById('empList').innerHTML = html;
+}
+function clearSearch() { document.getElementById('searchEmp').value=''; selectedEmpId=null; renderSidebar(); renderSchedule(); }
+function selectEmp(id) { selectedEmpId = selectedEmpId===id ? null : id; renderSidebar(); renderSchedule(); }
+
+// ── 주차 드롭다운 ──
+function getWeeksInMonth(year, month) {
+  const firstDay = new Date(year, month, 1);
+  const lastDay  = new Date(year, month+1, 0);
+  const startMon = new Date(firstDay);
+  const dow = startMon.getDay();
+  startMon.setDate(startMon.getDate() - (dow===0 ? 6 : dow-1));
+  const weeks = [];
+  const cur = new Date(startMon);
+  while (cur <= lastDay) {
+    const diff = Math.round((cur - getWeekStart(0)) / (7*86400000));
+    weeks.push(diff);
+    cur.setDate(cur.getDate()+7);
+  }
+  return weeks;
+}
+function initWeekDropdowns() {
+  const yr = document.getElementById('weekYearSel');
+  const cur = TODAY.getFullYear();
+  yr.innerHTML = [cur-1, cur, cur+1].map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
+  document.getElementById('weekMonthSel').innerHTML = Array.from({length:12},(_,i)=>'<option value="'+i+'">'+(i+1)+'월</option>').join('');
+  populateWeekPickSel(cur, TODAY.getMonth());
+  syncWeekDropdowns();
+}
+function populateWeekPickSel(year, month) {
+  const el = document.getElementById('weekPickSel');
+  const weeks = getWeeksInMonth(year, month);
+  const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
+  el.innerHTML = weeks.map(off => {
+    const days = getWeekDays(off);
+    const label = days[0].getFullYear()+'년 '+fmt(days[0])+' ~ '+fmt(days[6]);
+    const odd = isOddWeek(off);
+    const conf = confirmed[weekKey(off)] ? ' ✓' : '';
+    return '<option value="'+off+'">'+label+' ('+(odd?'홀':'짝')+'주)'+conf+'</option>';
+  }).join('');
+}
+function syncWeekDropdowns() {
+  const days = getWeekDays(weekOffset);
+  const year = days[0].getFullYear();
+  const month = days[0].getMonth();
+  const yr = document.getElementById('weekYearSel');
+  const mo = document.getElementById('weekMonthSel');
+  const pk = document.getElementById('weekPickSel');
+  if (!yr||!mo||!pk) return;
+  yr.value = year; mo.value = month;
+  populateWeekPickSel(year, month);
+  pk.value = weekOffset;
+  if (pk.value != weekOffset) {
+    const fmt = d=>(d.getMonth()+1)+'/'+d.getDate();
+    const d0 = getWeekDays(weekOffset);
+    pk.innerHTML = '<option value="'+weekOffset+'">'+d0[0].getFullYear()+'년 '+fmt(d0[0])+' ~ '+fmt(d0[6])+'</option>' + pk.innerHTML;
+    pk.value = weekOffset;
+  }
+}
+function onWeekSelChange() {
+  populateWeekPickSel(+document.getElementById('weekYearSel').value, +document.getElementById('weekMonthSel').value);
+}
+function onWeekPick()    { weekOffset = +document.getElementById('weekPickSel').value; renderSchedule(); }
+function changeWeek(dir) { weekOffset += dir; renderSchedule(); }
+function goToThisWeek()  { weekOffset = 0; renderSchedule(); }
+
+// ── 근무표 ──
+let weekOffset = 0;
+function buildSchTable(el, off) {
+  const days = getWeekDays(off);
+  const emps = selectedEmpId ? employees.filter(e=>e.id===selectedEmpId) : employees;
+  const depts = DEPTS.filter(d => emps.some(e=>e.dept===d));
+  const isMobile = window.innerWidth <= 768;
+  const deptW = isMobile ? '22px' : '44px';
+  const nameW = isMobile ? '40px' : '72px';
+  let html = '<colgroup><col style="width:'+deptW+'"><col style="width:'+nameW+'">'+days.map(()=>'<col>').join('')+'</colgroup>'
+    +'<thead><tr><th>부서</th><th style="text-align:left;padding-left:7px">직원</th>'
+    +days.map((d,i)=>'<th class="'+(i>=5?'wknd':'')+'">'+DAY_KO[i]+'<br><span style="font-weight:400;font-size:10px">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+    +'</tr></thead><tbody>';
+  const colCount = days.length+2;
+  depts.forEach((dept, deptIdx) => {
+    const de = emps.filter(e=>e.dept===dept && isActiveForWeek(e,off));
+    if (!de.length) return;
+    if (deptIdx>0) html += '<tr><td colspan="'+colCount+'" style="height:8px;background:#f5f4f0;border:none;padding:0"></td></tr>';
+    de.forEach((emp, ri) => {
+      html += '<tr>';
+      if (ri===0) html += '<td class="dept-cell" rowspan="'+de.length+'">'+dept+'</td>';
+      html += '<td class="emp-cell"><span style="font-size:12px;font-weight:600">'+emp.name+'</span></td>';
+      days.forEach((_,di) => {
+        const sh = getShift(emp, di, off);
+        if (sh==='__off__') {
+          html += '<td><div style="width:100%;height:40px;display:flex;align-items:center;justify-content:center;background:#f7f7f7"><span style="font-size:10px;color:#ccc">—</span></div></td>';
+          return;
+        }
+        let lb='', cl='', extraLabel='';
+        if (sh==='half'||sh==='half_pm') {
+          const base = getBaseShift(emp,di,off);
+          lb = getHalfLabel(base, sh);
+          cl = 's-half';
+          extraLabel = '<div style="font-size:9px;color:#880e4f;margin-top:1px">'+(sh==='half'?'오전반차':'오후반차')+'</div>';
+        } else {
+          cl = SHIFT_CLS[sh]||''; lb = SHIFT_LABEL[sh]||'';
+        }
+        html += '<td><div class="shift-cell" style="flex-direction:column;gap:0">'
+          +(lb ? '<div class="shift-pill '+cl+'">'+lb+'</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
+          +extraLabel+'</div></td>';
+      });
+      html += '</tr>';
+    });
+  });
+  el.innerHTML = html+'</tbody>';
+}
+
+// ── 요약표 ──
+function getDisplayInfo(emp, di) {
+  const sh = getShift(emp, di, weekOffset);
+  if (sh==='half'||sh==='half_pm') return {shiftKey:getBaseShift(emp,di,weekOffset), isHalf:true, halfType:sh};
+  return {shiftKey:sh, isHalf:false, halfType:null};
+}
+function buildSummaryTable(el, off) {
+  const days = getWeekDays(off);
+  const activeDepts = DEPTS.filter(d=>employees.some(e=>e.dept===d));
+  const shiftDefs = [{keys:AM_KEYS,label:'오전',cls:'s-1020'},{keys:PM_KEYS,label:'오후',cls:'s-1323'}];
+  const isMobile = window.innerWidth <= 768;
+  const shiftW = isMobile ? '20px' : '44px';
+  const deptW = isMobile ? '28px' : '72px';
+  let html = '<colgroup><col style="width:'+shiftW+'"><col style="width:'+deptW+'">'+days.map(()=>'<col>').join('')+'</colgroup>'
+    +'<thead><tr><th colspan="2"></th>'
+    +days.map((d,i)=>'<th class="'+(i>=5?'wknd':'')+'">'+DAY_KO[i]+'<br><span style="font-weight:400;font-size:10px">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+    +'</tr></thead><tbody>';
+  shiftDefs.forEach((sd, sdIdx) => {
+    const rowDepts = activeDepts.filter(d=>!PM_EXCLUDE_DEPTS.includes(d)||sd.keys===AM_KEYS);
+    if (!rowDepts.length) return;
+    if (sdIdx>0) html += '<tr><td colspan="'+(days.length+2)+'" style="height:8px;background:#f5f4f0;border:none;padding:0"></td></tr>';
+    rowDepts.forEach((dept,di) => {
+      const dEmps = employees.filter(e=>e.dept===dept);
+      html += '<tr>';
+      if (di===0) html += '<td class="sum-shift-cell" rowspan="'+rowDepts.length+'"><div class="sum-shift-inner"><div class="shift-pill '+sd.cls+'" style="font-size:10px">'+sd.label+'</div></div></td>';
+      html += '<td class="sum-dept-cell">'+dept+'</td>';
+      days.forEach((_,di2) => {
+        const entries = dEmps.filter(e=>isActiveForWeek(e,off)).map(e=>{
+          const{shiftKey,isHalf,halfType}=getDisplayInfo(e,di2); return{name:e.name,shiftKey,isHalf,halfType};
+        }).filter(x=>sd.keys.includes(x.shiftKey));
+        const cell = entries.map(x => {
+          if (x.isHalf) return x.name+'<span style="font-size:9px;color:#c0392b">('+getHalfLabel(x.shiftKey,x.halfType)+')</span>';
+          return x.name;
+        }).join('<br>');
+        html += '<td class="sum-name-cell">'+(cell||'<span style="color:#ddd">-</span>')+'</td>';
+      });
+      html += '</tr>';
+    });
+  });
+  el.innerHTML = html+'</tbody>';
+}
+
+function renderSchedule() {
+  syncWeekDropdowns();
+  const odd = isOddWeek(weekOffset);
+  const wb = document.getElementById('weekTypeBadge');
+  wb.textContent = odd?'홀수 주':'짝수 주';
+  wb.style.background = odd?'#e8f5e9':'#e3f2fd';
+  wb.style.color = odd?'#2e7d32':'#1565c0';
+  const k = weekKey(weekOffset);
+  const isConf = confirmed[k];
+  const badge = document.getElementById('confirmBadge');
+  badge.className = 'confirm-badge '+(isConf?'confirmed':'unconfirmed');
+  badge.textContent = isConf?'✓ 확정됨':'● 미확정';
+  buildSchTable(document.getElementById('screenSchTable'), weekOffset);
+  buildSummaryTable(document.getElementById('screenSummary'), weekOffset);
+  updateStats();
+  setTimeout(fitTableToScreen, 50);
+}
+
+// ── 모바일 테이블 자동 축소 ──
+function fitTableToScreen() {
+  if (window.innerWidth > 768) return;
+  ['screenSchTable','screenSummary'].forEach(id => {
+    const tbl = document.getElementById(id);
+    if (!tbl) return;
+    const wrap = tbl.closest('.sch-wrap, .sum-wrap');
+    if (!wrap) return;
+    tbl.style.transform = '';
+    tbl.style.transformOrigin = '';
+    const tblW = tbl.scrollWidth;
+    const wrapW = wrap.clientWidth;
+    if (tblW > wrapW) {
+      const scale = wrapW / tblW;
+      tbl.style.transform = 'scale('+scale+')';
+      tbl.style.transformOrigin = 'top left';
+      tbl.parentElement.style.height = (tbl.scrollHeight * scale) + 'px';
+      tbl.parentElement.style.overflow = 'visible';
+    }
+  });
+}
+window.addEventListener('resize', fitTableToScreen);
+
+// ── 모바일 달력 자동 축소 ──
+function fitCalToScreen() {
+  if (window.innerWidth > 768) return;
+  const grid = document.getElementById('calGrid');
+  if (!grid) return;
+  const wrap = grid.parentElement;
+  if (!wrap) return;
+  grid.style.transform = '';
+  grid.style.transformOrigin = '';
+  wrap.style.height = '';
+  wrap.style.overflow = '';
+  const gridW = grid.scrollWidth;
+  const wrapW = wrap.clientWidth;
+  if (gridW > wrapW) {
+    const scale = wrapW / gridW;
+    grid.style.transform = 'scale(' + scale + ')';
+    grid.style.transformOrigin = 'top left';
+    wrap.style.height = (grid.scrollHeight * scale) + 'px';
+    wrap.style.overflow = 'visible';
+  }
+}
+window.addEventListener('resize', fitCalToScreen);
+function updateStats() {
+  document.getElementById('statTotal').textContent = employees.filter(e=>!isResigned(e)).length;
+  DEPTS.forEach((dept,i) => {
+    const el = document.getElementById('statDept'+i);
+    if (el) el.textContent = employees.filter(e=>e.dept===dept&&!isResigned(e)).length;
+  });
+}
+
+// ── 연차/반차 탭 ──
+let calYear = TODAY.getFullYear(), calMonth = TODAY.getMonth(), calSelectedEmps = new Set();
+
+function renderLeaveTable() {
+  const year  = document.getElementById('leaveTableYear')?.value  || '';
+  const month = document.getElementById('leaveTableMonth')?.value || '';
+  let filtered = leaveRequests.filter(r => r.status==='approved');
+  if (year)  filtered = filtered.filter(r=>r.start.startsWith(year));
+  if (month&&year) filtered = filtered.filter(r=>r.start.startsWith(year+'-'+month));
+  filtered.sort((a,b)=>b.start.localeCompare(a.start));
+  let html = '<thead><tr><th>직원</th><th>부서</th><th>유형</th><th>기간</th><th>사유</th></tr></thead><tbody>';
+  if (!filtered.length) {
+    html += '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
+  } else {
+    filtered.forEach(r => {
+      const emp = employees.find(e=>e.id===r.empId); if(!emp) return;
+      const [bg,fg] = COLORS[emp.color%COLORS.length];
+      const typeLabel = r.type==='annual'?'연차':r.type==='half'?'반차(오전)':'반차(오후)';
+      const typeCls   = r.type==='annual'?'badge-approved':r.type==='half'?'badge-pending':'badge-rejected';
+      const days = r.type==='annual' ? Math.round((new Date(r.end)-new Date(r.start))/864e5)+1 : 0.5;
+      html += '<tr>'
+        +'<td><div style="display:flex;align-items:center;gap:6px"><div class="avatar" style="background:'+bg+';color:'+fg+';width:22px;height:22px;font-size:9px">'+emp.name[0]+'</div><strong>'+emp.name+'</strong></div></td>'
+        +'<td style="color:#888">'+emp.dept+'</td>'
+        +'<td><span class="badge '+typeCls+'">'+typeLabel+'</span></td>'
+        +'<td style="font-size:11px">'+(r.start===r.end?r.start:r.start+' ~ '+r.end)+'<span style="color:#aaa;margin-left:5px">('+days+'일)</span></td>'
+        +'<td style="color:#888">'+(r.reason||'-')+'</td>'
+        +'</tr>';
+    });
+  }
+  document.getElementById('leaveTable').innerHTML = html+'</tbody>';
+}
+
+function initLeaveTab() {
+  const cur = String(TODAY.getFullYear());
+  const years = new Set(leaveRequests.map(r=>r.start.slice(0,4)));
+  years.add(cur);
+  document.getElementById('leaveTableYear').innerHTML = [...years].sort().reverse().map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
+  document.getElementById('leaveTableMonth').value = String(TODAY.getMonth()+1).padStart(2,'0');
+  renderLeaveTable();
+  // 직원 필터
+  document.getElementById('leaveEmpFilter').innerHTML = '<option value="">전체 직원</option>'
+    +employees.filter(e=>!isResigned(e)).map(e=>'<option value="'+e.id+'">'+e.name+' ('+e.dept+')</option>').join('');
+  const leaveYears = new Set(leaveRequests.map(r=>r.start.slice(0,4))); leaveYears.add(cur);
+  document.getElementById('leaveYearFilter').innerHTML = [...leaveYears].sort().reverse().map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
+  renderLeaveHistory();
+  calYear=TODAY.getFullYear(); calMonth=TODAY.getMonth(); calSelectedEmps=new Set();
+  renderCalEmpFilter(); renderCalendar();
+  renderLeaveBalanceSimple();
+}
+
+function renderCalEmpFilter() {
+  const wrap = document.getElementById('calEmpFilter'); if(!wrap) return;
+  const allActive = calSelectedEmps.size===0;
+  let html = '<button class="cal-emp-btn'+(allActive?' active':'')+'" style="'+(allActive?'background:#1a1a1a;color:#fff;border-color:#1a1a1a':'')+'" onclick="calToggleEmp(null)">전체</button>';
+  employees.filter(e=>!isResigned(e)).forEach(e => {
+    const [bg,fg] = COLORS[e.color%COLORS.length];
+    const active = calSelectedEmps.has(e.id);
+    html += '<button class="cal-emp-btn'+(active?' active':'')+'" style="'+(active?'background:'+bg+';color:'+fg+';border-color:'+fg:'')+'" onclick="calToggleEmp('+e.id+')">'+e.name+'</button>';
+  });
+  wrap.innerHTML = html;
+}
+function calToggleEmp(id) {
+  if (id===null) calSelectedEmps=new Set(); else { if(calSelectedEmps.has(id))calSelectedEmps.delete(id); else calSelectedEmps.add(id); }
+  renderCalEmpFilter(); renderCalendar();
+}
+function calChangeMonth(dir) {
+  calMonth+=dir; if(calMonth>11){calMonth=0;calYear++;} if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendar();
+}
+function renderCalendar() {
+  const lbl=document.getElementById('calMonthLabel'); const grid=document.getElementById('calGrid'); if(!lbl||!grid)return;
+  lbl.textContent=calYear+'년 '+(calMonth+1)+'월';
+  const targetEmps=calSelectedEmps.size>0?employees.filter(e=>calSelectedEmps.has(e.id)):employees;
+  const monthStr=calYear+'-'+String(calMonth+1).padStart(2,'0');
+  const relevant=leaveRequests.filter(r=>r.status!=='rejected'&&targetEmps.some(e=>e.id===r.empId)&&(r.start.startsWith(monthStr)||r.end.startsWith(monthStr)||(r.start<monthStr+'-01'&&r.end>=monthStr+'-01')));
+  const dayMap={};
+  relevant.forEach(r=>{
+    const emp=employees.find(e=>e.id===r.empId);if(!emp)return;
+    let cur=new Date(r.start);const end=new Date(r.end);
+    while(cur<=end){const key=toLocalDateStr(cur);if(!dayMap[key])dayMap[key]=[];dayMap[key].push({name:emp.name,type:r.type});cur.setDate(cur.getDate()+1);}
+  });
+  const firstDay=new Date(calYear,calMonth,1); const lastDay=new Date(calYear,calMonth+1,0);
+  let startDow=firstDay.getDay();
+  const todayStr=toLocalDateStr(TODAY);
+  let html=['일','월','화','수','목','금','토'].map((d,i)=>'<div class="cal-day-hd'+(i===0||i===6?' wknd':'')+'">'+d+'</div>').join('');
+  for(let i=0;i<startDow;i++){const d=new Date(calYear,calMonth,1-(startDow-i));html+='<div class="cal-cell other-month"><div class="cal-date">'+d.getDate()+'</div></div>';}
+  for(let d=1;d<=lastDay.getDate();d++){
+    const date=new Date(calYear,calMonth,d);const dow=date.getDay();const isWknd=dow===0||dow===6;
+    const dateStr=toLocalDateStr(date);const isToday=dateStr===todayStr;
+    const entries=dayMap[dateStr]||[];
+    const dateNumHtml=isToday?'<span class="cal-date today-num">'+d+'</span>':'<span class="cal-date'+(isWknd?' wknd':'')+'">'+d+'</span>';
+    const tagsHtml=entries.slice(0,4).map(en=>{
+      const tc=en.type==='annual'?'annual':en.type==='half'?'half':'half_pm';
+      const tl=en.type==='annual'?'연차':en.type==='half'?'반차(오전)':'반차(오후)';
+      return '<span class="cal-tag '+tc+'">'+en.name+' '+tl+'</span>';
+    }).join('');
+    const moreHtml=entries.length>4?'<span style="font-size:10px;color:#aaa">+'+(entries.length-4)+'명 더</span>':'';
+    html+='<div class="cal-cell'+(isToday?' today':'')+'"><div style="margin-bottom:3px">'+dateNumHtml+'</div>'+tagsHtml+moreHtml+'</div>';
+  }
+  const total=startDow+lastDay.getDate(); const remain=total%7===0?0:7-(total%7);
+  for(let i=1;i<=remain;i++) html+='<div class="cal-cell other-month"><div class="cal-date">'+i+'</div></div>';
+  grid.innerHTML=html;
+  setTimeout(fitCalToScreen, 50);
+}
+
+function renderLeaveBalanceSimple() {
+  const el=document.getElementById('leaveBalanceSimpleTable'); if(!el)return;
+  let html='<thead><tr><th>이름</th><th>부서</th><th>입사일</th><th>발생</th><th>사용</th><th>잔여</th></tr></thead><tbody>';
+  employees.filter(e=>!isResigned(e)).forEach(e=>{
+    const earned=calcEarnedAnnual(e.joinDate); const used=calcUsedAnnual(e.id); const rem=earned-used;
+    const isFuture=e.joinDate&&new Date(e.joinDate)>TODAY;
+    html+='<tr><td><strong>'+e.name+'</strong>'+(isFuture?' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:8px">예정</span>':'')+'</td>'
+      +'<td style="color:#888">'+e.dept+'</td>'
+      +'<td style="font-size:11px;color:#888">'+(e.joinDate||'-')+'</td>'
+      +'<td style="text-align:center">'+earned+'일</td>'
+      +'<td style="text-align:center">'+used+'일</td>'
+      +'<td style="text-align:center;font-weight:600;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</td></tr>';
+  });
+  el.innerHTML=html+'</tbody>';
+}
+
+function renderLeaveHistory() {
+  const empId=+document.getElementById('leaveEmpFilter').value||null;
+  const year=document.getElementById('leaveYearFilter').value;
+  let filtered=leaveRequests.filter(r=>r.status!=='rejected');
+  if(empId)filtered=filtered.filter(r=>r.empId===empId);
+  if(year)filtered=filtered.filter(r=>r.start.startsWith(year));
+  filtered=[...filtered].sort((a,b)=>b.start.localeCompare(a.start));
+  const container=document.getElementById('leaveHistory');
+  if(!filtered.length){container.innerHTML='<div style="color:#aaa;font-size:12px;padding:12px 0;text-align:center">해당 내역이 없습니다</div>';return;}
+  if(!empId){
+    const grouped={};filtered.forEach(r=>{if(!grouped[r.empId])grouped[r.empId]=[];grouped[r.empId].push(r);});
+    let html='';
+    employees.filter(e=>grouped[e.id]).forEach(e=>{
+      const [bg,fg]=COLORS[e.color%COLORS.length];
+      const earned=calcEarnedAnnual(e.joinDate);const used=calcUsedAnnual(e.id);const rem=earned-used;
+      html+='<div style="margin-bottom:16px">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #f0ede8">'
+        +'<div class="avatar" style="background:'+bg+';color:'+fg+';width:24px;height:24px;font-size:10px">'+e.name[0]+'</div>'
+        +'<span style="font-weight:600;font-size:13px">'+e.name+'</span>'
+        +'<span style="font-size:11px;color:#aaa">'+e.dept+'</span>'
+        +'<span style="margin-left:auto;font-size:11px;color:#888">잔여 <strong style="color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</strong></span></div>';
+      html+='<table class="lv-table" style="font-size:11px"><thead><tr><th>유형</th><th>기간</th><th>일수</th><th>사유</th></tr></thead><tbody>';
+      grouped[e.id].forEach(r=>{
+        const tl=r.type==='annual'?'연차':r.type==='half'?'반차(오전)':'반차(오후)';
+        const tc=r.type==='annual'?'badge-approved':r.type==='half'?'badge-pending':'';
+        const days=r.type==='annual'?Math.round((new Date(r.end)-new Date(r.start))/864e5)+1:0.5;
+        html+='<tr><td><span class="badge '+tc+'">'+tl+'</span></td>'
+          +'<td>'+(r.start===r.end?r.start:r.start+' ~ '+r.end)+'</td>'
+          +'<td style="text-align:center">'+days+'일</td>'
+          +'<td style="color:#888">'+(r.reason||'-')+'</td></tr>';
+      });
+      html+='</tbody></table></div>';
+    });
+    container.innerHTML=html;
+  } else {
+    const emp=employees.find(e=>e.id===empId); if(!emp){container.innerHTML='';return;}
+    const earned=calcEarnedAnnual(emp.joinDate);const used=calcUsedAnnual(emp.id);const rem=earned-used;
+    let html='<div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">'
+      +'<div class="stat-card" style="flex:1;min-width:100px"><div class="stat-label">발생 연차</div><div class="stat-value" style="font-size:18px">'+earned+'<span style="font-size:13px">일</span></div></div>'
+      +'<div class="stat-card" style="flex:1;min-width:100px"><div class="stat-label">사용</div><div class="stat-value" style="font-size:18px">'+used+'<span style="font-size:13px">일</span></div></div>'
+      +'<div class="stat-card" style="flex:1;min-width:100px"><div class="stat-label">잔여</div><div class="stat-value" style="font-size:18px;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'<span style="font-size:13px">일</span></div></div></div>';
+    html+='<table class="lv-table"><thead><tr><th>유형</th><th>기간</th><th>일수</th><th>사유</th></tr></thead><tbody>';
+    filtered.forEach(r=>{
+      const tl=r.type==='annual'?'연차':r.type==='half'?'반차(오전)':'반차(오후)';
+      const tc=r.type==='annual'?'badge-approved':r.type==='half'?'badge-pending':'';
+      const days=r.type==='annual'?Math.round((new Date(r.end)-new Date(r.start))/864e5)+1:0.5;
+      html+='<tr><td><span class="badge '+tc+'">'+tl+'</span></td>'
+        +'<td>'+(r.start===r.end?r.start:r.start+' ~ '+r.end)+'</td>'
+        +'<td style="text-align:center">'+days+'일</td>'
+        +'<td style="color:#888">'+(r.reason||'-')+'</td></tr>';
+    });
+    container.innerHTML=html+'</tbody></table>';
+  }
+}
+
+// ── 모바일 사이드바 ──
+function toggleMobileSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  const isOpen = sb.classList.contains('mobile-open');
+  if (isOpen) { sb.classList.remove('mobile-open'); ov.classList.remove('open'); }
+  else { sb.classList.add('mobile-open'); ov.classList.add('open'); }
+}
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ── 검색창 토글 ──
+function toggleSearch() {
+  const wrap = document.getElementById('searchWrap');
+  const isOpen = wrap.classList.contains('open');
+  wrap.classList.toggle('open');
+  if (isOpen) { document.getElementById('searchEmp').value=''; renderSidebar(); }
+  else { setTimeout(()=>document.getElementById('searchEmp').focus(), 50); }
+}
+
+// ── 모바일 여부 감지 ──
+function checkMobile() {
+  const isMobile = window.innerWidth <= 768;
+  const mobileBtn = document.getElementById('mobileSidebarBtn');
+  if (mobileBtn) mobileBtn.style.display = isMobile ? '' : 'none';
+}
+window.addEventListener('resize', checkMobile);
+checkMobile();
+
+// ── 탭 전환 ──
+function switchTab(tab) {
+  ['schedule','leave'].forEach((t,i) => {
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).style.display = t===tab?'':'none';
+    document.querySelectorAll('.tab')[i].className = 'tab'+(t===tab?' active':'');
+    const mt = document.getElementById('mtab-'+t);
+    if (mt) mt.className = 'mobile-tab'+(t===tab?' active':'');
+  });
+  document.getElementById('sidebar').style.display = tab==='schedule' ? '' : 'none';
+  closeMobileSidebar();
+  if (tab==='leave') initLeaveTab();
+}
+
+// ── 연동 URL 설정 모달 ──
+function openViewerSettingModal() {
+  document.getElementById('viewerGasUrlInput').value = GAS_URL;
+  document.getElementById('viewerTestResult').textContent = '';
+  document.getElementById('viewerSettingModal').style.display = 'flex';
+}
+function closeViewerSettingModal() {
+  document.getElementById('viewerSettingModal').style.display = 'none';
+}
+function testViewerConnection() {
+  const url = document.getElementById('viewerGasUrlInput').value.trim();
+  const res = document.getElementById('viewerTestResult');
+  if (!url) { res.textContent = '⚠ URL을 먼저 입력하세요'; res.style.color='#f57f17'; return; }
+  res.textContent = '연결 중…'; res.style.color='#888';
+  fetch(url + '?action=load')
+    .then(r => r.json())
+    .then(d => {
+      res.textContent = d.ok ? '✓ 연결 성공!' : '✗ 오류: '+d.error;
+      res.style.color = d.ok ? '#2e7d32' : '#c0392b';
+    })
+    .catch(() => { res.textContent = '✗ 연결 실패'; res.style.color='#c0392b'; });
+}
+function saveViewerGasUrl() {
+  const url = document.getElementById('viewerGasUrlInput').value.trim();
+  if (!url) { alert('URL을 입력해주세요.'); return; }
+  GAS_URL = url;
+  localStorage.setItem('wms_gas_url', GAS_URL);
+  closeViewerSettingModal();
+  // 저장 즉시 데이터 불러오기
+  loadFromSheets(ok => {
+    if (ok) { renderSidebar(); renderSchedule(); }
+    else { alert('URL은 저장됐지만 데이터를 불러오지 못했습니다. 연결 테스트를 먼저 확인해주세요.'); }
+  });
+}
+// 모달 바깥 클릭 시 닫기
+document.getElementById('viewerSettingModal').addEventListener('click', function(e) {
+  if (e.target === this) closeViewerSettingModal();
+});
+
+// ── 수동 새로고침 ──
+function manualRefresh() {
+  if (GAS_URL) {
+    loadFromSheets(ok => {
+      renderSchedule();
+      if (document.getElementById('tabLeave').style.display !== 'none') {
+        renderLeaveTable(); renderCalendar(); renderLeaveBalanceSimple(); renderLeaveHistory();
+      }
+    });
+  } else {
+    load(); renderSchedule();
+  }
+}
+
+// ── 데이터 없을 때 안내 ──
+function checkNoData() {
+  if (employees.length === 0) {
+    document.getElementById('screenSchTable').innerHTML =
+      '<tr><td colspan="9" class="no-data"><div class="no-data-icon">📋</div>'
+      +'연동 URL을 설정해야 데이터를 불러올 수 있어요.<br>'
+      +'<button onclick="openViewerSettingModal()" style="margin-top:12px;padding:7px 18px;border-radius:8px;border:none;background:#1a1a1a;color:#fff;font-size:13px;cursor:pointer;font-family:inherit">⚙ 지금 설정하기</button></td></tr>';
+  }
+}
+
+// ── 사이트 제목 불러오기 ──
+function loadSiteTitle() {
+  try {
+    const t = localStorage.getItem('wms_site_title');
+    if (t) document.getElementById('siteTitle').textContent = t;
+  } catch(e) {}
+}
+
+// ── 초기화: Sheets 우선, 없으면 localStorage ──
+load(); // 우선 localStorage로 빠르게 표시
+loadSiteTitle();
+initWeekDropdowns();
+renderSidebar();
+renderSchedule();
+
+if (GAS_URL) {
+  // Sheets에서 최신 데이터로 갱신
+  loadFromSheets(ok => {
+    if (ok) { renderSidebar(); renderSchedule(); }
+  });
+} else {
+  checkNoData();
+}
+
+startAutoRefresh();
+</script>
+</body>
+</html>
