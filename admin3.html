@@ -1,0 +1,2781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>근무관리 시스템</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f5f4f0; color: #1a1a1a; font-size: 13px; }
+
+.header { background:#fff; border-bottom:1px solid #e8e6e0; padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:52px; position:sticky; top:0; z-index:100; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.header-title { font-size:15px; font-weight:600; }
+.header-tabs { display:flex; gap:2px; }
+.tab { padding:6px 14px; border-radius:8px; border:none; background:transparent; color:#888; cursor:pointer; font-size:13px; font-family:inherit; transition:background .15s; }
+.tab:hover { background:#f0ede8; color:#1a1a1a; }
+.tab.active { background:#f0ede8; color:#1a1a1a; font-weight:600; }
+
+.layout { display:flex; height:calc(100vh - 52px); }
+.sidebar { width:190px; min-width:190px; background:#fff; border-right:1px solid #e8e6e0; padding:12px 8px; overflow-y:auto; }
+.main { flex:1; padding:16px; overflow-y:auto; }
+
+.sidebar-label { font-size:10px; font-weight:600; color:#aaa; letter-spacing:.07em; text-transform:uppercase; padding:0 6px; margin-bottom:5px; margin-top:10px; }
+.emp-item { display:flex; align-items:center; gap:7px; padding:5px 8px; border-radius:8px; cursor:pointer; transition:background .1s; }
+.emp-item:hover { background:#f5f4f0; }
+.emp-item.selected { background:#e8f0fe; }
+
+/* 모바일 사이드바 오버레이 */
+.sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:149; }
+.sidebar-overlay.open { display:block; }
+
+/* 검색창 토글 */
+.search-wrap { overflow:hidden; transition:max-height .25s ease, opacity .25s ease; max-height:0; opacity:0; }
+.search-wrap.open { max-height:60px; opacity:1; }
+
+/* 모바일 하단 탭바 */
+.mobile-tabbar { display:none; }
+
+@media (max-width: 768px) {
+  .header { padding:0 12px; height:48px; }
+  .header-title { font-size:14px; }
+  .header-tabs { display:none; }
+
+  .layout { height:calc(100vh - 48px - 56px); }
+
+  .sidebar {
+    position:fixed; left:-220px; top:48px; bottom:56px;
+    width:220px; min-width:220px; z-index:150;
+    transition:left .25s ease;
+    box-shadow:none;
+  }
+  .sidebar.mobile-open {
+    left:0;
+    box-shadow:4px 0 16px rgba(0,0,0,.15);
+  }
+  .sidebar-overlay.open { display:block; }
+
+  .main { padding:10px; }
+
+  .mobile-tabbar {
+    display:flex; position:fixed; bottom:0; left:0; right:0; height:56px;
+    background:#fff; border-top:1px solid #e8e6e0;
+    z-index:100; box-shadow:0 -2px 8px rgba(0,0,0,.06);
+  }
+  .mobile-tab {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; border:none; background:transparent; color:#aaa; font-size:9px;
+    font-family:inherit; cursor:pointer; transition:color .15s; padding:6px 2px;
+  }
+  .mobile-tab .mt-icon { font-size:18px; line-height:1; }
+  .mobile-tab.active { color:#1a1a1a; font-weight:600; }
+  .mobile-tab.active .mt-icon { transform:scale(1.1); }
+
+  .stats-grid { grid-template-columns:repeat(3,1fr); gap:7px; }
+  .card { padding:10px 12px; }
+  .card-header { flex-wrap:wrap; gap:8px; }
+
+  /* 가로 스크롤 완전 제거 */
+  body { overflow-x:hidden; }
+  .sch-wrap { overflow-x:visible; }
+  .sum-wrap { overflow-x:visible; }
+
+  /* 근무표: min-width 제거, 폰트/셀 극소화 */
+  .sch-table { min-width:0 !important; font-size:11px !important; }
+  .sch-table th { font-size:11px !important; padding:4px 1px !important; }
+  .sch-table td { height:30px !important; }
+  .emp-cell { padding:2px 4px !important; font-size:13px !important; }
+  .dept-cell { font-size:11px !important; padding:2px 2px !important; }
+  .shift-cell { height:28px !important; }
+  .shift-pill { font-size:14px !important; padding:3px 6px !important; border-radius:3px !important; }
+
+  /* 요약표 */
+  .sum-table { min-width:0 !important; font-size:9px !important; }
+  .sum-table th { font-size:9px !important; padding:3px 1px !important; }
+  .sum-dept-cell { font-size:8px !important; padding:2px 2px !important; width:28px !important; }
+  .sum-name-cell { font-size:9px !important; padding:2px 3px !important; line-height:1.5 !important; }
+  .sum-shift-cell { width:24px !important; }
+  .sum-shift-inner { padding:2px 3px !important; }
+
+  /* 달력 */
+  .cal-grid { min-width:0 !important; }
+  .cal-cell { min-height:50px !important; padding:3px 3px !important; font-size:13px !important; }
+  .cal-day-hd { font-size:13px !important; }
+  .cal-date { font-size:13px !important; }
+  .cal-tag { font-size:12px !important; }
+
+  /* 직원관리 탭 모바일 */
+  #tabEmployees > div { flex-direction:column !important; }
+  #tabEmployees > div > div:last-child { width:100% !important; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .header-title { font-size:13px; }
+}
+.avatar { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; flex-shrink:0; }
+.emp-name-s { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.btn { padding:6px 12px; border-radius:8px; border:1px solid #d8d5cf; background:#fff; color:#1a1a1a; cursor:pointer; font-size:12px; font-family:inherit; transition:background .15s; white-space:nowrap; }
+.btn:hover { background:#f5f4f0; }
+.btn.primary { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
+.btn.primary:hover { background:#333; }
+.btn.sm { padding:4px 10px; font-size:11px; }
+.btn.danger { color:#c0392b; border-color:#f5c6c2; }
+.btn.danger:hover { background:#fdf2f2; }
+
+.card { background:#fff; border:1px solid #e8e6e0; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+.card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.card-title { font-size:14px; font-weight:600; }
+
+.stats-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+.stat-card { background:#f5f4f0; border-radius:10px; padding:12px 14px; }
+.stat-label { font-size:11px; color:#888; margin-bottom:4px; }
+.stat-value { font-size:22px; font-weight:600; }
+.stat-sub { font-size:11px; color:#aaa; margin-top:1px; }
+
+.wk-badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.confirm-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+.confirmed   { background:#e8f5e9; color:#2e7d32; }
+.unconfirmed { background:#fff8e1; color:#f57f17; }
+
+.sch-wrap { overflow-x:auto; }
+.sch-table { width:100%; border-collapse:collapse; font-size:12px; }
+.sch-table th, .sch-table td { border:1px solid #e8e6e0; padding:0; text-align:center; }
+.sch-table th { background:#f5f4f0; font-weight:600; padding:7px 10px; color:#666; font-size:11px; }
+.sch-table th.wknd { color:#c0392b; }
+.sch-table td { height:40px; position:relative; }
+.emp-cell { text-align:left; padding:4px 12px; background:#fff; white-space:nowrap; }
+.dept-cell { text-align:center; padding:4px 8px; background:#f9f8f6; font-size:11px; color:#888; white-space:nowrap; }
+.shift-cell { width:100%; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.shift-cell:hover { background:#f5f4f0; }
+.shift-pill { padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; pointer-events:none; }
+.s-1020 { background:#e8f5e9; color:#2e7d32; }
+.s-1019 { background:#e8f5e9; color:#2e7d32; }
+.s-1323 { background:#ede7f6; color:#4527a0; }
+.s-annual { background:#fff8e1; color:#f57f17; }
+.s-half { background:#fce4ec; color:#880e4f; }
+
+.sum-wrap { overflow-x:auto; }
+.sum-table { width:100%; border-collapse:collapse; font-size:11px; }
+.sum-table th, .sum-table td { border:1px solid #dedad4; }
+.sum-table th { background:#f5f4f0; font-weight:600; text-align:center; padding:6px 10px; font-size:11px; color:#555; }
+.sum-table th.wknd { color:#c0392b; }
+.sum-shift-cell { background:#f0f0ee; text-align:center; padding:0; vertical-align:middle; width:44px; }
+.sum-shift-inner { display:flex; align-items:center; justify-content:center; height:100%; padding:4px 6px; }
+.sum-dept-cell { background:#fafaf8; font-size:10px; font-weight:600; color:#888; text-align:center; padding:4px 8px; white-space:nowrap; width:72px; }
+.sum-name-cell { padding:4px 10px; font-size:11px; line-height:1.7; color:#222; vertical-align:top; }
+
+.lv-table { width:100%; border-collapse:collapse; }
+.lv-table th, .lv-table td { border-bottom:1px solid #f0ede8; padding:9px 10px; text-align:left; font-size:12px; }
+.lv-table th { font-weight:600; color:#888; background:#f9f8f6; }
+.lv-table tr:last-child td { border-bottom:none; }
+.lv-table tr:hover td { background:#fafaf8; }
+.badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+.badge-pending  { background:#fff8e1; color:#f57f17; }
+.badge-approved { background:#e8f5e9; color:#2e7d32; }
+.badge-rejected { background:#fce4ec; color:#880e4f; }
+.leave-bar { height:6px; border-radius:3px; background:#e8e6e0; overflow:hidden; margin-top:4px; }
+.leave-bar-fill { height:100%; border-radius:3px; }
+
+.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; align-items:center; justify-content:center; }
+.modal-bg.open { display:flex; }
+.modal { background:#fff; border-radius:14px; padding:24px; width:400px; max-width:96vw; box-shadow:0 20px 60px rgba(0,0,0,.15); }
+.modal-title { font-size:15px; font-weight:600; margin-bottom:16px; }
+.form-row { margin-bottom:12px; }
+.form-label { font-size:12px; color:#888; margin-bottom:4px; display:block; }
+select, input[type=text], input[type=date], input[type=number] {
+  width:100%; height:36px; border-radius:8px; border:1px solid #d8d5cf;
+  background:#fff; color:#1a1a1a; padding:0 10px; font-size:13px; font-family:inherit;
+}
+.modal-footer { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+/* 달력 */
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; min-width:560px; }
+.cal-day-hd { text-align:center; font-size:11px; font-weight:600; color:#888; padding:4px 0; }
+.cal-day-hd.wknd { color:#c0392b; }
+.cal-cell { border:1px solid #f0ede8; border-radius:8px; min-height:76px; padding:5px 6px; font-size:11px; background:#fff; }
+.cal-cell:not(.other-month):hover { border-color:#d8d5cf; background:#fafaf8; cursor:pointer; }
+.cal-cell.other-month { background:#fafaf8; }
+.cal-cell.today { border-color:#1a1a1a; }
+.cal-date { font-size:11px; font-weight:600; color:#555; }
+.cal-date.wknd { color:#c0392b; }
+.cal-date.today-num { background:#1a1a1a; color:#fff; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; }
+.cal-add-btn { font-size:14px; color:#ccc; display:none; cursor:pointer; padding:0 2px; }
+.cal-cell:not(.other-month):hover .cal-add-btn { display:inline; color:#888; }
+.cal-tag { display:block; border-radius:3px; padding:1px 5px; font-size:10px; font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cal-tag.annual { background:#fff8e1; color:#f57f17; }
+.cal-tag.half    { background:#fce4ec; color:#880e4f; }
+.cal-tag.half_pm { background:#ede7f6; color:#4527a0; }
+.cal-emp-filter { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px; }
+.cal-emp-btn { padding:3px 10px; border-radius:20px; border:1px solid #d8d5cf; background:#fff; font-size:11px; cursor:pointer; transition:all .15s; font-family:inherit; }
+.cal-emp-btn:hover { background:#f5f4f0; }
+.cal-emp-btn.active { border-color:transparent; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="mobileSidebarBtn" class="btn sm" onclick="toggleMobileSidebar()" style="display:none;padding:4px 10px;font-size:16px;border:none;background:none">☰</button>
+    <div class="header-title" id="siteTitle" onclick="startEditTitle()" title="클릭하여 이름 수정" style="cursor:pointer">📋 근무관리 시스템</div>
+  </div>
+  <div class="header-tabs">
+    <button class="tab active" onclick="switchTab('schedule')">근무표</button>
+    <button class="tab" onclick="switchTab('leave')">연차/반차</button>
+    <button class="tab" onclick="switchTab('overtime')">추가근무</button>
+    <button class="tab" onclick="switchTab('employees')">직원 관리</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span id="syncIndicator" style="font-size:11px;color:#2e7d32;min-width:70px;text-align:right"></span>
+    <button class="btn sm" onclick="openSheetsSettingModal()" title="Google Sheets 연동 설정">⚙ 연동 설정</button>
+  </div>
+</div>
+
+<!-- 모바일 사이드바 오버레이 -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+<!-- 모바일 하단 탭바 -->
+<div class="mobile-tabbar">
+  <button class="mobile-tab active" id="mtab-schedule" onclick="switchTab('schedule')">
+    <span class="mt-icon">📋</span>근무표
+  </button>
+  <button class="mobile-tab" id="mtab-leave" onclick="switchTab('leave')">
+    <span class="mt-icon">📅</span>연차/반차
+  </button>
+  <button class="mobile-tab" id="mtab-overtime" onclick="switchTab('overtime')">
+    <span class="mt-icon">⏰</span>추가근무
+  </button>
+  <button class="mobile-tab" id="mtab-employees" onclick="switchTab('employees')">
+    <span class="mt-icon">👥</span>직원관리
+  </button>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:600;color:#aaa;letter-spacing:.05em">직원 필터</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn sm" onclick="toggleSearch()" id="searchToggleBtn" title="검색" style="padding:3px 8px;font-size:13px;border:none;background:none;color:#888">🔍</button>
+        <button class="btn sm" onclick="clearSearch()" style="font-size:11px">전체</button>
+      </div>
+    </div>
+    <div class="search-wrap" id="searchWrap">
+      <input type="text" id="searchEmp" placeholder="직원 검색" style="height:30px;font-size:12px;width:100%;margin-bottom:6px" oninput="renderSidebar()">
+    </div>
+    <div id="empList"></div>
+    <div style="margin-top:14px;border-top:1px solid #f0ede8;padding-top:12px">
+      <div class="sidebar-label">범례</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;padding:0 4px">
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#d4edda"></div>오전 (10-20)</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#e2d9f3"></div>오후 (13-23)</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#fff3cd"></div>연차</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#f0f0f0;border:1px solid #ddd"></div>격주 미근무</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- 근무표 탭 -->
+    <div id="tabSchedule">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">전체 직원</div><div class="stat-value" id="statTotal">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">약사</div><div class="stat-value" id="statDept0">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">일본어</div><div class="stat-value" id="statDept1">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">중국어</div><div class="stat-value" id="statDept2">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">물류</div><div class="stat-value" id="statDept3">-</div><div class="stat-sub">명</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="weekYearSel" onchange="onWeekSelChange()" style="height:32px;font-size:12px;width:76px"></select>
+            <select id="weekMonthSel" onchange="onWeekSelChange()" style="height:32px;font-size:12px;width:60px"></select>
+            <select id="weekPickSel" onchange="onWeekPick()" style="height:32px;font-size:13px;font-weight:600;width:200px"></select>
+            <button class="btn sm" onclick="changeWeek(-1)" title="이전 주">◀</button>
+            <button class="btn sm" onclick="changeWeek(1)" title="다음 주">▶</button>
+            <button class="btn sm" onclick="goToThisWeek()" style="font-size:11px">이번 주</button>
+            <div class="wk-badge" id="weekTypeBadge" style="background:#e8f5e9;color:#2e7d32">홀수 주</div>
+            <div class="confirm-badge unconfirmed" id="confirmBadge">● 미확정</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn sm" onclick="confirmSchedule()">근무표 확정</button>
+            <button class="btn sm danger" onclick="resetWeekSchedule()" title="이 주의 수동 변경을 모두 취소하고 기본 근무표로 되돌립니다">↩ 이 주 초기화</button>
+            <button class="btn sm" onclick="doPrint(false)">🖨 요약표만</button>
+            <button class="btn primary sm" onclick="doPrint(true)">🖨 전체출력</button>
+            <button class="btn sm" onclick="doPrintFixed()">🖨 고정근무표</button>
+          </div>
+        </div>
+        <div class="sch-wrap"><table class="sch-table" id="screenSchTable"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">요일별 근무 명단 요약</div>
+        <div class="sum-wrap"><table class="sum-table" id="screenSummary"></table></div>
+      </div>
+    </div>
+
+    <!-- 연차/반차 탭 -->
+    <div id="tabLeave" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">연차 / 반차 신청 현황</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="leaveTableYear" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="leaveTableMonth" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <button class="btn primary sm" onclick="openLeaveModal()">+ 신청 등록</button>
+          </div>
+        </div>
+        <table class="lv-table" id="leaveTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">연차/반차 달력</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn sm" onclick="calChangeMonth(-1)">◀</button>
+            <div style="font-weight:600;font-size:13px;min-width:90px;text-align:center" id="calMonthLabel"></div>
+            <button class="btn sm" onclick="calChangeMonth(1)">▶</button>
+          </div>
+        </div>
+        <div class="cal-emp-filter" id="calEmpFilter"></div>
+        <div style="overflow-x:auto"><div class="cal-grid" id="calGrid"></div></div>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8e1"></div>연차</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차(오전)</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#ede7f6"></div>반차(오후)</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px">연차 잔여 현황</div>
+        <table class="lv-table" id="leaveBalanceSimpleTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">직원별 사용 내역</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="leaveEmpFilter" onchange="renderLeaveHistory()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
+            <select id="leaveYearFilter" onchange="renderLeaveHistory()" style="height:32px;font-size:12px;width:90px"></select>
+          </div>
+        </div>
+        <div id="leaveHistory"></div>
+      </div>
+    </div>
+
+    <!-- 추가근무 탭 -->
+    <div id="tabOvertime" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">추가근무 기록</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="otYear" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="otMonth" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <select id="otEmpFilter" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:120px">
+              <option value="">전체 직원</option>
+            </select>
+            <button class="btn primary sm" onclick="openOvertimeModal()">+ 추가근무 등록</button>
+          </div>
+        </div>
+        <table class="lv-table" id="overtimeTable"></table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">일자별 추가근무 현황</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn sm" onclick="otCalChangeMonth(-1)">◀</button>
+            <div style="font-weight:600;font-size:13px;min-width:90px;text-align:center" id="otCalMonthLabel"></div>
+            <button class="btn sm" onclick="otCalChangeMonth(1)">▶</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto"><div class="cal-grid" id="otCalGrid"></div></div>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#e3f2fd"></div>추가근무</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">직원별 추가근무 합계</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="otSumYear" onchange="renderOvertimeSummary()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="otSumMonth" onchange="renderOvertimeSummary()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+          </div>
+        </div>
+        <table class="lv-table" id="overtimeSummaryTable"></table>
+      </div>
+    </div>
+
+    <!-- 직원 관리 탭 -->
+    <div id="tabEmployees" style="display:none">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+
+        <!-- 왼쪽: 직원 목록 -->
+        <div style="flex:1;min-width:0">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <div class="card-title">직원 목록</div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap" id="empDeptFilter">
+                  <button class="cal-emp-btn active" style="background:#1a1a1a;color:#fff;border-color:#1a1a1a" onclick="setEmpDeptFilter('')">전체</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('약사')">약사</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('일본어')">일본어</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('중국어')">중국어</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('물류')">물류</button>
+                </div>
+              </div>
+              <button class="btn primary sm" onclick="openEmpModal()">+ 직원 추가</button>
+              <button class="btn sm" onclick="openSummaryModal()">📋 근무 명단 요약</button>
+            </div>
+            <div style="overflow-x:auto"><table class="lv-table" id="empTable"></table></div>
+          </div>
+        </div>
+
+        <!-- 오른쪽: 직원 메모 -->
+        <div style="width:320px;flex-shrink:0">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-header" style="margin-bottom:10px">
+              <div class="card-title">직원 메모</div>
+              <button class="btn primary sm" onclick="openEmpMemoModal()">+ 추가</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+              <select id="memoYear" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:78px"></select>
+              <select id="memoMonth" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:66px">
+                <option value="">전체</option>
+                <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+                <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+                <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+                <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+              </select>
+              <select id="memoEmpFilter" onchange="renderEmpMemos()" style="height:30px;font-size:12px;flex:1;min-width:80px">
+                <option value="">전체 직원</option>
+              </select>
+            </div>
+            <div id="empMemoList" style="max-height:calc(100vh - 220px);overflow-y:auto"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 근무 변경 모달 -->
+<div class="modal-bg" id="shiftModal">
+  <div class="modal">
+    <div class="modal-title" id="shiftModalTitle">근무 변경</div>
+    <div class="form-row"><label class="form-label">근무 유형</label>
+      <select id="shiftSelect">
+        <option value="1020">오전 (10-20)</option>
+        <option value="1019">오전 (10-19)</option>
+        <option value="1323">오후 (13-23)</option>
+        <option value="annual">연차</option>
+        <option value="half">반차 (오전)</option>
+        <option value="half_pm">반차 (오후)</option>
+        <option value="off">휴무</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">메모 <span style="font-size:11px;color:#bbb">（근무표에 표시되지 않음）</span></label>
+      <!-- 추가근무 자동메모 (읽기전용) -->
+      <div id="shiftOtNote" style="display:none;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:7px 10px;font-size:12px;color:#1565c0;margin-bottom:6px;white-space:pre-line;line-height:1.6"></div>
+      <textarea id="shiftNote" rows="2" placeholder="메모를 입력하세요 (선택 사항)"
+        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;
+               padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('shiftModal')">취소</button>
+      <button class="btn primary" onclick="applyShift()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 연차 모달 -->
+<div class="modal-bg" id="leaveModal">
+  <div class="modal">
+    <div class="modal-title" id="leaveModalTitle">연차 / 반차 신청</div>
+    <div class="form-row"><label class="form-label">직원</label><select id="leaveEmpSel"></select></div>
+    <div class="form-row"><label class="form-label">유형</label>
+      <select id="leaveTypeSel"><option value="annual">연차</option><option value="half">반차(오전)</option><option value="half_pm">반차(오후)</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0"><label class="form-label">시작일</label><input type="date" id="lvStart"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">종료일</label><input type="date" id="lvEnd"></div>
+    </div>
+    <div class="form-row" style="margin-top:10px"><label class="form-label">사유</label><input type="text" id="lvReason" placeholder="선택 사항"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('leaveModal')">취소</button>
+      <button class="btn primary" onclick="submitLeave()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 직원 추가/수정 모달 -->
+<div class="modal-bg" id="empModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title" id="empModalTitle">직원 추가</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0"><label class="form-label">이름</label><input type="text" id="nName" placeholder="홍길동"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">부서</label>
+        <select id="nDept"><option>약사</option><option>일본어</option><option>중국어</option><option>물류</option></select>
+      </div>
+      <div class="form-row" style="margin:0"><label class="form-label">입사일</label><input type="date" id="nJoinDate"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">퇴사일 <span style="font-size:10px;color:#aaa">(선택)</span></label><input type="date" id="nLeaveDate"></div>
+      <div class="form-row" style="margin:0;grid-column:span 4"><label class="form-label">근무 유형</label>
+        <select id="nWorkType" onchange="onWorkTypeChange()">
+          <option value="full">매주</option>
+          <option value="biweek_odd">격주 – 홀수주</option>
+          <option value="biweek_even">격주 – 짝수주</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label class="form-label">요일별 근무 시간 <span style="font-size:11px;color:#aaa">(휴무 선택 시 미출근)</span></label>
+      <div id="workTypeHint" style="font-size:11px;color:#888;margin-bottom:6px"></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">월</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">화</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">수</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">목</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">금</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#c0392b">토</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#c0392b">일</th>
+        </tr></thead>
+        <tbody><tr id="dayShiftRow"></tr></tbody>
+      </table>
+    </div>
+    <!-- 수정 시에만 표시되는 적용 시작일 섹션 -->
+    <div id="empApplyFromWrap" style="display:none;margin-top:12px;padding:12px;background:#fffbf0;border:1px solid #ffe082;border-radius:10px">
+      <div style="font-size:12px;font-weight:600;color:#f57f17;margin-bottom:8px">📅 변경 적용 시점</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="radio" name="applyFromMode" value="now" checked onchange="onApplyFromModeChange()" style="width:auto;height:auto"> 즉시 적용 (이번 주부터)
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="radio" name="applyFromMode" value="date" onchange="onApplyFromModeChange()" style="width:auto;height:auto"> 특정 날짜부터 적용
+        </label>
+      </div>
+      <div id="empApplyDateRow" style="display:none;margin-top:10px">
+        <label class="form-label">적용 시작일 <span style="color:#f57f17;font-size:11px">(해당 날짜가 포함된 주부터 새 근무일정이 적용됩니다)</span></label>
+        <input type="date" id="nApplyFrom">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('empModal')">취소</button>
+      <button class="btn primary" onclick="saveEmp()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 추가근무 모달 -->
+<div class="modal-bg" id="overtimeModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title" id="overtimeModalTitle">추가근무 등록</div>
+    <div class="form-row"><label class="form-label">직원</label><select id="otEmpSel"></select></div>
+    <div class="form-row"><label class="form-label">날짜</label><input type="date" id="otDate"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0">
+        <label class="form-label">시작 시간</label>
+        <input type="time" id="otStartTime" style="width:100%;height:36px;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:0 10px;font-size:13px;font-family:inherit">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label class="form-label">종료 시간</label>
+        <input type="time" id="otEndTime" style="width:100%;height:36px;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:0 10px;font-size:13px;font-family:inherit">
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <label class="form-label">총 시간 <span id="otCalcHours" style="color:#1565c0;font-weight:600"></span></label>
+    </div>
+    <div class="form-row"><label class="form-label">사유 / 메모</label><input type="text" id="otReason" placeholder="선택 사항"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('overtimeModal')">취소</button>
+      <button class="btn primary" onclick="submitOvertime()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Sheets 연동 설정 모달 -->
+<div class="modal-bg" id="sheetsSettingModal">
+  <div class="modal" style="width:480px">
+    <div class="modal-title">☁ Google Sheets 연동 설정</div>
+    <div style="background:#f0f7ff;border:1px solid #90caf9;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.8;color:#1a1a1a">
+      <strong>설정 방법</strong><br>
+      1. <a href="https://script.google.com" target="_blank" style="color:#1565c0">script.google.com</a> 접속 → 새 프로젝트 생성<br>
+      2. 아래 코드를 붙여넣기 후 저장 (💾)<br>
+      3. <strong>배포 → 새 배포</strong> → 유형: <strong>웹 앱</strong><br>
+      4. 실행 권한: <strong>나</strong> / 액세스 권한: <strong>모든 사용자</strong><br>
+      5. 배포 후 나타나는 <strong>웹앱 URL</strong>을 아래에 붙여넣기
+    </div>
+    <div style="background:#1a1a1a;border-radius:8px;padding:12px;margin-bottom:14px;position:relative">
+      <pre id="gasCodeBlock" style="color:#a8ff78;font-size:10.5px;line-height:1.6;overflow-x:auto;white-space:pre;font-family:monospace;margin:0"></pre>
+      <button onclick="copyGasCode()" style="position:absolute;top:8px;right:8px;padding:3px 10px;border-radius:6px;border:1px solid #444;background:#333;color:#ccc;font-size:11px;cursor:pointer">복사</button>
+    </div>
+    <div class="form-row">
+      <label class="form-label">웹앱 URL</label>
+      <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/...">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn sm" onclick="testGasConnection()" style="color:#1565c0;border-color:#90caf9">연결 테스트</button>
+      <button class="btn sm" onclick="pullFromSheets()" style="color:#2e7d32;border-color:#a5d6a7">☁ 최신 데이터 가져오기</button>
+      <span id="gasTestResult" style="font-size:11px;line-height:32px"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('sheetsSettingModal')">닫기</button>
+      <button class="btn primary" onclick="saveGasUrl()">저장</button>
+    </div>
+  </div>
+</div>
+
+<iframe id="printFrame" style="display:none"></iframe>
+
+<!-- 근무 명단 요약 모달 -->
+<div class="modal-bg" id="summaryModal">
+  <div class="modal" style="width:min(96vw,900px);max-height:90vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0">
+      <div class="modal-title" style="margin:0">요일별 근무 명단 요약</div>
+      <button class="btn" style="font-size:18px;padding:0 8px;border:none;background:none;color:#888;cursor:pointer" onclick="closeModal('summaryModal')">✕</button>
+    </div>
+    <!-- 주차 선택 -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;flex-shrink:0;padding-bottom:12px;border-bottom:1px solid #f0ede8">
+      <select id="smYearSel" onchange="onSmSelChange()" style="height:32px;font-size:12px;width:76px"></select>
+      <select id="smMonthSel" onchange="onSmSelChange()" style="height:32px;font-size:12px;width:60px"></select>
+      <select id="smWeekSel" onchange="onSmWeekPick()" style="height:32px;font-size:13px;font-weight:600;width:210px"></select>
+      <button class="btn sm" onclick="smChangeWeek(-1)">◀</button>
+      <button class="btn sm" onclick="smChangeWeek(1)">▶</button>
+      <button class="btn sm" onclick="smGoToday()">이번 주</button>
+      <div id="smWeekBadge" class="wk-badge" style="background:#e8f5e9;color:#2e7d32"></div>
+    </div>
+    <!-- 요약표 -->
+    <div style="overflow:auto;flex:1">
+      <table class="sum-table" id="summaryModalTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- 직원 메모 모달 -->
+<div class="modal-bg" id="empMemoModal">
+  <div class="modal" style="width:440px">
+    <div class="modal-title" id="empMemoModalTitle">메모 추가</div>
+    <div class="form-row">
+      <label class="form-label">직원</label>
+      <select id="memoEmpSel"></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">날짜</label>
+      <input type="date" id="memoDate">
+    </div>
+    <div class="form-row">
+      <label class="form-label">메모 내용</label>
+      <textarea id="memoContent" rows="4" placeholder="메모를 입력하세요"
+        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;
+               padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('empMemoModal')">취소</button>
+      <button class="btn primary" onclick="submitEmpMemo()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TODAY = new Date();
+const DAY_KO = ['월','화','수','목','금','토','일'];
+const DEPTS = ['약사','일본어','중국어','물류'];
+const AM_KEYS = ['1020','1019'];
+const PM_KEYS = ['1323'];
+const PM_EXCLUDE_DEPTS = ['물류'];
+const SHIFT_LABEL = {'1020':'10-20','1019':'10-19','1323':'13-23',annual:'연차',half:'반차(오전)',half_pm:'반차(오후)',off:''};
+const SHIFT_CLS   = {'1020':'s-1020','1019':'s-1019','1323':'s-1323',annual:'s-annual',half:'s-half',half_pm:'s-half',off:''};
+
+// 반차 실제 근무 시간 계산
+// half(오전반차) = 뒤 5시간, half_pm(오후반차) = 앞 5시간
+const HALF_TIME = {
+  '1020': { half:'15-20', half_pm:'10-15' },
+  '1019': { half:'14-19', half_pm:'10-14' },
+  '1323': { half:'18-23', half_pm:'13-18' },
+};
+function getHalfLabel(baseShift, halfType) {
+  const map = HALF_TIME[baseShift];
+  if (!map) return halfType === 'half' ? '반차(오전)' : '반차(오후)';
+  return map[halfType] || (halfType === 'half' ? '반차(오전)' : '반차(오후)');
+}
+const COLORS = [
+  ['#e8f5e9','#2e7d32'],['#e8eaf6','#283593'],['#f3e5f5','#6a1b9a'],
+  ['#fff8e1','#f57f17'],['#fce4ec','#880e4f'],['#e0f7fa','#00695c'],
+  ['#fbe9e7','#bf360c'],['#f1f8e9','#33691e'],['#fafafa','#424242'],
+  ['#e0f2f1','#004d40'],['#fff3e0','#e65100'],['#e8eaf6','#1a237e'],
+];
+
+let employees = [
+  {id:1,name:'김진성',dept:'약사',annual:15,used:2,color:0,workType:'full',workDays:[1,1,1,1,0,0,1]},
+  {id:2,name:'최하은',dept:'약사',annual:15,used:1,color:1,workType:'full',workDays:[0,1,1,1,1,1,0]},
+  {id:3,name:'박혜빈',dept:'약사',annual:15,used:0,color:2,workType:'full',workDays:[1,1,1,0,1,1,0]},
+  {id:4,name:'송새희',dept:'약사',annual:15,used:3,color:3,workType:'full',workDays:[1,1,0,1,1,1,0]},
+  {id:5,name:'김현성',dept:'약사',annual:15,used:0,color:4,workType:'full',workDays:[0,0,0,0,1,1,0]},
+  {id:6,name:'이아현',dept:'약사',annual:15,used:1,color:5,workType:'full',workDays:[1,0,1,1,1,1,0]},
+  {id:7,name:'장예진',dept:'약사',annual:15,used:0,color:6,workType:'full',workDays:[0,0,0,0,0,0,1]},
+  {id:8,name:'류시현',dept:'약사',annual:15,used:0,color:7,workType:'full',workDays:[0,0,0,0,0,0,1]},
+  {id:9,name:'박미란',dept:'약사',annual:15,used:0,color:8,workType:'biweek_odd',workDays:[0,0,0,0,0,0,1]},
+  {id:10,name:'공희준',dept:'약사',annual:15,used:0,color:9,workType:'biweek_even',workDays:[0,0,0,0,0,0,1]},
+  {id:11,name:'배서온',dept:'일본어',annual:15,used:0,color:0,workType:'full',workDays:[1,1,1,0,1,0,1]},
+  {id:12,name:'문현주',dept:'일본어',annual:15,used:1,color:1,workType:'full',workDays:[1,0,1,1,1,1,0]},
+  {id:13,name:'송민성',dept:'일본어',annual:15,used:0,color:2,workType:'full',workDays:[1,1,0,1,1,0,1]},
+  {id:14,name:'마유코',dept:'일본어',annual:15,used:0,color:3,workType:'full',workDays:[0,1,1,1,1,1,0]},
+  {id:15,name:'송지은',dept:'일본어',annual:15,used:0,color:4,workType:'full',workDays:[1,1,1,0,0,1,1]},
+  {id:16,name:'미리',dept:'일본어',annual:15,used:0,color:5,workType:'full',workDays:[0,0,0,0,0,1,1]},
+  {id:17,name:'홍상회',dept:'중국어',annual:15,used:0,color:0,workType:'full',workDays:[1,1,0,1,1,0,1]},
+  {id:18,name:'이주현',dept:'중국어',annual:15,used:0,color:1,workType:'full',workDays:[1,0,1,1,1,1,0]},
+  {id:19,name:'황미양',dept:'중국어',annual:15,used:0,color:2,workType:'full',workDays:[1,1,0,1,1,0,1]},
+  {id:20,name:'조순주',dept:'중국어',annual:15,used:0,color:3,workType:'full',workDays:[0,1,1,1,1,1,0]},
+  {id:21,name:'권성수',dept:'중국어',annual:15,used:0,color:4,workType:'full',workDays:[1,0,1,1,0,1,1]},
+  {id:22,name:'유창혁',dept:'중국어',annual:15,used:0,color:5,workType:'full',workDays:[1,1,1,0,0,0,0]},
+  {id:23,name:'정예선',dept:'중국어',annual:15,used:0,color:6,workType:'full',workDays:[1,0,0,1,1,1,1]},
+  {id:24,name:'왕육홍',dept:'중국어',annual:15,used:0,color:7,workType:'full',workDays:[0,1,1,0,0,0,0]},
+  {id:25,name:'조문준',dept:'물류',annual:15,used:0,color:0,workType:'full',workDays:[1,1,1,1,1,0,0]},
+];
+
+const DEFAULT_SHIFT = {
+  1:['1020','1020','1020','1020',null,null,'1323'],
+  2:[null,'1020','1020','1020','1323','1323',null],
+  3:['1020','1323','1323',null,'1020','1020',null],
+  4:['1323','1020',null,'1323','1020','1020',null],
+  5:[null,null,null,null,'1020','1020',null],
+  6:['1323',null,'1323','1323','1323','1323',null],
+  7:[null,null,null,null,null,null,'1020'],
+  8:[null,null,null,null,null,null,'1323'],
+  9:[null,null,null,null,null,null,'1020'],
+  10:[null,null,null,null,null,null,'1020'],
+  11:['1323','1323','1020',null,'1020',null,'1323'],
+  12:['1323',null,'1020','1020','1323','1020',null],
+  13:['1020','1323',null,'1323','1020',null,'1020'],
+  14:[null,'1020','1323','1020','1323','1323',null],
+  15:['1020','1020','1323',null,null,'1323','1020'],
+  16:[null,null,null,null,null,'1020','1323'],
+  17:['1323','1323',null,'1020','1323',null,'1020'],
+  18:['1323',null,'1020','1020','1323','1020',null],
+  19:['1020','1020',null,'1323','1020',null,'1020'],
+  20:[null,'1020','1020','1020','1020','1323',null],
+  21:['1020',null,'1020','1323',null,'1323','1020'],
+  22:['1020','1020','1323',null,null,null,null],
+  23:['1020',null,null,'1323','1020','1323','1020'],
+  24:[null,'1323','1323',null,null,null,null],
+  25:['1019','1019','1019','1019','1019',null,null],
+};
+
+let leaveRequests = [];
+let overtimeRecords = [];
+let empMemos = []; // 직원 메모: {id, empId, date, content, createdAt}
+let schedules={}, confirmed={};
+let weekOffset=0, selectedEmpId=null, editingCell=null, editingEmpId=null;
+let calYear=TODAY.getFullYear(), calMonth=TODAY.getMonth(), calSelectedEmps=new Set();
+
+// ── Google Apps Script URL 설정 ──
+// 아래 값을 본인의 Apps Script 웹앱 URL로 교체하세요.
+let GAS_URL = localStorage.getItem('wms_gas_url') || 'https://script.google.com/macros/s/AKfycbzJNkdS9Y-429satbzJrXuUx3Em16dS2Y0cAFk_zxOBclub74kr_pZLiRCisMnAoPksaw/exec';
+
+function setGasUrl(url) {
+  GAS_URL = url.trim();
+  localStorage.setItem('wms_gas_url', GAS_URL);
+}
+
+// ── 저장/불러오기 ──
+function save() {
+  const data = {employees, leaveRequests, schedules, confirmed, overtimeRecords, empMemos, defaultShift: DEFAULT_SHIFT};
+  // 1) 로컬 저장 (즉시)
+  try { localStorage.setItem('wms_v6', JSON.stringify(data)); } catch(e) {}
+  // 2) Google Sheets 동기화 (비동기, 실패해도 로컬은 저장됨)
+  syncToSheets(data);
+}
+
+function load() {
+  try {
+    const r = localStorage.getItem('wms_v6');
+    if (r) {
+      const d = JSON.parse(r);
+      if (d.employees)     employees     = d.employees;
+      if (d.leaveRequests) leaveRequests = d.leaveRequests;
+      if (d.schedules)     schedules     = d.schedules;
+      if (d.confirmed)     confirmed     = d.confirmed;
+      if (d.overtimeRecords) overtimeRecords = d.overtimeRecords;
+      if (d.empMemos)      empMemos      = d.empMemos;
+      if (d.defaultShift)  Object.assign(DEFAULT_SHIFT, d.defaultShift);
+    }
+  } catch(e) {}
+}
+
+// Google Sheets에 전체 데이터 저장
+let _syncTimer = null;
+function syncToSheets(data) {
+  if (!GAS_URL) return;
+  // 연속 저장 시 디바운스 (1초)
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    const indicator = document.getElementById('syncIndicator');
+    if (indicator) { indicator.textContent = '☁ 저장 중…'; indicator.style.color = '#f57f17'; }
+    fetch(GAS_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({action: 'save', data})
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (indicator) {
+        indicator.textContent = res.ok ? '☁ 저장됨' : '☁ 저장 실패';
+        indicator.style.color = res.ok ? '#2e7d32' : '#c0392b';
+        setTimeout(() => { if(indicator) indicator.textContent = ''; }, 3000);
+      }
+    })
+    .catch(() => {
+      if (indicator) { indicator.textContent = '☁ 저장 실패'; indicator.style.color = '#c0392b'; setTimeout(()=>{if(indicator)indicator.textContent='';},3000); }
+    });
+  }, 1000);
+}
+
+// Google Sheets에서 최신 데이터 가져오기
+function loadFromSheets(callback) {
+  if (!GAS_URL) { if(callback) callback(false); return; }
+  fetch(GAS_URL + '?action=load')
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok && res.data) {
+        const d = res.data;
+        if (d.employees)     employees     = d.employees;
+        if (d.leaveRequests) leaveRequests = d.leaveRequests;
+        if (d.schedules)     schedules     = d.schedules;
+        if (d.confirmed)     confirmed     = d.confirmed;
+        if (d.overtimeRecords) overtimeRecords = d.overtimeRecords;
+        if (d.empMemos)      empMemos      = d.empMemos;
+        if (d.defaultShift)  Object.assign(DEFAULT_SHIFT, d.defaultShift);
+        try { localStorage.setItem('wms_v6', JSON.stringify(d)); } catch(e) {}
+        if (callback) callback(true);
+      } else { if (callback) callback(false); }
+    })
+    .catch(() => { if (callback) callback(false); });
+}
+
+// ── 주차 ──
+function getWeekStart(off){const d=new Date(TODAY);const day=d.getDay();d.setDate(d.getDate()-(day===0?6:day-1)+off*7);d.setHours(0,0,0,0);return d;}
+function getWeekDays(off){const m=getWeekStart(off);return Array.from({length:7},(_,i)=>{const d=new Date(m);d.setDate(d.getDate()+i);return d;});}
+function toLocalDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function weekKey(off){return toLocalDateStr(getWeekStart(off));}
+function isOddWeek(off){
+  // 해당 주 일요일이 그 달의 몇 번째 일요일인지로 홀/짝 판단
+  // 1,3,5번째 일요일 = 홀수주, 2,4번째 = 짝수주
+  const sun=getWeekDays(off)[6];
+  const nth=Math.ceil(sun.getDate()/7);
+  return nth%2===1;
+}
+
+function shouldWork(emp,di,off){
+  const wd=emp.workDays?emp.workDays[di]:1;
+  if(!wd)return false;
+  if(emp.workType==='biweek_odd')return isOddWeek(off);
+  if(emp.workType==='biweek_even')return !isOddWeek(off);
+  return true;
+}
+function getShift(emp,di,off){
+  const dayDate=getWeekDays(off)[di];
+  const dateStr=toLocalDateStr(dayDate);
+  const lr=(leaveRequests||[]).find(r=>r.empId===emp.id&&r.status==='approved'&&dateStr>=r.start&&dateStr<=r.end);
+  if(lr)return lr.type==='half_pm'?'half_pm':lr.type==='half'?'half':'annual';
+  const k=weekKey(off);
+  const ov=schedules[k]?.[emp.id]?.[di];
+  if(ov!==undefined)return ov;
+  if(!shouldWork(emp,di,off))return '__off__';
+  const pat=DEFAULT_SHIFT[emp.id];
+  return pat?(pat[di]||'off'):'off';
+}
+function getBaseShift(emp,di,off){
+  if(!shouldWork(emp,di,off))return '__off__';
+  const k=weekKey(off);
+  const ov=schedules[k]?.[emp.id]?.[di];
+  if(ov!==undefined&&ov!=='half'&&ov!=='half_pm'&&ov!=='annual')return ov;
+  const pat=DEFAULT_SHIFT[emp.id];
+  return pat?(pat[di]||'off'):'off';
+}
+function setShiftRaw(empId,di,sh,off){
+  const k=weekKey(off);
+  if(!schedules[k])schedules[k]={};
+  if(!schedules[k][empId])schedules[k][empId]={};
+  schedules[k][empId][di]=sh;
+  confirmed[k]=false;save();
+}
+
+// ── 연차 계산 ──
+function calcEarnedAnnual(joinDateStr){
+  if(!joinDateStr)return 0;
+  const join=new Date(joinDateStr);const now=TODAY;
+  if(now<join)return 0;
+  let months=(now.getFullYear()-join.getFullYear())*12+(now.getMonth()-join.getMonth());
+  const anniv=new Date(now.getFullYear(),now.getMonth(),join.getDate());
+  if(now<anniv)months--;
+  return Math.min(Math.max(months,0),15);
+}
+function calcUsedAnnual(empId){
+  return leaveRequests.filter(r=>r.empId===empId&&r.status==='approved').reduce((s,r)=>{
+    if(r.type==='annual'){const d=Math.round((new Date(r.end)-new Date(r.start))/864e5)+1;return s+d;}
+    return s+0.5;
+  },0);
+}
+function hasJoined(emp,off){
+  if(!emp.joinDate)return true;
+  const weekSun=new Date(getWeekStart(off));weekSun.setDate(weekSun.getDate()+6);
+  return new Date(emp.joinDate)<=weekSun;
+}
+function isResigned(emp){
+  if(!emp.leaveDate)return false;
+  return new Date(emp.leaveDate)<TODAY;
+}
+function isActiveForWeek(emp,off){
+  // 입사일 체크: 해당 주 마지막 날(일요일)보다 입사일이 이후면 미표시
+  if(!hasJoined(emp,off))return false;
+  // 퇴사일 체크: 해당 주 첫날(월요일)보다 퇴사일이 이전이면 미표시
+  if(emp.leaveDate){
+    const weekMon=getWeekStart(off);
+    if(new Date(emp.leaveDate)<weekMon)return false;
+  }
+  return true;
+}
+
+// ── 사이드바 ──
+function renderSidebar(){
+  const q=(document.getElementById('searchEmp').value||'').trim().toLowerCase();
+  let html='';
+  DEPTS.forEach(dept=>{
+    const emps=employees.filter(e=>e.dept===dept&&(!q||e.name.includes(q)));
+    if(!emps.length)return;
+    html+='<div class="sidebar-label">'+dept+'</div>';
+    emps.forEach(e=>{
+      const [bg,fg]=COLORS[e.color%COLORS.length];
+      const tag=e.workType==='biweek_odd'?'<span style="font-size:9px;color:#999"> 홀수</span>':e.workType==='biweek_even'?'<span style="font-size:9px;color:#999"> 짝수</span>':'';
+      html+='<div class="emp-item'+(selectedEmpId===e.id?' selected':'')+'" onclick="selectEmp('+e.id+')">'
+        +'<div class="avatar" style="background:'+bg+';color:'+fg+'">'+e.name[0]+'</div>'
+        +'<div class="emp-name-s">'+e.name+tag+'</div></div>';
+    });
+  });
+  document.getElementById('empList').innerHTML=html;
+}
+
+// ── 근무표 ──
+function buildSchTable(el,off){
+  const days=getWeekDays(off);
+  const emps=selectedEmpId?employees.filter(e=>e.id===selectedEmpId):employees;
+  const depts=DEPTS.filter(d=>emps.some(e=>e.dept===d));
+  const isMobile=window.innerWidth<=768;
+  const deptW=isMobile?'22px':'44px';
+  const nameW=isMobile?'40px':'72px';
+  let html='<colgroup id="schColgroup"><col style="width:'+deptW+'"><col style="width:'+nameW+'">'+days.map(()=>'<col>').join('')+'</colgroup>'
+    +'<thead><tr><th>부서</th><th style="text-align:left;padding-left:7px">직원</th>'
+    +days.map((d,i)=>'<th class="'+(i>=5?'wknd':'')+'">'+DAY_KO[i]+'<br><span style="font-weight:400;font-size:10px">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+    +'</tr></thead><tbody>';
+  const colCount = days.length + 2;
+  depts.forEach((dept, deptIdx)=>{
+    const de=emps.filter(e=>e.dept===dept&&isActiveForWeek(e,off));
+    if(!de.length)return;
+    // 부서 사이 빈 행
+    if(deptIdx>0) html+='<tr><td colspan="'+colCount+'" style="height:8px;background:#f5f4f0;border:none;padding:0"></td></tr>';
+    de.forEach((emp,ri)=>{
+      html+='<tr>';
+      if(ri===0)html+='<td class="dept-cell" rowspan="'+de.length+'">'+dept+'</td>';
+      html+='<td class="emp-cell"><span style="font-size:12px;font-weight:600">'+emp.name+'</span></td>';
+      days.forEach((_,di)=>{
+        const sh=getShift(emp,di,off);
+        if(sh==='__off__'){
+          html+='<td onclick="openShiftEdit('+emp.id+','+di+')" style="cursor:pointer">'
+            +'<div style="width:100%;height:40px;display:flex;align-items:center;justify-content:center;background:#f7f7f7;transition:background .15s" '
+            +'onmouseover="this.style.background=\'#eeeeee\'" onmouseout="this.style.background=\'#f7f7f7\'">'
+            +'<span style="font-size:10px;color:#ccc">—</span></div></td>';
+          return;
+        }
+        let lb, cl, extraLabel='';
+        const isOrigOff=!shouldWork(emp,di,off);
+        const k=weekKey(off);
+        const isManuallySet=schedules[k]?.[emp.id]?.[di]!==undefined;
+
+        if(sh==='half'||sh==='half_pm'){
+          const base=getBaseShift(emp,di,off);
+          lb=getHalfLabel(base,sh);
+          cl='s-half';
+          extraLabel='<div style="font-size:9px;color:#880e4f;margin-top:1px;pointer-events:none">'+(sh==='half'?'오전반차':'오후반차')+'</div>';
+        } else if(sh==='off'&&isManuallySet){
+          lb=''; cl='';
+        } else {
+          cl=SHIFT_CLS[sh]||''; lb=SHIFT_LABEL[sh]||'';
+        }
+
+        const noteText=getNote(emp.id,di,off);
+        const hasOtNote=noteText&&noteText.includes('[추가근무]');
+        const hasManualNote=noteText&&noteText.split('\n').some(l=>!l.startsWith('[추가근무]')&&l.trim());
+        const noteDot=hasOtNote&&hasManualNote
+          ?'<span title="'+noteText+'" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#1565c0 50%,#f57f17 50%);pointer-events:none"></span>'
+          :hasOtNote
+          ?'<span title="'+noteText+'" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#1565c0;pointer-events:none"></span>'
+          :hasManualNote
+          ?'<span title="'+noteText+'" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#f57f17;pointer-events:none"></span>':'';
+        html+='<td onclick="openShiftEdit('+emp.id+','+di+')">'
+          +'<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">'
+          +noteDot
+          +(lb?'<div class="shift-pill '+cl+'" style="pointer-events:none">'+lb+'</div>':'<span style="font-size:10px;color:#ccc">-</span>')
+          +extraLabel
+          +'</div></td>';
+      });
+      html+='</tr>';
+    });
+  });
+  el.innerHTML=html+'</tbody>';
+}
+
+// ── 요약표 ──
+function getDisplayInfo(emp,di2){
+  const sh=getShift(emp,di2,weekOffset);
+  if(sh==='half'||sh==='half_pm'){return{shiftKey:getBaseShift(emp,di2,weekOffset),isHalf:true,halfType:sh};}
+  return{shiftKey:sh,isHalf:false,halfType:null};
+}
+function buildSummaryTable(el,off){
+  const days=getWeekDays(off);
+  const activeDepts=DEPTS.filter(d=>employees.some(e=>e.dept===d));
+  const shiftDefs=[{keys:AM_KEYS,label:'오전',cls:'s-1020'},{keys:PM_KEYS,label:'오후',cls:'s-1323'}];
+  const isMobile=window.innerWidth<=768;
+  const shiftW=isMobile?'20px':'44px';  // 근무표 부서 컬럼과 동일
+  const deptW=isMobile?'28px':'72px';   // 근무표 직원 컬럼과 동일
+  let html='<colgroup><col style="width:'+shiftW+'"><col style="width:'+deptW+'">'+days.map(()=>'<col>').join('')+'</colgroup>'
+    +'<thead><tr><th colspan="2"></th>'
+    +days.map((d,i)=>'<th class="'+(i>=5?'wknd':'')+'">'
+      +DAY_KO[i]+'<br><span style="font-weight:400;font-size:10px">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+    +'</tr></thead><tbody>';
+  shiftDefs.forEach((sd, sdIdx)=>{
+    const rowDepts=activeDepts.filter(d=>!PM_EXCLUDE_DEPTS.includes(d)||sd.keys===AM_KEYS);
+    if(!rowDepts.length)return;
+    if(sdIdx>0){
+      const colCount=days.length+2;
+      html+='<tr><td colspan="'+colCount+'" style="height:8px;background:#f5f4f0;border:none;padding:0"></td></tr>';
+    }
+    rowDepts.forEach((dept,di)=>{
+      const dEmps=employees.filter(e=>e.dept===dept);
+      html+='<tr>';
+      if(di===0)html+='<td class="sum-shift-cell" rowspan="'+rowDepts.length+'"><div class="sum-shift-inner"><div class="shift-pill '+sd.cls+'" style="font-size:10px">'+sd.label+'</div></div></td>';
+      html+='<td class="sum-dept-cell" style="width:80px">'+dept+'</td>';
+      days.forEach((_,di2)=>{
+        const entries=dEmps.filter(e=>isActiveForWeek(e,off)).map(e=>{const{shiftKey,isHalf,halfType}=getDisplayInfo(e,di2);return{name:e.name,shiftKey,isHalf,halfType};}).filter(x=>sd.keys.includes(x.shiftKey));
+        const cell=entries.map(x=>{
+          if(x.isHalf){
+            const timeLabel=getHalfLabel(x.shiftKey,x.halfType);
+            return x.name+'<span style="font-size:9px;color:#c0392b">('+timeLabel+')</span>';
+          }
+          return x.name;
+        }).join('<br>');
+        html+='<td class="sum-name-cell">'+(cell||'<span style="color:#ddd">-</span>')+'</td>';
+      });
+      html+='</tr>';
+    });
+  });
+  el.innerHTML=html+'</tbody>';
+}
+
+function renderSchedule(){
+  const days=getWeekDays(weekOffset);
+  const k=weekKey(weekOffset);
+  syncWeekDropdowns();
+  const odd=isOddWeek(weekOffset);
+  const wb=document.getElementById('weekTypeBadge');
+  wb.textContent=odd?'홀수 주':'짝수 주';
+  wb.style.background=odd?'#e8f5e9':'#e3f2fd';
+  wb.style.color=odd?'#2e7d32':'#1565c0';
+  const isConf=confirmed[k];
+  const badge=document.getElementById('confirmBadge');
+  badge.className='confirm-badge '+(isConf?'confirmed':'unconfirmed');
+  badge.textContent=isConf?'✓ 확정됨':'● 미확정';
+  buildSchTable(document.getElementById('screenSchTable'),weekOffset);
+  buildSummaryTable(document.getElementById('screenSummary'),weekOffset);
+  updateStats();
+  setTimeout(fitTableToScreen, 50);
+}
+
+// ── 주차 드롭다운 ──
+function getWeeksInMonth(year, month) {
+  // 해당 월의 첫날~마지막날을 포함하는 주들만 탐색 (최대 6주)
+  const firstDay = new Date(year, month, 1);
+  const lastDay  = new Date(year, month + 1, 0);
+  // 첫날이 속한 주의 월요일부터 시작
+  const startMon = new Date(firstDay);
+  const dow = startMon.getDay();
+  startMon.setDate(startMon.getDate() - (dow === 0 ? 6 : dow - 1));
+  const weeks = [];
+  const cur = new Date(startMon);
+  while (cur <= lastDay) {
+    const diff = Math.round((cur - getWeekStart(0)) / (7 * 86400000));
+    weeks.push(diff);
+    cur.setDate(cur.getDate() + 7);
+  }
+  return weeks;
+}
+function initWeekDropdowns() {
+  const yr = document.getElementById('weekYearSel');
+  const cur = TODAY.getFullYear();
+  yr.innerHTML = [cur-1, cur, cur+1].map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
+  populateWeekMonthSel();
+  populateWeekPickSel(cur, TODAY.getMonth());
+  syncWeekDropdowns();
+}
+function populateWeekMonthSel() {
+  const el = document.getElementById('weekMonthSel');
+  el.innerHTML = Array.from({length:12},(_,i)=>'<option value="'+i+'">'+(i+1)+'월</option>').join('');
+}
+function populateWeekPickSel(year, month) {
+  const el = document.getElementById('weekPickSel');
+  const weeks = getWeeksInMonth(year, month);
+  const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
+  el.innerHTML = weeks.map(off => {
+    const days = getWeekDays(off);
+    const label = days[0].getFullYear()+'년 '+fmt(days[0])+' ~ '+fmt(days[6]);
+    const odd = isOddWeek(off);
+    const conf = confirmed[weekKey(off)] ? ' ✓' : '';
+    return '<option value="'+off+'">'+label+' ('+(odd?'홀':'짝')+'주)'+conf+'</option>';
+  }).join('');
+}
+function syncWeekDropdowns() {
+  const days = getWeekDays(weekOffset);
+  const year = days[0].getFullYear();
+  const month = days[0].getMonth();
+  const yr = document.getElementById('weekYearSel');
+  const mo = document.getElementById('weekMonthSel');
+  const pk = document.getElementById('weekPickSel');
+  if (!yr || !mo || !pk) return;
+  if (yr.value != year) {
+    yr.value = year;
+    if (!yr.value) {
+      yr.innerHTML += '<option value="'+year+'">'+year+'년</option>';
+      yr.value = year;
+    }
+  }
+  mo.value = month;
+  populateWeekPickSel(year, month);
+  pk.value = weekOffset;
+  if (pk.value != weekOffset) {
+    const fmt = d=>(d.getMonth()+1)+'/'+d.getDate();
+    const d0 = getWeekDays(weekOffset);
+    const label = d0[0].getFullYear()+'년 '+fmt(d0[0])+' ~ '+fmt(d0[6]);
+    pk.innerHTML = '<option value="'+weekOffset+'">'+label+'</option>' + pk.innerHTML;
+    pk.value = weekOffset;
+  }
+}
+function onWeekSelChange() {
+  const year = +document.getElementById('weekYearSel').value;
+  const month = +document.getElementById('weekMonthSel').value;
+  populateWeekPickSel(year, month);
+}
+function onWeekPick() {
+  weekOffset = +document.getElementById('weekPickSel').value;
+  renderSchedule();
+}
+function goToThisWeek() {
+  weekOffset = 0;
+  renderSchedule();
+}
+function updateStats(){
+  document.getElementById('statTotal').textContent=employees.length;
+  DEPTS.forEach((dept,i)=>{
+    const el=document.getElementById('statDept'+i);
+    if(el)el.textContent=employees.filter(e=>e.dept===dept).length;
+  });
+}
+
+// ── 달력 ──
+function initCalendar(){calYear=TODAY.getFullYear();calMonth=TODAY.getMonth();calSelectedEmps=new Set();renderCalEmpFilter();renderCalendar();}
+function renderCalEmpFilter(){
+  const wrap=document.getElementById('calEmpFilter');if(!wrap)return;
+  const allActive=calSelectedEmps.size===0;
+  let html='<button class="cal-emp-btn'+(allActive?' active':'')+'" style="'+(allActive?'background:#1a1a1a;color:#fff;border-color:#1a1a1a':'')+'" onclick="calToggleEmp(null)">전체</button>';
+  employees.forEach(e=>{
+    const [bg,fg]=COLORS[e.color%COLORS.length];
+    const active=calSelectedEmps.has(e.id);
+    html+='<button class="cal-emp-btn'+(active?' active':'')+'" style="'+(active?'background:'+bg+';color:'+fg+';border-color:'+fg:'')+'" onclick="calToggleEmp('+e.id+')">'+e.name+'</button>';
+  });
+  wrap.innerHTML=html;
+}
+function calToggleEmp(id){if(id===null){calSelectedEmps=new Set();}else{if(calSelectedEmps.has(id))calSelectedEmps.delete(id);else calSelectedEmps.add(id);}renderCalEmpFilter();renderCalendar();}
+function calChangeMonth(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+function renderCalendar(){
+  const lbl=document.getElementById('calMonthLabel');const grid=document.getElementById('calGrid');if(!lbl||!grid)return;
+  lbl.textContent=calYear+'년 '+(calMonth+1)+'월';
+  const targetEmps=calSelectedEmps.size>0?employees.filter(e=>calSelectedEmps.has(e.id)):employees;
+  const monthStr=calYear+'-'+String(calMonth+1).padStart(2,'0');
+  const relevant=leaveRequests.filter(r=>r.status!=='rejected'&&targetEmps.some(e=>e.id===r.empId)&&(r.start.startsWith(monthStr)||r.end.startsWith(monthStr)||(r.start<monthStr+'-01'&&r.end>=monthStr+'-01')));
+  const dayMap={};
+  relevant.forEach(r=>{
+    const emp=employees.find(e=>e.id===r.empId);if(!emp)return;
+    let cur=new Date(r.start);const end=new Date(r.end);
+    while(cur<=end){const key=toLocalDateStr(cur);if(!dayMap[key])dayMap[key]=[];dayMap[key].push({name:emp.name,type:r.type,status:r.status});cur.setDate(cur.getDate()+1);}
+  });
+  const firstDay=new Date(calYear,calMonth,1);const lastDay=new Date(calYear,calMonth+1,0);
+  let startDow=firstDay.getDay(); // 일요일=0 그대로 사용
+  const todayStr=toLocalDateStr(TODAY);
+  let html=['일','월','화','수','목','금','토'].map((d,i)=>'<div class="cal-day-hd'+(i===0||i===6?' wknd':'')+'">'+['일','월','화','수','목','금','토'][i]+'</div>').join('');
+  for(let i=0;i<startDow;i++){const d=new Date(calYear,calMonth,1-(startDow-i));html+='<div class="cal-cell other-month"><div class="cal-date">'+d.getDate()+'</div></div>';}
+  for(let d=1;d<=lastDay.getDate();d++){
+    const date=new Date(calYear,calMonth,d);const dow=date.getDay();const isWknd=dow===0||dow===6;
+    const dateStr=toLocalDateStr(date);const isToday=dateStr===todayStr;
+    const entries=dayMap[dateStr]||[];
+    const dateNumHtml=isToday?'<span class="cal-date today-num">'+d+'</span>':'<span class="cal-date'+(isWknd?' wknd':'')+'">'+d+'</span>';
+    const tagsHtml=entries.slice(0,4).map(en=>{
+      const tc=en.type==='annual'?'annual':en.type==='half'?'half':'half_pm';
+      const tl=en.type==='annual'?'연차':en.type==='half'?'반차(오전)':'반차(오후)';
+      return '<span class="cal-tag '+tc+'"'+(en.status==='pending'?' style="opacity:.6"':'')+'>'+en.name+' '+tl+'</span>';
+    }).join('');
+    const moreHtml=entries.length>4?'<span style="font-size:10px;color:#aaa">+'+(entries.length-4)+'명 더</span>':'';
+    html+='<div class="cal-cell'+(isToday?' today':'')+'" onclick="openCalLeaveModal(\''+dateStr+'\')">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'+dateNumHtml+'<span class="cal-add-btn">+</span></div>'
+      +tagsHtml+moreHtml+'</div>';
+  }
+  const total=startDow+lastDay.getDate();const remain=total%7===0?0:7-(total%7);
+  for(let i=1;i<=remain;i++)html+='<div class="cal-cell other-month"><div class="cal-date">'+i+'</div></div>';
+  grid.innerHTML=html;
+  setTimeout(fitCalToScreen, 50);
+}
+
+// ── 연차 잔여 ──
+function renderLeaveBalanceSimple(){
+  const el=document.getElementById('leaveBalanceSimpleTable');if(!el)return;
+  let html='<thead><tr><th>이름</th><th>부서</th><th>입사일</th><th>발생</th><th>사용</th><th>잔여</th></tr></thead><tbody>';
+  employees.forEach(e=>{
+    const earned=calcEarnedAnnual(e.joinDate);const used=calcUsedAnnual(e.id);const rem=earned-used;
+    const isFuture=e.joinDate&&new Date(e.joinDate)>TODAY;
+    html+='<tr><td><strong>'+e.name+'</strong>'+(isFuture?' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:8px">예정</span>':'')+'</td>'
+      +'<td style="color:#888">'+e.dept+'</td>'
+      +'<td style="font-size:11px;color:#888">'+(e.joinDate||'-')+'</td>'
+      +'<td style="text-align:center">'+earned+'일</td>'
+      +'<td style="text-align:center">'+used+'일</td>'
+      +'<td style="text-align:center;font-weight:600;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</td></tr>';
+  });
+  el.innerHTML=html+'</tbody>';
+}
+
+// ── 연차 내역 ──
+// ── 공통 유틸 ──
+function buildYearOptions(extraYears=[]) {
+  const years = new Set([...leaveRequests.map(r=>r.start.slice(0,4)), ...extraYears]);
+  years.add(String(TODAY.getFullYear()));
+  const cur = String(TODAY.getFullYear());
+  return [...years].sort().reverse().map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
+}
+
+function initLeaveFilters(){
+  document.getElementById('leaveEmpFilter').innerHTML='<option value="">전체 직원</option>'+employees.map(e=>'<option value="'+e.id+'">'+e.name+' ('+e.dept+')</option>').join('');
+  document.getElementById('leaveYearFilter').innerHTML=buildYearOptions();
+}
+function renderLeaveHistory(){
+  const empId=+document.getElementById('leaveEmpFilter').value||null;
+  const year=document.getElementById('leaveYearFilter').value;
+  let filtered=leaveRequests.filter(r=>r.status!=='rejected');
+  if(empId)filtered=filtered.filter(r=>r.empId===empId);
+  if(year)filtered=filtered.filter(r=>r.start.startsWith(year));
+  filtered=[...filtered].sort((a,b)=>b.start.localeCompare(a.start));
+  const container=document.getElementById('leaveHistory');
+  if(!filtered.length){container.innerHTML='<div style="color:#aaa;font-size:12px;padding:12px 0;text-align:center">해당 내역이 없습니다</div>';return;}
+  if(!empId){
+    const grouped={};filtered.forEach(r=>{if(!grouped[r.empId])grouped[r.empId]=[];grouped[r.empId].push(r);});
+    let html='';
+    employees.filter(e=>grouped[e.id]).forEach(e=>{
+      const [bg,fg]=COLORS[e.color%COLORS.length];
+      const earned=calcEarnedAnnual(e.joinDate);const used=calcUsedAnnual(e.id);const rem=earned-used;
+      html+='<div style="margin-bottom:16px">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #f0ede8">'
+        +'<div class="avatar" style="background:'+bg+';color:'+fg+';width:24px;height:24px;font-size:10px;flex-shrink:0">'+e.name[0]+'</div>'
+        +'<span style="font-weight:600;font-size:13px">'+e.name+'</span>'
+        +'<span style="font-size:11px;color:#aaa">'+e.dept+'</span>'
+        +'<span style="margin-left:auto;font-size:11px;color:#888">발생 '+earned+'일 · 사용 '+used+'일 · <strong style="color:'+(rem<0?'#c0392b':'#2e7d32')+'">'+rem+'일 잔여</strong></span>'
+        +'</div>'+buildLeaveRows(grouped[e.id])+'</div>';
+    });
+    container.innerHTML=html;
+  } else {container.innerHTML=buildLeaveRows(filtered);}
+}
+function buildLeaveRows(requests){
+  if(!requests.length)return '<div style="color:#aaa;font-size:12px;padding:8px 0">내역 없음</div>';
+  return '<table class="lv-table" style="font-size:12px"><thead><tr><th>유형</th><th>기간</th><th>일수</th><th>사유</th><th>상태</th></tr></thead><tbody>'
+    +requests.map(r=>{
+      const tl=r.type==='annual'?'연차':r.type==='half'?'반차(오전)':'반차(오후)';
+      const typeCls=r.type==='annual'?'badge-pending':r.type==='half'?'badge-rejected':'badge-approved';
+      const sc=r.status==='approved'?'badge-approved':'badge-pending';
+      const sl=r.status==='approved'?'승인':'대기중';
+      const days=r.type==='annual'?Math.round((new Date(r.end)-new Date(r.start))/864e5)+1:0.5;
+      return '<tr><td><span class="badge '+typeCls+'" style="font-size:10px">'+tl+'</span></td>'
+        +'<td>'+(r.start===r.end?r.start:r.start+' ~ '+r.end)+'</td>'
+        +'<td style="text-align:center;font-weight:600">'+days+'일</td>'
+        +'<td style="color:#888">'+(r.reason||'-')+'</td>'
+        +'<td><span class="badge '+sc+'" style="font-size:10px">'+sl+'</span></td></tr>';
+    }).join('')+'</tbody></table>';
+}
+
+// ── 연차 신청 ──
+function initLeaveTableFilters(){
+  const el=document.getElementById('leaveTableYear');if(!el)return;
+  el.innerHTML=buildYearOptions();
+  const m=String(TODAY.getMonth()+1).padStart(2,'0');
+  const ms=document.getElementById('leaveTableMonth');if(ms)ms.value=m;
+}
+function renderLeaveTable(){
+  const yearEl=document.getElementById('leaveTableYear');
+  const monthEl=document.getElementById('leaveTableMonth');
+  const year=yearEl?yearEl.value:'';
+  const month=monthEl?monthEl.value:'';
+
+  let filtered=[...leaveRequests];
+  if(year)filtered=filtered.filter(r=>r.start.startsWith(year)||(month===''&&r.end.startsWith(year)));
+  if(month&&year)filtered=filtered.filter(r=>{
+    const ym=year+'-'+month;
+    return r.start.startsWith(ym)||r.end.startsWith(ym)||(r.start<ym+'-01'&&r.end>=ym+'-01');
+  });
+  filtered=filtered.sort((a,b)=>b.start.localeCompare(a.start));
+
+  let html='<thead><tr><th>직원</th><th>유형</th><th>신청일</th><th>기간</th><th>사유</th><th>관리</th></tr></thead><tbody>';
+  if(!filtered.length){
+    html+='<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
+  } else {
+    filtered.forEach(lr=>{
+      const emp=employees.find(e=>e.id===lr.empId);if(!emp)return;
+      const tl=lr.type==='annual'?'연차':lr.type==='half'?'반차(오전)':'반차(오후)';
+      const sc=lr.status==='approved'?'badge-approved':lr.status==='rejected'?'badge-rejected':'badge-pending';
+      const sl=lr.status==='approved'?'승인':lr.status==='rejected'?'반려':'대기중';
+      html+='<tr><td><strong>'+emp.name+'</strong> <span style="font-size:11px;color:#aaa">'+emp.dept+'</span></td>'
+        +'<td>'+tl+'</td>'
+        +'<td style="font-size:11px;color:#888">'+(lr.createdAt||'-')+'</td>'
+        +'<td>'+(lr.start===lr.end?lr.start:lr.start+'~'+lr.end)+'</td>'
+        +'<td style="color:#888">'+(lr.reason||'-')+'</td>'
+        +'<td style="white-space:nowrap"><button class="btn sm" onclick="openEditLeave('+lr.id+')">수정</button> <button class="btn sm danger" onclick="deleteLeave('+lr.id+')">삭제</button></td></tr>';
+    });
+  }
+  document.getElementById('leaveTable').innerHTML=html+'</tbody>';
+}
+function openEditLeave(id){
+  const lr=leaveRequests.find(r=>r.id===id);if(!lr)return;
+  document.getElementById('leaveModalTitle').textContent='연차 / 반차 수정';
+  document.getElementById('leaveEmpSel').innerHTML=employees.map(e=>'<option value="'+e.id+'"'+(e.id===lr.empId?' selected':'')+'>'+e.name+' ('+e.dept+')</option>').join('');
+  document.getElementById('leaveTypeSel').value=lr.type;
+  document.getElementById('lvStart').value=lr.start;
+  document.getElementById('lvEnd').value=lr.end;
+  document.getElementById('lvReason').value=lr.reason||'';
+  // 수정 모드 표시
+  document.getElementById('leaveModal')._editId=id;
+  document.getElementById('leaveModal').classList.add('open');
+}
+function deleteLeave(id){
+  if(!confirm('신청을 삭제하시겠습니까?'))return;
+  leaveRequests=leaveRequests.filter(r=>r.id!==id);
+  save();renderLeaveTable();renderLeaveHistory();renderLeaveBalanceSimple();renderCalendar();
+  renderSchedule();
+}
+function updateLeave(id,status){
+  const lr=leaveRequests.find(r=>r.id===id);if(!lr)return;
+  lr.status=status;
+  const emp=employees.find(e=>e.id===lr.empId);if(emp)emp.used=calcUsedAnnual(emp.id);
+  save();renderLeaveTable();renderLeaveHistory();renderLeaveBalanceSimple();renderCalendar();
+  renderSchedule();
+}
+function openLeaveModal(){
+  document.getElementById('leaveModalTitle').textContent='연차 / 반차 신청';
+  document.getElementById('leaveEmpSel').innerHTML=employees.map(e=>'<option value="'+e.id+'">'+e.name+' ('+e.dept+')</option>').join('');
+  const t=new Date().toISOString().slice(0,10);
+  document.getElementById('lvStart').value=t;document.getElementById('lvEnd').value=t;document.getElementById('lvReason').value='';
+  document.getElementById('leaveModal').classList.add('open');
+}
+function openCalLeaveModal(dateStr){
+  document.getElementById('leaveModalTitle').textContent='연차 / 반차 신청 — '+dateStr;
+  document.getElementById('leaveEmpSel').innerHTML=employees.map(e=>'<option value="'+e.id+'">'+e.name+' ('+e.dept+')</option>').join('');
+  document.getElementById('lvStart').value=dateStr;document.getElementById('lvEnd').value=dateStr;document.getElementById('lvReason').value='';
+  document.getElementById('leaveModal').classList.add('open');
+}
+function submitLeave(){
+  const empId=+document.getElementById('leaveEmpSel').value;
+  const type=document.getElementById('leaveTypeSel').value;
+  const start=document.getElementById('lvStart').value;
+  const end=document.getElementById('lvEnd').value;
+  const reason=document.getElementById('lvReason').value;
+  if(!start||!end)return;
+  const modal=document.getElementById('leaveModal');
+  const editId=modal._editId;
+  if(editId){
+    // 수정 모드
+    const lr=leaveRequests.find(r=>r.id===editId);
+    if(lr){lr.empId=empId;lr.type=type;lr.start=start;lr.end=end;lr.reason=reason;}
+    modal._editId=null;
+  } else {
+    leaveRequests.push({id:(leaveRequests[leaveRequests.length-1]?.id||0)+1,empId,type,start,end,reason,status:'approved',createdAt:toLocalDateStr(TODAY)});
+  }
+  save();closeModal('leaveModal');renderLeaveTable();renderCalendar();
+  renderLeaveHistory();renderLeaveBalanceSimple();renderSchedule();
+}
+
+// ── 직원 관리 ──
+let empDeptFilter = '';
+function setEmpDeptFilter(dept){
+  empDeptFilter=dept;
+  document.querySelectorAll('#empDeptFilter .cal-emp-btn').forEach(btn=>{
+    const isActive=btn.textContent===(dept||'전체');
+    btn.classList.toggle('active',isActive);
+    btn.style.background=isActive?'#1a1a1a':'';
+    btn.style.color=isActive?'#fff':'';
+    btn.style.borderColor=isActive?'#1a1a1a':'';
+  });
+  renderEmpTable();
+}
+function renderEmpTable(){
+  const tm={'full':'매주','biweek_odd':'격주(홀수)','biweek_even':'격주(짝수)'};
+  const filtered=empDeptFilter?employees.filter(e=>e.dept===empDeptFilter):employees;
+  let html='<thead><tr>'
+    +'<th style="width:28px"></th>'
+    +'<th>이름</th><th>부서</th><th>입사일</th><th>퇴사일</th><th>근무유형</th>'
+    +DAY_KO.map((d,i)=>'<th style="'+(i>=5?'color:#c0392b':'')+';min-width:46px">'+d+'</th>').join('')
+    +'<th>연차</th><th>관리</th>'
+    +'</tr></thead><tbody id="empTbody">';
+  if(!filtered.length){
+    html+='<tr><td colspan="14" style="text-align:center;color:#aaa;padding:16px">해당 부서 직원이 없습니다</td></tr>';
+  }
+  filtered.forEach(e=>{
+    const pat=DEFAULT_SHIFT[e.id]||Array(7).fill(null);
+    const earned=calcEarnedAnnual(e.joinDate);
+    const used=calcUsedAnnual(e.id);
+    const rem=earned-used;
+    const isFuture=e.joinDate&&new Date(e.joinDate)>TODAY;
+    const resigned=isResigned(e);
+    const rowStyle=resigned?'opacity:0.5;background:#fafafa;':'';
+    html+='<tr data-id="'+e.id+'" style="'+rowStyle+'">'
+      +'<td style="text-align:center;cursor:grab;color:#ccc;font-size:14px;user-select:none" class="drag-handle" title="드래그하여 순서 변경">⠿</td>'
+      +'<td><strong>'+e.name+'</strong>'
+        +(isFuture?' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px">입사예정</span>':'')
+        +(resigned?' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>':'')
+      +'</td>'
+      +'<td>'+e.dept+'</td>'
+      +'<td style="font-size:11px;color:#888">'+(e.joinDate||'-')+'</td>'
+      +'<td style="font-size:11px;color:'+(resigned?'#c0392b':'#888')+'">'+(e.leaveDate||'-')+'</td>'
+      +'<td style="font-size:11px">'+(resigned?'<span style="color:#bbb">퇴사</span>':(tm[e.workType]||e.workType))+'</td>';
+    pat.forEach((sh,di)=>{
+      const lb=SHIFT_LABEL[sh]||'';
+      const cl=SHIFT_CLS[sh]||'';
+      const isWknd=di>=5;
+      html+='<td style="text-align:center;'+(isWknd?'background:#fafafa':'')+'">'
+        +(lb?'<span class="shift-pill '+cl+'" style="font-size:10px;padding:1px 5px">'+lb+'</span>'
+            :'<span style="color:#ccc;font-size:11px">—</span>')
+        +'</td>';
+    });
+    html+='<td style="font-size:11px"><span style="font-weight:600;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</span>'
+      +' <span style="color:#aaa">(발생 '+earned+'/사용 '+used+')</span></td>'
+      +'<td style="white-space:nowrap">'
+        +'<button class="btn sm" onclick="openEditEmp('+e.id+')" style="margin-right:4px">수정</button>'
+        +'<button class="btn sm danger" onclick="removeEmp('+e.id+')">삭제</button>'
+      +'</td></tr>';
+  });
+  const tbl = document.getElementById('empTable');
+  tbl.innerHTML = '';
+  const tmp = document.createElement('table');
+  tmp.innerHTML = html + '</tbody>';
+  while(tmp.firstChild) tbl.appendChild(tmp.firstChild);
+  initEmpDragDrop();
+}
+
+// ── 직원 순서 드래그앤드롭 (mouse 방식) ──
+let dragSrcId = null;
+let dragClone = null;
+let dragOffsetY = 0;
+
+function initEmpDragDrop(){
+  const tbody = document.getElementById('empTbody');
+  if(!tbody) return;
+
+  tbody.querySelectorAll('tr[data-id]').forEach(row=>{
+    const handle = row.querySelector('.drag-handle');
+    if(!handle) return;
+    handle.addEventListener('mousedown', e=>{
+      if(e.button !== 0) return;
+      const startX = e.clientX, startY = e.clientY;
+      let dragging = false;
+      const rowId = +row.dataset.id;
+
+      function startDrag(){
+        dragging = true;
+        dragSrcId = rowId;
+        const rect = row.getBoundingClientRect();
+        dragOffsetY = startY - rect.top;
+        dragClone = row.cloneNode(true);
+        dragClone.style.cssText = 'position:fixed;left:'+rect.left+'px;top:'+rect.top+'px;width:'+rect.width+'px;opacity:0.7;pointer-events:none;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:9999;';
+        document.body.appendChild(dragClone);
+        row.style.opacity = '0.3';
+      }
+
+      function onMove(e){
+        if(!dragging){
+          // 5px 이상 움직였을 때만 드래그 시작
+          if(Math.abs(e.clientY - startY) > 5 || Math.abs(e.clientX - startX) > 5){
+            startDrag();
+          }
+          return;
+        }
+        dragClone.style.top = (e.clientY - dragOffsetY) + 'px';
+        tbody.querySelectorAll('tr[data-id]').forEach(r=>r.style.borderTop='');
+        dragClone.style.display='none';
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        dragClone.style.display='';
+        const targetRow = el && el.closest('tr[data-id]');
+        if(targetRow && +targetRow.dataset.id !== dragSrcId){
+          targetRow.style.borderTop = '2px solid #1a1a1a';
+        }
+      }
+
+      function onUp(e){
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if(dragClone){ dragClone.remove(); dragClone=null; }
+        tbody.querySelectorAll('tr[data-id]').forEach(r=>{r.style.borderTop='';r.style.opacity='';});
+        if(!dragging){ dragSrcId=null; return; }
+
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const targetRow = el && el.closest('tr[data-id]');
+        if(targetRow){
+          const targetId = +targetRow.dataset.id;
+          if(targetId !== dragSrcId){
+            const srcIdx = employees.findIndex(emp=>emp.id===dragSrcId);
+            const tgtIdx = employees.findIndex(emp=>emp.id===targetId);
+            if(srcIdx!==-1 && tgtIdx!==-1){
+              const [moved] = employees.splice(srcIdx,1);
+              const newTgt = employees.findIndex(emp=>emp.id===targetId);
+              employees.splice(newTgt, 0, moved);
+              save(); renderEmpTable(); renderSchedule(); renderSidebar();
+            }
+          }
+        }
+        dragSrcId = null;
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+function renderDayShiftRow(shiftArr){
+  const defaults=['1020','1020','1020','1020','1020',null,null];
+  const row=document.getElementById('dayShiftRow');if(!row)return;
+  row.innerHTML=Array.from({length:7},(_,i)=>{
+    const val=(shiftArr&&shiftArr[i]!==undefined)?(shiftArr[i]||'off'):(defaults[i]||'off');
+    const isWknd=i>=5;
+    return '<td style="border:1px solid #e8e6e0;padding:4px 3px;text-align:center">'
+      +'<select id="ds'+i+'" style="width:100%;height:32px;font-size:11px;border-radius:6px;border:1px solid #d8d5cf;padding:0 2px;'+(isWknd?'color:#c0392b':'')+'">'
+      +'<option value="off"'+(val==='off'?' selected':'')+'>휴무</option>'
+      +'<option value="1020"'+(val==='1020'?' selected':'')+' style="color:#2e7d32">10-20</option>'
+      +'<option value="1019"'+(val==='1019'?' selected':'')+' style="color:#2e7d32">10-19</option>'
+      +'<option value="1323"'+(val==='1323'?' selected':'')+' style="color:#4527a0">13-23</option>'
+      +'</select></td>';
+  }).join('');
+}
+function onWorkTypeChange(){
+  const t=document.getElementById('nWorkType').value;
+  const hint=document.getElementById('workTypeHint');
+  if(t==='biweek_odd')hint.textContent='홀수 주(1,3,5,…주)에만 근무합니다.';
+  else if(t==='biweek_even')hint.textContent='짝수 주(2,4,6,…주)에만 근무합니다.';
+  else hint.textContent='';
+}
+function openEmpModal(){
+  editingEmpId=null;
+  document.getElementById('empModalTitle').textContent='직원 추가';
+  document.getElementById('nName').value='';document.getElementById('nDept').value='약사';
+  document.getElementById('nJoinDate').value='';document.getElementById('nWorkType').value='full';
+  document.getElementById('nLeaveDate').value='';
+  document.getElementById('workTypeHint').textContent='';
+  document.getElementById('empApplyFromWrap').style.display='none';
+  renderDayShiftRow(null);
+  document.getElementById('empModal').classList.add('open');
+}
+function openEditEmp(id){
+  editingEmpId=id;const e=employees.find(emp=>emp.id===id);if(!e)return;
+  document.getElementById('empModalTitle').textContent='직원 수정 – '+e.name;
+  document.getElementById('nName').value=e.name;document.getElementById('nDept').value=e.dept;
+  document.getElementById('nJoinDate').value=e.joinDate||'';document.getElementById('nLeaveDate').value=e.leaveDate||'';document.getElementById('nWorkType').value=e.workType||'full';
+  onWorkTypeChange();
+  const pat=DEFAULT_SHIFT[e.id]||Array(7).fill(null);
+  const merged=pat.map((sh,i)=>{const wd=e.workDays?e.workDays[i]:1;if(!wd)return 'off';return sh||'off';});
+  renderDayShiftRow(merged);
+  // 적용 시작일 섹션 표시
+  document.getElementById('empApplyFromWrap').style.display='';
+  document.querySelector('input[name="applyFromMode"][value="now"]').checked=true;
+  document.getElementById('empApplyDateRow').style.display='none';
+  document.getElementById('nApplyFrom').value=toLocalDateStr(TODAY);
+  document.getElementById('empModal').classList.add('open');
+}
+function onApplyFromModeChange(){
+  const mode=document.querySelector('input[name="applyFromMode"]:checked')?.value;
+  document.getElementById('empApplyDateRow').style.display=(mode==='date')?'':'none';
+}
+function saveEmp(){
+  const name=document.getElementById('nName').value.trim();if(!name)return;
+  const workType=document.getElementById('nWorkType').value;
+  const joinDate=document.getElementById('nJoinDate').value||'';
+  const leaveDate=document.getElementById('nLeaveDate').value||'';
+  const dayShifts=Array.from({length:7},(_,i)=>{const sel=document.getElementById('ds'+i);return sel?sel.value:'off';});
+  const workDays=dayShifts.map(s=>s!=='off'?1:0);
+  if(editingEmpId){
+    const e=employees.find(emp=>emp.id===editingEmpId);if(!e)return;
+
+    // 적용 시작일 계산
+    const mode=document.querySelector('input[name="applyFromMode"]:checked')?.value||'now';
+    let applyFrom=null;
+    if(mode==='date'){
+      const v=document.getElementById('nApplyFrom').value;
+      if(v)applyFrom=new Date(v);
+    }
+
+    const newShift=dayShifts.map(s=>s==='off'?null:s);
+    const oldShift=DEFAULT_SHIFT[e.id]||Array(7).fill(null);
+    const shiftChanged=newShift.some((v,i)=>v!==oldShift[i]);
+
+    e.name=name;e.dept=document.getElementById('nDept').value;e.joinDate=joinDate;e.leaveDate=leaveDate;
+    e.workType=workType;e.workDays=workDays;
+
+    if(shiftChanged && applyFrom){
+      // 특정 날짜부터 적용: applyFrom이 포함된 주의 weekOffset 계산
+      const applyFromStart=new Date(applyFrom);
+      const dow=applyFromStart.getDay();
+      applyFromStart.setDate(applyFromStart.getDate()-(dow===0?6:dow-1));
+      applyFromStart.setHours(0,0,0,0);
+      const todayStart=getWeekStart(0);
+      const applyOffsetWeeks=Math.round((applyFromStart-todayStart)/(7*86400000));
+
+      // 적용 시작 주 이전 주들에는 기존 DEFAULT_SHIFT를 schedules에 고정(스냅샷)
+      // 단, 이미 수동 변경이 있는 셀은 건드리지 않음
+      // 적용 시작 주부터는 DEFAULT_SHIFT를 새 값으로 변경
+      if(applyOffsetWeeks>0){
+        // 현재 주 ~ 적용 직전 주까지 기존 근무일정을 schedules에 freeze
+        for(let off=0;off<applyOffsetWeeks;off++){
+          const k=weekKey(off);
+          if(!schedules[k])schedules[k]={};
+          if(!schedules[k][e.id])schedules[k][e.id]={};
+          // 기존 DEFAULT_SHIFT 기준으로, 아직 수동 설정 안 된 날만 고정
+          for(let di=0;di<7;di++){
+            if(schedules[k][e.id][di]===undefined){
+              // workDays도 반영
+              const wd=workDays[di]; // 새 workDays 아닌 기존 workDays 사용
+              const oldWd=e.workDays?e.workDays[di]:1;
+              if(!oldWd){
+                // 원래 비근무일이면 '__off__'로 두기 위해 아무것도 안함
+              } else {
+                const sh=oldShift[di];
+                if(sh)schedules[k][e.id][di]=sh;
+                else schedules[k][e.id][di]='off';
+              }
+            }
+          }
+        }
+        // 적용 이후 주 schedules에서 이 직원의 수동 오버라이드 제거 (새 DEFAULT로 적용되도록)
+        Object.keys(schedules).forEach(k=>{
+          const wStart=new Date(k);
+          const wOff=Math.round((wStart-getWeekStart(0))/(7*86400000));
+          if(wOff>=applyOffsetWeeks&&schedules[k][e.id]){
+            const notes=schedules[k][e.id]?._notes;
+            delete schedules[k][e.id];
+            if(notes){if(!schedules[k][e.id])schedules[k][e.id]={};schedules[k][e.id]._notes=notes;}
+          }
+        });
+      } else {
+        // 현재 주 또는 과거부터 즉시 적용 → 기존 로직과 동일 (schedules 오버라이드 제거)
+        Object.keys(schedules).forEach(k=>{
+          if(schedules[k][e.id]){
+            const notes=schedules[k]?._notes?.[e.id];
+            delete schedules[k][e.id];
+          }
+        });
+      }
+    } else if(shiftChanged) {
+      // 즉시 적용: 미래 주의 수동 오버라이드 제거 (현재 주부터 새 DEFAULT 반영)
+      const todayKey=weekKey(0);
+      Object.keys(schedules).forEach(k=>{
+        const wStart=new Date(k);
+        const wOff=Math.round((wStart-getWeekStart(0))/(7*86400000));
+        if(wOff>=0&&schedules[k][e.id]){
+          delete schedules[k][e.id];
+        }
+      });
+    }
+    DEFAULT_SHIFT[e.id]=newShift;
+  } else {
+    const id=(employees[employees.length-1]?.id||0)+1;
+    employees.push({id,name,dept:document.getElementById('nDept').value,joinDate,leaveDate,annual:calcEarnedAnnual(joinDate)||0,used:0,color:id%COLORS.length,workType,workDays});
+    DEFAULT_SHIFT[id]=dayShifts.map(s=>s==='off'?null:s);
+  }
+  // 부서별 자동 정렬 (DEPTS 순서 유지, 퇴사자는 맨 아래, 같은 부서 내 기존 순서 유지)
+  employees.sort((a,b)=>{
+    const ar=isResigned(a)?1:0, br=isResigned(b)?1:0;
+    if(ar!==br)return ar-br;
+    const ai=DEPTS.indexOf(a.dept), bi=DEPTS.indexOf(b.dept);
+    if(ai!==bi)return ai-bi;
+    return 0;
+  });
+  save();closeModal('empModal');renderAll();
+}
+function removeEmp(id){if(!confirm('정말 삭제하시겠습니까?'))return;employees=employees.filter(e=>e.id!==id);save();renderAll();}
+
+// ── 액션 ──
+function clearSearch(){document.getElementById('searchEmp').value='';selectedEmpId=null;renderSidebar();renderSchedule();}
+
+// ── 근무 명단 요약 모달 ──
+let smOffset = 0;
+
+function openSummaryModal(){
+  smOffset = weekOffset; // 현재 근무표 주차로 초기화
+  initSmDropdowns();
+  renderSummaryModal();
+  document.getElementById('summaryModal').classList.add('open');
+}
+
+function initSmDropdowns(){
+  const yr = document.getElementById('smYearSel');
+  const cur = TODAY.getFullYear();
+  yr.innerHTML = [cur-1, cur, cur+1].map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
+  const mo = document.getElementById('smMonthSel');
+  mo.innerHTML = Array.from({length:12},(_,i)=>'<option value="'+i+'">'+(i+1)+'월</option>').join('');
+  syncSmDropdowns();
+}
+
+function syncSmDropdowns(){
+  const days = getWeekDays(smOffset);
+  const year = days[0].getFullYear();
+  const month = days[0].getMonth();
+  const yr = document.getElementById('smYearSel');
+  const mo = document.getElementById('smMonthSel');
+  const pk = document.getElementById('smWeekSel');
+  if(!yr||!mo||!pk) return;
+  yr.value = year;
+  mo.value = month;
+  // 주차 목록
+  const weeks = getWeeksInMonth(year, month);
+  const fmt = d=>(d.getMonth()+1)+'/'+d.getDate();
+  pk.innerHTML = weeks.map(off=>{
+    const ds = getWeekDays(off);
+    const label = ds[0].getFullYear()+'년 '+fmt(ds[0])+' ~ '+fmt(ds[6]);
+    const odd = isOddWeek(off);
+    return '<option value="'+off+'">'+label+' ('+(odd?'홀':'짝')+'주)</option>';
+  }).join('');
+  pk.value = smOffset;
+  if(pk.value != smOffset){
+    const ds = getWeekDays(smOffset);
+    pk.innerHTML = '<option value="'+smOffset+'">'+ds[0].getFullYear()+'년 '+fmt(ds[0])+' ~ '+fmt(ds[6])+'</option>' + pk.innerHTML;
+    pk.value = smOffset;
+  }
+  const badge = document.getElementById('smWeekBadge');
+  if(badge){
+    const odd = isOddWeek(smOffset);
+    badge.textContent = odd ? '홀수 주' : '짝수 주';
+    badge.style.background = odd ? '#e8f5e9' : '#e3f2fd';
+    badge.style.color = odd ? '#2e7d32' : '#1565c0';
+  }
+}
+
+function onSmSelChange(){
+  const year = +document.getElementById('smYearSel').value;
+  const month = +document.getElementById('smMonthSel').value;
+  const weeks = getWeeksInMonth(year, month);
+  const fmt = d=>(d.getMonth()+1)+'/'+d.getDate();
+  const pk = document.getElementById('smWeekSel');
+  pk.innerHTML = weeks.map(off=>{
+    const ds = getWeekDays(off);
+    return '<option value="'+off+'">'+ds[0].getFullYear()+'년 '+fmt(ds[0])+' ~ '+fmt(ds[6])+' ('+(isOddWeek(off)?'홀':'짝')+'주)</option>';
+  }).join('');
+  smOffset = weeks[0];
+  pk.value = smOffset;
+  syncSmDropdowns();
+  renderSummaryModal();
+}
+
+function onSmWeekPick(){
+  smOffset = +document.getElementById('smWeekSel').value;
+  syncSmDropdowns();
+  renderSummaryModal();
+}
+
+function smChangeWeek(dir){
+  smOffset += dir;
+  syncSmDropdowns();
+  renderSummaryModal();
+}
+
+function smGoToday(){
+  smOffset = 0;
+  syncSmDropdowns();
+  renderSummaryModal();
+}
+
+function renderSummaryModal(){
+  const el = document.getElementById('summaryModalTable');
+  if(!el) return;
+  buildSummaryTable(el, smOffset);
+}
+
+// ── 직원 메모 ──
+function initEmpMemoFilters(){
+  const yr = document.getElementById('memoYear');
+  const cur = String(TODAY.getFullYear());
+  const years = new Set(empMemos.map(m => m.date.slice(0,4)));
+  years.add(cur);
+  yr.innerHTML = [...years].sort().reverse().map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
+  const mo = String(TODAY.getMonth()+1).padStart(2,'0');
+  document.getElementById('memoMonth').value = mo;
+  document.getElementById('memoEmpFilter').innerHTML = '<option value="">전체 직원</option>'
+    + employees.map(e=>'<option value="'+e.id+'">'+e.name+' ('+e.dept+')</option>').join('');
+}
+
+function renderEmpMemos(){
+  const year = document.getElementById('memoYear')?.value || '';
+  const month = document.getElementById('memoMonth')?.value || '';
+  const empId = +document.getElementById('memoEmpFilter')?.value || 0;
+  let filtered = [...empMemos];
+  if(year) filtered = filtered.filter(m => m.date.startsWith(year));
+  if(month && year) filtered = filtered.filter(m => m.date.startsWith(year+'-'+month));
+  if(empId) filtered = filtered.filter(m => m.empId === empId);
+  filtered.sort((a,b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+  const wrap = document.getElementById('empMemoList');
+  if(!wrap) return;
+  if(!filtered.length){
+    wrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:24px;font-size:13px">등록된 메모가 없습니다</div>';
+    return;
+  }
+
+  // 월별 그룹핑
+  const groups = {};
+  filtered.forEach(m => {
+    const key = m.date.slice(0,7); // "YYYY-MM"
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(m);
+  });
+
+  let html = '';
+  Object.keys(groups).sort().reverse().forEach(ym => {
+    const [y, mo] = ym.split('-');
+    html += '<div style="margin-bottom:18px">'
+      + '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;padding:6px 2px 8px;border-bottom:1px solid #f0ede8;margin-bottom:10px">'
+      + y+'년 '+parseInt(mo)+'월</div>';
+    groups[ym].forEach(m => {
+      const emp = employees.find(e => e.id === m.empId);
+      if(!emp) return;
+      const [bg,fg] = COLORS[emp.color % COLORS.length];
+      const parts = m.date.split('-');
+      const dateObj = new Date(+parts[0], +parts[1]-1, +parts[2]);
+      const dayStr = ['일','월','화','수','목','금','토'][dateObj.getDay()];
+      html += '<div style="display:flex;gap:12px;padding:10px 4px;border-bottom:1px solid #f8f6f2;align-items:flex-start">'
+        + '<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">'
+        + '<div style="font-size:12px;font-weight:600;color:#555">'+parseInt(parts[2])+'일('+dayStr+')</div>'
+        + '<div class="avatar" style="background:'+bg+';color:'+fg+';width:28px;height:28px;font-size:11px">'+emp.name[0]+'</div>'
+        + '<div style="font-size:11px;color:#666;font-weight:600">'+emp.name+'</div>'
+        + '</div>'
+        + '<div style="flex:1;font-size:13px;color:#1a1a1a;line-height:1.7;white-space:pre-wrap;padding-top:2px">'+escHtml(m.content)+'</div>'
+        + '<div style="flex-shrink:0;display:flex;gap:4px;padding-top:2px">'
+        + '<button class="btn sm" onclick="openEditEmpMemo('+m.id+')">수정</button>'
+        + '<button class="btn sm danger" onclick="deleteEmpMemo('+m.id+')">삭제</button>'
+        + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+  });
+  wrap.innerHTML = html;
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function openEmpMemoModal(){
+  document.getElementById('empMemoModalTitle').textContent = '메모 추가';
+  document.getElementById('memoEmpSel').innerHTML = employees.map(e=>'<option value="'+e.id+'">'+e.name+' ('+e.dept+')</option>').join('');
+  document.getElementById('memoDate').value = toLocalDateStr(TODAY);
+  document.getElementById('memoContent').value = '';
+  document.getElementById('empMemoModal')._editId = null;
+  document.getElementById('empMemoModal').classList.add('open');
+}
+
+function openEditEmpMemo(id){
+  const m = empMemos.find(x => x.id === id); if(!m) return;
+  document.getElementById('empMemoModalTitle').textContent = '메모 수정';
+  document.getElementById('memoEmpSel').innerHTML = employees.map(e=>'<option value="'+e.id+'"'+(e.id===m.empId?' selected':'')+'>'+e.name+' ('+e.dept+')</option>').join('');
+  document.getElementById('memoDate').value = m.date;
+  document.getElementById('memoContent').value = m.content;
+  document.getElementById('empMemoModal')._editId = id;
+  document.getElementById('empMemoModal').classList.add('open');
+}
+
+function submitEmpMemo(){
+  const empId = +document.getElementById('memoEmpSel').value;
+  const date = document.getElementById('memoDate').value;
+  const content = document.getElementById('memoContent').value.trim();
+  if(!date || !content){ alert('날짜와 메모 내용을 입력해주세요.'); return; }
+  const editId = document.getElementById('empMemoModal')._editId;
+  if(editId){
+    const m = empMemos.find(x => x.id === editId);
+    if(m){ m.empId=empId; m.date=date; m.content=content; }
+  } else {
+    empMemos.push({ id:(empMemos[empMemos.length-1]?.id||0)+1, empId, date, content, createdAt:toLocalDateStr(TODAY) });
+  }
+  save(); closeModal('empMemoModal'); renderEmpMemos();
+}
+
+function deleteEmpMemo(id){
+  if(!confirm('메모를 삭제하시겠습니까?')) return;
+  empMemos = empMemos.filter(x => x.id !== id);
+  save(); renderEmpMemos();
+}
+
+// ── 모바일 사이드바 ──
+function toggleMobileSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebarOverlay');
+  const isOpen = sb.classList.contains('mobile-open');
+  if (isOpen) { sb.classList.remove('mobile-open'); ov.classList.remove('open'); }
+  else { sb.classList.add('mobile-open'); ov.classList.add('open'); }
+}
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ── 검색창 토글 ──
+function toggleSearch() {
+  const wrap = document.getElementById('searchWrap');
+  const isOpen = wrap.classList.contains('open');
+  wrap.classList.toggle('open');
+  if (isOpen) { document.getElementById('searchEmp').value=''; renderSidebar(); }
+  else { setTimeout(()=>document.getElementById('searchEmp').focus(), 50); }
+}
+
+// ── 모바일 여부 감지 및 버튼 표시 ──
+function checkMobile() {
+  const isMobile = window.innerWidth <= 768;
+  const mobileBtn = document.getElementById('mobileSidebarBtn');
+  if (mobileBtn) mobileBtn.style.display = isMobile ? '' : 'none';
+}
+window.addEventListener('resize', checkMobile);
+checkMobile();
+
+function switchTab(tab){
+  ['schedule','leave','overtime','employees'].forEach((t,i)=>{
+    document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1)).style.display=t===tab?'':'none';
+    document.querySelectorAll('.tab')[i].className='tab'+(t===tab?' active':'');
+    const mt=document.getElementById('mtab-'+t);
+    if(mt) mt.className='mobile-tab'+(t===tab?' active':'');
+  });
+  document.getElementById('sidebar').style.display=tab==='schedule'?'':'none';
+  closeMobileSidebar();
+  if(tab==='leave'){initLeaveFilters();initLeaveTableFilters();renderLeaveTable();renderLeaveHistory();initCalendar();renderLeaveBalanceSimple();}
+  if(tab==='overtime'){initOvertimeTab();}
+  if(tab==='employees'){renderEmpTable(); initEmpMemoFilters(); renderEmpMemos();}
+}
+function changeWeek(dir){weekOffset+=dir;renderSchedule();}
+function selectEmp(id){selectedEmpId=selectedEmpId===id?null:id;renderSidebar();renderSchedule();}
+function confirmSchedule(){confirmed[weekKey(weekOffset)]=true;save();renderSchedule();}
+function resetWeekSchedule(){
+  const k=weekKey(weekOffset);
+  const days=getWeekDays(weekOffset);
+  const weekDateStrs=days.map(d=>toLocalDateStr(d));
+  const hadChanges=!!(schedules[k]&&Object.keys(schedules[k]).filter(x=>x!=="_notes").length);
+  const hadLeaves=leaveRequests.some(r=>r.reason==="근무표에서 등록"&&weekDateStrs.includes(r.start));
+  if(!hadChanges&&!hadLeaves){alert("이 주에 수동으로 변경된 근무가 없습니다.");return;}
+  if(!confirm("이 주의 수동 변경을 모두 초기화하고 기본 근무표로 되돌릴까요?\n(메모는 유지됩니다)"))return;
+  if(schedules[k]){const notes=schedules[k]._notes;schedules[k]={};if(notes)schedules[k]._notes=notes;}
+  leaveRequests=leaveRequests.filter(r=>!(r.reason==="근무표에서 등록"&&weekDateStrs.includes(r.start)));
+  confirmed[k]=false;
+  save();renderSchedule();
+}
+function getNote(empId,di,off){
+  const k=weekKey(off);
+  return schedules[k]?._notes?.[empId]?.[di]||'';
+}
+function setNote(empId,di,note,off){
+  const k=weekKey(off);
+  if(!schedules[k])schedules[k]={};
+  if(!schedules[k]._notes)schedules[k]._notes={};
+  if(!schedules[k]._notes[empId])schedules[k]._notes[empId]={};
+  if(note.trim()){schedules[k]._notes[empId][di]=note.trim();}
+  else{delete schedules[k]._notes[empId][di];}
+}
+function openShiftEdit(empId,di){
+  editingCell={empId,di};
+  const emp=employees.find(e=>e.id===empId);
+  const d=getWeekDays(weekOffset)[di];
+  const isOrigOff=!shouldWork(emp,di,weekOffset);
+  document.getElementById('shiftModalTitle').innerHTML=
+    emp.name+' — '+(d.getMonth()+1)+'/'+d.getDate()+' 근무 변경'
+    +(isOrigOff?' <span style="font-size:11px;font-weight:400;color:#f57f17">(원래 비근무일)</span>':'');
+  const cur=getShift(emp,di,weekOffset);
+  document.getElementById('shiftSelect').value=(cur==='__off__')?'off':cur;
+  const fullNote=getNote(empId,di,weekOffset);
+  const otLines=fullNote.split('\n').filter(l=>l.startsWith('[추가근무]'));
+  const manualLines=fullNote.split('\n').filter(l=>!l.startsWith('[추가근무]')).join('\n').trim();
+  const otNoteEl=document.getElementById('shiftOtNote');
+  if(otLines.length){
+    otNoteEl.style.display='';
+    otNoteEl.textContent=otLines.join('\n');
+  } else {
+    otNoteEl.style.display='none';
+    otNoteEl.textContent='';
+  }
+  document.getElementById('shiftNote').value=manualLines;
+  document.getElementById('shiftModal').classList.add('open');
+}
+function applyShift(){
+  const empId=editingCell.empId, di=editingCell.di;
+  const sel=document.getElementById('shiftSelect').value;
+  const emp=employees.find(e=>e.id===empId);
+  const isOrigOff=!shouldWork(emp,di,weekOffset);
+  const dateStr=toLocalDateStr(getWeekDays(weekOffset)[di]);
+
+  // 기존에 이 날짜에 연결된 leaveRequest가 있으면 제거 (새 값으로 교체되므로)
+  const existingIdx=leaveRequests.findIndex(r=>
+    r.empId===empId && r.start===dateStr && r.end===dateStr &&
+    (r.type==='annual'||r.type==='half'||r.type==='half_pm')
+  );
+
+  if(sel==='annual'||sel==='half'||sel==='half_pm'){
+    // 연차/반차 → leaveRequests에 등록 (기존 항목 교체 or 신규)
+    if(existingIdx>=0){
+      leaveRequests[existingIdx].type=sel;
+    } else {
+      leaveRequests.push({
+        id:(leaveRequests[leaveRequests.length-1]?.id||0)+1,
+        empId, type:sel, start:dateStr, end:dateStr,
+        reason:'근무표에서 등록', status:'approved',
+        createdAt:toLocalDateStr(TODAY)
+      });
+    }
+    // schedules에서 이 날의 오버라이드 제거 (leaveRequests가 우선)
+    const k=weekKey(weekOffset);
+    if(schedules[k]?.[empId]?.[di]!==undefined) delete schedules[k][empId][di];
+    confirmed[k]=false;
+  } else {
+    // 연차/반차가 아닌 값으로 바꿀 때 → 기존 leaveRequest 삭제
+    if(existingIdx>=0) leaveRequests.splice(existingIdx,1);
+
+    if(isOrigOff && sel==='off'){
+      const k=weekKey(weekOffset);
+      if(schedules[k]?.[empId]?.[di]!==undefined){
+        delete schedules[k][empId][di];
+        confirmed[k]=false;
+      }
+    } else {
+      setShiftRaw(empId,di,sel,weekOffset);
+    }
+  }
+
+  // 수동 메모 저장 시 기존 추가근무 라인 보존
+  const manualNote=document.getElementById('shiftNote').value;
+  const existingNote=getNote(empId,di,weekOffset);
+  const otLines=existingNote.split('\n').filter(l=>l.startsWith('[추가근무]'));
+  const combined=otLines.join('\n')+(otLines.length&&manualNote.trim()?'\n':'')+manualNote;
+  setNote(empId,di,combined,weekOffset);
+  save();closeModal('shiftModal');renderSchedule();
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');editingCell=null;if(id==='leaveModal')document.getElementById('leaveModal')._editId=null;}
+document.querySelectorAll('.modal-bg').forEach(bg=>bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open');}));
+
+// ── 추가근무 ──
+let otCalYear = TODAY.getFullYear(), otCalMonth = TODAY.getMonth();
+
+function calcOtHours(start, end) {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;
+  return Math.round(mins / 60 * 10) / 10;
+}
+
+function initOvertimeTab() {
+  // 연도 셀렉트 초기화
+  const years = new Set(overtimeRecords.map(r => r.date.slice(0, 4)));
+  years.add(String(TODAY.getFullYear()));
+  const cur = String(TODAY.getFullYear());
+  const yHtml = [...years].sort().reverse().map(y => '<option value="' + y + '"' + (y === cur ? ' selected' : '') + '>' + y + '년</option>').join('');
+  document.getElementById('otYear').innerHTML = yHtml;
+  document.getElementById('otSumYear').innerHTML = yHtml;
+  // 현재 월 기본 세팅
+  const m = String(TODAY.getMonth() + 1).padStart(2, '0');
+  document.getElementById('otMonth').value = m;
+  document.getElementById('otSumMonth').value = m;
+  // 직원 필터
+  document.getElementById('otEmpFilter').innerHTML = '<option value="">전체 직원</option>' +
+    employees.map(e => '<option value="' + e.id + '">' + e.name + ' (' + e.dept + ')</option>').join('');
+  // 달력 초기화
+  otCalYear = TODAY.getFullYear(); otCalMonth = TODAY.getMonth();
+  renderOvertimeTable();
+  renderOvertimeSummary();
+  renderOtCalendar();
+}
+
+function renderOvertimeTable() {
+  const year = document.getElementById('otYear')?.value || '';
+  const month = document.getElementById('otMonth')?.value || '';
+  const empId = +document.getElementById('otEmpFilter')?.value || 0;
+  let filtered = [...overtimeRecords];
+  if (year) filtered = filtered.filter(r => r.date.startsWith(year));
+  if (month && year) filtered = filtered.filter(r => r.date.startsWith(year + '-' + month));
+  if (empId) filtered = filtered.filter(r => r.empId === empId);
+  filtered.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+  const tbl = document.getElementById('overtimeTable');
+  tbl.innerHTML = '';
+  // thead
+  const thead = tbl.createTHead();
+  thead.innerHTML = '<tr><th>직원</th><th>날짜</th><th>시간</th><th>근무 시간</th><th>사유</th><th>관리</th></tr>';
+  // tbody
+  const tbody = tbl.createTBody();
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">등록된 추가근무가 없습니다</td></tr>';
+  } else {
+    filtered.forEach(r => {
+      const emp = employees.find(e => e.id === r.empId); if (!emp) return;
+      const hrs = calcOtHours(r.startTime, r.endTime);
+      const [bg, fg] = COLORS[emp.color % COLORS.length];
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><div style="display:flex;align-items:center;gap:5px"><div class="avatar" style="background:' + bg + ';color:' + fg + ';width:20px;height:20px;font-size:9px;flex-shrink:0">' + emp.name[0] + '</div><strong>' + emp.name + '</strong> <span style="font-size:11px;color:#aaa">' + emp.dept + '</span></div></td>'
+        + '<td>' + r.date + '</td>'
+        + '<td><span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">' + r.startTime + ' ~ ' + r.endTime + '</span></td>'
+        + '<td style="text-align:center;font-weight:600;color:#1565c0">' + hrs + '시간</td>'
+        + '<td style="color:#888">' + (r.reason || '-') + '</td>'
+        + '<td style="white-space:nowrap"></td>';
+      const actionTd = tr.querySelector('td:last-child');
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn sm';
+      editBtn.textContent = '수정';
+      editBtn.style.marginRight = '4px';
+      editBtn.onclick = () => openEditOvertime(r.id);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn sm danger';
+      delBtn.textContent = '삭제';
+      delBtn.onclick = () => deleteOvertime(r.id);
+      actionTd.appendChild(editBtn);
+      actionTd.appendChild(delBtn);
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+function renderOvertimeSummary() {
+  const year = document.getElementById('otSumYear')?.value || '';
+  const month = document.getElementById('otSumMonth')?.value || '';
+  let filtered = [...overtimeRecords];
+  if (year) filtered = filtered.filter(r => r.date.startsWith(year));
+  if (month && year) filtered = filtered.filter(r => r.date.startsWith(year + '-' + month));
+
+  const empMap = {};
+  filtered.forEach(r => {
+    if (!empMap[r.empId]) empMap[r.empId] = { total: 0, count: 0 };
+    empMap[r.empId].total += calcOtHours(r.startTime, r.endTime);
+    empMap[r.empId].count++;
+  });
+
+  let html = '<thead><tr><th>직원</th><th>부서</th><th>추가근무 횟수</th><th>총 추가근무 시간</th></tr></thead><tbody>';
+  const sorted = employees.filter(e => empMap[e.id]).sort((a, b) => (empMap[b.id]?.total || 0) - (empMap[a.id]?.total || 0));
+  if (!sorted.length) {
+    html += '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:16px">해당 기간 추가근무 내역이 없습니다</td></tr>';
+  } else {
+    const maxHrs = Math.max(...sorted.map(e => empMap[e.id]?.total || 0));
+    sorted.forEach(e => {
+      const d = empMap[e.id];
+      const pct = maxHrs > 0 ? Math.round(d.total / maxHrs * 100) : 0;
+      html += '<tr>'
+        + '<td><strong>' + e.name + '</strong></td>'
+        + '<td style="color:#888">' + e.dept + '</td>'
+        + '<td style="text-align:center">' + d.count + '회</td>'
+        + '<td><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600;color:#1565c0;min-width:50px">' + d.total + '시간</span><div class="leave-bar" style="flex:1"><div class="leave-bar-fill" style="width:' + pct + '%;background:#1565c0"></div></div></div></td>'
+        + '</tr>';
+    });
+  }
+  document.getElementById('overtimeSummaryTable').innerHTML = html + '</tbody>';
+}
+
+function renderOtCalendar() {
+  const lbl = document.getElementById('otCalMonthLabel');
+  const grid = document.getElementById('otCalGrid');
+  if (!lbl || !grid) return;
+  lbl.textContent = otCalYear + '년 ' + (otCalMonth + 1) + '월';
+  const monthStr = otCalYear + '-' + String(otCalMonth + 1).padStart(2, '0');
+  const relevant = overtimeRecords.filter(r => r.date.startsWith(monthStr));
+  const dayMap = {};
+  relevant.forEach(r => {
+    if (!dayMap[r.date]) dayMap[r.date] = [];
+    const emp = employees.find(e => e.id === r.empId);
+    if (emp) dayMap[r.date].push({ name: emp.name, startTime: r.startTime, endTime: r.endTime, hrs: calcOtHours(r.startTime, r.endTime) });
+  });
+  const firstDay = new Date(otCalYear, otCalMonth, 1);
+  const lastDay = new Date(otCalYear, otCalMonth + 1, 0);
+  const startDow = firstDay.getDay();
+  const todayStr = toLocalDateStr(TODAY);
+  let html = ['일', '월', '화', '수', '목', '금', '토'].map((d, i) => '<div class="cal-day-hd' + (i === 0 || i === 6 ? ' wknd' : '') + '">' + d + '</div>').join('');
+  for (let i = 0; i < startDow; i++) { const d = new Date(otCalYear, otCalMonth, 1 - (startDow - i)); html += '<div class="cal-cell other-month"><div class="cal-date">' + d.getDate() + '</div></div>'; }
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(otCalYear, otCalMonth, d);
+    const dow = date.getDay(); const isWknd = dow === 0 || dow === 6;
+    const dateStr = toLocalDateStr(date); const isToday = dateStr === todayStr;
+    const entries = dayMap[dateStr] || [];
+    const dateNumHtml = isToday ? '<span class="cal-date today-num">' + d + '</span>' : '<span class="cal-date' + (isWknd ? ' wknd' : '') + '">' + d + '</span>';
+    const totalHrs = entries.reduce((s, e) => s + e.hrs, 0);
+    const tagsHtml = entries.slice(0, 3).map(en =>
+      '<span class="cal-tag" style="background:#e3f2fd;color:#1565c0">' + en.name + ' ' + en.startTime + '~' + en.endTime + '</span>'
+    ).join('');
+    const moreHtml = entries.length > 3 ? '<span style="font-size:10px;color:#aaa">+' + (entries.length - 3) + '명 더</span>' : '';
+    const hrsHtml = entries.length > 0 ? '<div style="font-size:9px;color:#1565c0;font-weight:600;margin-top:2px">총 ' + totalHrs + '시간</div>' : '';
+    html += '<div class="cal-cell' + (isToday ? ' today' : '') + '" onclick="openOvertimeModalWithDate(\'' + dateStr + '\')">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' + dateNumHtml + '<span class="cal-add-btn">+</span></div>'
+      + tagsHtml + moreHtml + hrsHtml + '</div>';
+  }
+  const total = startDow + lastDay.getDate(); const remain = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let i = 1; i <= remain; i++) html += '<div class="cal-cell other-month"><div class="cal-date">' + i + '</div></div>';
+  grid.innerHTML = html;
+}
+
+function otCalChangeMonth(dir) {
+  otCalMonth += dir;
+  if (otCalMonth > 11) { otCalMonth = 0; otCalYear++; }
+  if (otCalMonth < 0) { otCalMonth = 11; otCalYear--; }
+  renderOtCalendar();
+}
+
+function openOvertimeModal() {
+  document.getElementById('overtimeModalTitle').textContent = '추가근무 등록';
+  document.getElementById('otEmpSel').innerHTML = employees.map(e => '<option value="' + e.id + '">' + e.name + ' (' + e.dept + ')</option>').join('');
+  document.getElementById('otDate').value = toLocalDateStr(TODAY);
+  document.getElementById('otStartTime').value = '';
+  document.getElementById('otEndTime').value = '';
+  document.getElementById('otReason').value = '';
+  document.getElementById('otCalcHours').textContent = '';
+  document.getElementById('overtimeModal')._editId = null;
+  document.getElementById('overtimeModal').classList.add('open');
+}
+
+function openOvertimeModalWithDate(dateStr) {
+  openOvertimeModal();
+  document.getElementById('otDate').value = dateStr;
+}
+
+function openEditOvertime(id) {
+  const r = overtimeRecords.find(x => x.id === id); if (!r) return;
+  document.getElementById('overtimeModalTitle').textContent = '추가근무 수정';
+  document.getElementById('otEmpSel').innerHTML = employees.map(e => '<option value="' + e.id + '"' + (e.id === r.empId ? ' selected' : '') + '>' + e.name + ' (' + e.dept + ')</option>').join('');
+  document.getElementById('otDate').value = r.date;
+  document.getElementById('otStartTime').value = r.startTime;
+  document.getElementById('otEndTime').value = r.endTime;
+  document.getElementById('otReason').value = r.reason || '';
+  const hrs = calcOtHours(r.startTime, r.endTime);
+  document.getElementById('otCalcHours').textContent = hrs > 0 ? '(' + hrs + '시간)' : '';
+  document.getElementById('overtimeModal')._editId = id;
+  document.getElementById('overtimeModal').classList.add('open');
+}
+
+// 특정 직원의 특정 날짜 추가근무 메모를 근무표 노트에 동기화
+function syncOvertimeNoteForDate(empId, dateStr) {
+  try {
+    // 해당 날짜의 모든 추가근무 기록 수집
+    const recs = overtimeRecords.filter(r => r.empId === empId && r.date === dateStr);
+
+    // 날짜 파싱 - "YYYY-MM-DD" 형식을 로컬 타임존으로 안전하게 파싱
+    const parts = dateStr.split('-');
+    const d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+    const dow = d.getDay(); // 0=일 ~ 6=토
+    const di = dow === 0 ? 6 : dow - 1; // 월=0 … 일=6
+    // 해당 날짜가 속한 주의 월요일
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - di);
+    mon.setHours(0,0,0,0);
+    const todayMon = getWeekStart(0);
+    const off = Math.round((mon - todayMon) / (7 * 86400000));
+
+    if (recs.length === 0) {
+      const existing = getNote(empId, di, off);
+      const cleaned = existing.split('\n').filter(l => !l.startsWith('[추가근무]')).join('\n').trim();
+      setNote(empId, di, cleaned, off);
+    } else {
+      const otLines = recs.map(r => {
+        const hrs = calcOtHours(r.startTime, r.endTime);
+        return '[추가근무] ' + r.startTime + '~' + r.endTime + ' (' + hrs + '시간)' + (r.reason ? ' ' + r.reason : '');
+      });
+      const existing = getNote(empId, di, off);
+      const manualLines = existing.split('\n').filter(l => !l.startsWith('[추가근무]')).join('\n').trim();
+      const combined = otLines.join('\n') + (manualLines ? '\n' + manualLines : '');
+      setNote(empId, di, combined, off);
+    }
+  } catch(e) {
+    console.warn('syncOvertimeNoteForDate 오류:', e);
+  }
+}
+
+function submitOvertime() {
+  const empId = +document.getElementById('otEmpSel').value;
+  const date = document.getElementById('otDate').value;
+  const startTime = document.getElementById('otStartTime').value;
+  const endTime = document.getElementById('otEndTime').value;
+  const reason = document.getElementById('otReason').value;
+  if (!date || !startTime || !endTime) { alert('날짜와 시작/종료 시간을 입력해주세요.'); return; }
+  const modal = document.getElementById('overtimeModal');
+  const editId = modal._editId;
+  let oldDate = null, oldEmpId = null;
+  if (editId) {
+    const r = overtimeRecords.find(x => x.id === editId);
+    if (r) {
+      oldDate = r.date; oldEmpId = r.empId;
+      r.empId = empId; r.date = date; r.startTime = startTime; r.endTime = endTime; r.reason = reason;
+    }
+  } else {
+    overtimeRecords.push({ id: (overtimeRecords[overtimeRecords.length - 1]?.id || 0) + 1, empId, date, startTime, endTime, reason });
+  }
+  // 메모 동기화: 날짜/직원이 바뀐 경우 이전 날짜도 정리
+  if (oldDate && (oldDate !== date || oldEmpId !== empId)) {
+    syncOvertimeNoteForDate(oldEmpId, oldDate);
+  }
+  syncOvertimeNoteForDate(empId, date);
+  save(); closeModal('overtimeModal');
+  renderOvertimeTable(); renderOvertimeSummary(); renderOtCalendar(); renderSchedule();
+}
+
+function deleteOvertime(id) {
+  if (!confirm('추가근무 기록을 삭제하시겠습니까?')) return;
+  const rec = overtimeRecords.find(x => x.id === id);
+  const empId = rec?.empId, date = rec?.date;
+  overtimeRecords = overtimeRecords.filter(x => x.id !== id);
+  if (empId && date) syncOvertimeNoteForDate(empId, date);
+  save(); renderOvertimeTable(); renderOvertimeSummary(); renderOtCalendar(); renderSchedule();
+}
+
+// 시간 변경 시 자동 계산
+document.addEventListener('DOMContentLoaded', () => {
+  ['otStartTime', 'otEndTime'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => {
+      const s = document.getElementById('otStartTime').value;
+      const e = document.getElementById('otEndTime').value;
+      const hrs = calcOtHours(s, e);
+      document.getElementById('otCalcHours').textContent = (s && e && hrs > 0) ? '(' + hrs + '시간)' : '';
+    });
+  });
+});
+
+function startEditTitle(){
+  const el=document.getElementById('siteTitle');
+  const cur=el.textContent;
+  const input=document.createElement('input');
+  input.value=cur;
+  input.style.cssText='font-size:15px;font-weight:600;border:none;border-bottom:2px solid #1a1a1a;outline:none;background:transparent;font-family:inherit;width:220px;padding:0';
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  function commit(){
+    const val=input.value.trim()||cur;
+    const div=document.createElement('div');
+    div.className='header-title';
+    div.id='siteTitle';
+    div.title='클릭하여 이름 수정';
+    div.style.cursor='pointer';
+    div.textContent=val;
+    div.onclick=startEditTitle;
+    input.replaceWith(div);
+    document.title=val.replace(/^📋\s*/,'');
+    try{localStorage.setItem('wms_sitename',val);}catch(e){}
+  }
+  input.addEventListener('blur',commit);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=cur;input.blur();}});
+}
+function loadSiteTitle(){
+  try{
+    const saved=localStorage.getItem('wms_sitename');
+    if(saved){
+      const el=document.getElementById('siteTitle');
+      if(el){el.textContent=saved;document.title=saved.replace(/^📋\s*/,'');}
+    }
+  }catch(e){}
+}
+
+// 연차/반차/수동변경 모두 무시하고 기본 패턴만 반환
+function getFixedShift(emp,di,off){
+  if(!shouldWork(emp,di,off))return '__off__';
+  const pat=DEFAULT_SHIFT[emp.id];
+  return pat?(pat[di]||'off'):'off';
+}
+
+function doPrintFixed(){
+  const days=getWeekDays(weekOffset);
+  const fmt=d=>(d.getMonth()+1)+'/'+d.getDate();
+  const odd=isOddWeek(weekOffset);
+  const now=TODAY;
+  const titleStr=days[0].getFullYear()+'년 '+fmt(days[0])+' ~ '+fmt(days[6])+' ('+(odd?'홀수':'짝수')+' 주)';
+  const metaStr='출력일: '+now.getFullYear()+'.'+(now.getMonth()+1)+'.'+now.getDate()+' / 고정근무표 (연차·반차 미반영)';
+
+  function schH(){
+    const depts=DEPTS.filter(d=>employees.some(e=>e.dept===d));
+    let h='<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.5pt">'
+      +'<colgroup><col style="width:22pt"><col style="width:40pt">'+days.map(()=>'<col>').join('')+'</colgroup>'
+      +'<thead><tr>'
+      +'<th style="background:#f2f2f2;border:0.3pt solid #aaa;padding:2pt 1pt;text-align:center;font-size:7pt">부서</th>'
+      +'<th style="background:#f2f2f2;border:0.3pt solid #aaa;padding:2pt 1pt;text-align:center;font-size:7pt">직원</th>'
+      +days.map((d,i)=>'<th style="background:#f2f2f2;border:0.3pt solid #aaa;padding:2pt 0;text-align:center;font-size:7pt;'+(i>=5?'color:#c00':'')+'">'
+        +DAY_KO[i]+'<br><span style="font-weight:400">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+      +'</tr></thead><tbody>';
+    const colCount=days.length+2;
+    depts.forEach((dept,deptIdx)=>{
+      const de=employees.filter(e=>e.dept===dept&&isActiveForWeek(e,weekOffset));
+      if(!de.length)return;
+      if(deptIdx>0) h+='<tr><td colspan="'+colCount+'" style="height:5pt;background:#f2f2f2;border:none;padding:0"></td></tr>';
+      de.forEach((emp,ri)=>{
+        h+='<tr>';
+        if(ri===0)h+='<td rowspan="'+de.length+'" style="border:0.3pt solid #ccc;background:#f9f9f9;text-align:center;font-size:7pt;vertical-align:middle">'+dept+'</td>';
+        h+='<td style="border:0.3pt solid #ccc;padding:0 3pt;font-size:7.5pt;font-weight:600;vertical-align:middle">'+emp.name+'</td>';
+        days.forEach((_,di)=>{
+          const sh=getFixedShift(emp,di,weekOffset);
+          if(sh==='__off__'){h+='<td style="border:0.3pt solid #ccc;text-align:center;color:#ccc;font-size:7pt;vertical-align:middle">—</td>';return;}
+          const lb=SHIFT_LABEL[sh]||'';
+          const bg=AM_KEYS.includes(sh)?'#d4edda':sh==='1323'?'#e2d9f3':'';
+          const fg=AM_KEYS.includes(sh)?'#155724':sh==='1323'?'#3d1a78':'#999';
+          h+=lb
+            ?'<td style="border:0.3pt solid #ccc;text-align:center;vertical-align:middle"><span style="background:'+bg+';color:'+fg+';font-size:7pt;font-weight:700;padding:1pt 4pt;border-radius:2pt;display:inline-block">'+lb+'</span></td>'
+            :'<td style="border:0.3pt solid #ccc;text-align:center;color:#ccc;font-size:7pt">—</td>';
+        });
+        h+='</tr>';
+      });
+    });
+    return h+'</tbody></table>';
+  }
+
+  function sumH(){
+    const activeDepts=DEPTS.filter(d=>employees.some(e=>e.dept===d));
+    const sds=[{keys:AM_KEYS,label:'오전',am:true},{keys:PM_KEYS,label:'오후',am:false}];
+    let h='<table style="width:100%;border-collapse:collapse;font-size:7pt;table-layout:fixed">'
+      +'<colgroup><col style="width:22pt"><col style="width:40pt">'+days.map(()=>'<col>').join('')+'</colgroup>'
+      +'<thead><tr><th colspan="2" style="border:0.4pt solid #bbb;background:#f2f2f2;padding:3pt 2pt"></th>'
+      +days.map((d,i)=>'<th style="border:0.4pt solid #bbb;background:#f2f2f2;font-weight:700;text-align:center;padding:3pt 2pt;'+(i>=5?'color:#c00':'')+'">'
+        +DAY_KO[i]+'<br><span style="font-weight:400">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+      +'</tr></thead><tbody>';
+    sds.forEach((sd,sdIdx)=>{
+      const rowDepts=activeDepts.filter(d=>!PM_EXCLUDE_DEPTS.includes(d)||sd.keys===AM_KEYS);
+      if(!rowDepts.length)return;
+      const colCount=days.length+2;
+      if(sdIdx>0) h+='<tr><td colspan="'+colCount+'" style="height:4pt;background:#f2f2f2;border:none;padding:0"></td></tr>';
+      const lbBg=sd.am?'#d4edda':'#e2d9f3', lbFg=sd.am?'#155724':'#3d1a78';
+      rowDepts.forEach((dept,di)=>{
+        const dEmps=employees.filter(e=>e.dept===dept);
+        h+='<tr>';
+        if(di===0)h+='<td rowspan="'+rowDepts.length+'" style="border:0.4pt solid #bbb;background:#e8e8e8;text-align:center;vertical-align:middle;padding:2pt 2pt">'
+          +'<span style="background:'+lbBg+';color:'+lbFg+';padding:1pt 3pt;border-radius:2pt;font-weight:700;font-size:6pt;writing-mode:horizontal-tb">'+sd.label+'</span></td>';
+        h+='<td style="border:0.4pt solid #bbb;background:#f5f5f5;text-align:center;font-size:6pt;font-weight:700;padding:2pt 2pt;white-space:nowrap">'+dept+'</td>';
+        days.forEach((_,di2)=>{
+          const entries=dEmps.filter(e=>isActiveForWeek(e,weekOffset)).map(e=>{
+            const sh=getFixedShift(e,di2,weekOffset);
+            return{name:e.name,shiftKey:sh};
+          }).filter(x=>sd.keys.includes(x.shiftKey));
+          const cell=entries.map(x=>x.name).join('<br>');
+          h+='<td style="border:0.4pt solid #bbb;padding:2pt 3pt;font-size:7pt;line-height:1.6;vertical-align:top">'+(cell||'-')+'</td>';
+        });
+        h+='</tr>';
+      });
+    });
+    return h+'</tbody></table>';
+  }
+
+  const legend='<div style="display:flex;gap:8pt;margin-top:5pt;font-size:6.5pt;color:#555">'
+    +'<span><span style="display:inline-block;width:8pt;height:8pt;background:#d4edda;border-radius:1pt;vertical-align:middle"></span> 오전(10-20)</span>'
+    +'<span><span style="display:inline-block;width:8pt;height:8pt;background:#e2d9f3;border-radius:1pt;vertical-align:middle"></span> 오후(13-23)</span>'
+    +'</div>';
+
+  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
+    +'<style>@page{size:A4 portrait;margin:6mm 8mm}*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:"Malgun Gothic","맑은 고딕",sans-serif}</style>'
+    +'</head><body>'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5pt solid #000;padding-bottom:3pt;margin-bottom:5pt">'
+    +'<div><div style="font-size:13pt;font-weight:700">주간 고정근무표</div><div style="font-size:7pt;color:#555;margin-top:2pt">'+titleStr+'</div></div>'
+    +'<div style="font-size:6.5pt;color:#888;text-align:right">'+metaStr+'</div></div>'
+    +schH()
+    +'<div style="border-top:0.5pt solid #bbb;margin:4pt 0 3pt"></div>'
+    +'<div style="font-size:8pt;font-weight:700;margin-bottom:3pt">요일별 근무 명단 (고정)</div>'
+    +sumH()+legend
+    +'</body></html>';
+
+  const iframe=document.getElementById('printFrame');
+  const doc=iframe.contentDocument||iframe.contentWindow.document;
+  doc.open();doc.write(html);doc.close();
+  setTimeout(()=>iframe.contentWindow.print(),300);
+}
+
+function doPrint(withDetail){
+  const days=getWeekDays(weekOffset);
+  const fmt=d=>(d.getMonth()+1)+'/'+d.getDate();
+  const k=weekKey(weekOffset);
+  const odd=isOddWeek(weekOffset);
+  const now=TODAY;
+  const titleStr=days[0].getFullYear()+'년 '+fmt(days[0])+' ~ '+fmt(days[6])+' ('+  (odd?'홀수':'짝수')+' 주)';
+  const metaStr='출력일: '+now.getFullYear()+'.'+(now.getMonth()+1)+'.'+now.getDate()+' / '+(confirmed[k]?'✓ 확정됨':'미확정');
+
+  function schH(){
+    const depts=DEPTS.filter(d=>employees.some(e=>e.dept===d));
+    let h='<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.5pt">'
+      +'<colgroup><col style="width:22pt"><col style="width:40pt">'+days.map(()=>'<col>').join('')+'</colgroup>'
+      +'<thead><tr>'
+      +'<th style="background:#f2f2f2;border:0.3pt solid #aaa;padding:2pt 1pt;text-align:center;font-size:7pt">부서</th>'
+      +'<th style="background:#f2f2f2;border:0.3pt solid #aaa;padding:2pt 1pt;text-align:center;font-size:7pt">직원</th>'
+      +days.map((d,i)=>'<th style="background:#f2f2f2;border:0.3pt solid #aaa;padding:2pt 0;text-align:center;font-size:7pt;'+(i>=5?'color:#c00':'')+'">'
+        +DAY_KO[i]+'<br><span style="font-weight:400">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+      +'</tr></thead><tbody>';
+    const colCount = days.length + 2;
+    depts.forEach((dept, deptIdx)=>{
+      const de=employees.filter(e=>e.dept===dept&&isActiveForWeek(e,weekOffset));
+      if(!de.length)return;
+      if(deptIdx>0) h+='<tr><td colspan="'+colCount+'" style="height:5pt;background:#f2f2f2;border:none;padding:0"></td></tr>';
+      de.forEach((emp,ri)=>{
+        h+='<tr>';
+        if(ri===0)h+='<td rowspan="'+de.length+'" style="border:0.3pt solid #ccc;background:#f9f9f9;text-align:center;font-size:7pt;vertical-align:middle">'+dept+'</td>';
+        h+='<td style="border:0.3pt solid #ccc;padding:0 3pt;font-size:7.5pt;font-weight:600;vertical-align:middle">'+emp.name+'</td>';
+        days.forEach((_,di)=>{
+          const sh=getShift(emp,di,weekOffset);
+          if(sh==='__off__'){h+='<td style="border:0.3pt solid #ccc;text-align:center;color:#ccc;font-size:7pt;vertical-align:middle">—</td>';return;}
+          let lb, bg, fg;
+          if(sh==='half'||sh==='half_pm'){
+            const base=getBaseShift(emp,di,weekOffset);
+            lb=getHalfLabel(base,sh);
+            bg='#f8d7da'; fg='#721c24';
+          } else {
+            lb=SHIFT_LABEL[sh]||'';
+            bg=AM_KEYS.includes(sh)?'#d4edda':sh==='1323'?'#e2d9f3':sh==='annual'?'#fff3cd':'';
+            fg=AM_KEYS.includes(sh)?'#155724':sh==='1323'?'#3d1a78':sh==='annual'?'#856404':'#999';
+          }
+          h+=lb
+            ?'<td style="border:0.3pt solid #ccc;text-align:center;vertical-align:middle"><span style="background:'+bg+';color:'+fg+';font-size:7pt;font-weight:700;padding:1pt 4pt;border-radius:2pt;display:inline-block">'+lb+'</span></td>'
+            :'<td style="border:0.3pt solid #ccc;text-align:center;color:#ccc;font-size:7pt">—</td>';
+        });
+        h+='</tr>';
+      });
+    });
+    return h+'</tbody></table>';
+  }
+
+  function sumH(){
+    const activeDepts=DEPTS.filter(d=>employees.some(e=>e.dept===d));
+    const sds=[{keys:AM_KEYS,label:'오전',am:true},{keys:PM_KEYS,label:'오후',am:false}];
+    let h='<table style="width:100%;border-collapse:collapse;font-size:7pt;table-layout:fixed">'
+      +'<colgroup><col style="width:22pt"><col style="width:40pt">'+days.map(()=>'<col>').join('')+'</colgroup>'
+      +'<thead><tr><th colspan="2" style="border:0.4pt solid #bbb;background:#f2f2f2;padding:3pt 2pt"></th>'
+      +days.map((d,i)=>'<th style="border:0.4pt solid #bbb;background:#f2f2f2;font-weight:700;text-align:center;padding:3pt 2pt;'+(i>=5?'color:#c00':'')+'">'
+        +DAY_KO[i]+'<br><span style="font-weight:400">'+(d.getMonth()+1)+'/'+d.getDate()+'</span></th>').join('')
+      +'</tr></thead><tbody>';
+    sds.forEach((sd,sdIdx)=>{
+      const rowDepts=activeDepts.filter(d=>!PM_EXCLUDE_DEPTS.includes(d)||sd.keys===AM_KEYS);
+      if(!rowDepts.length)return;
+      const colCount=days.length+2;
+      if(sdIdx>0) h+='<tr><td colspan="'+colCount+'" style="height:4pt;background:#f2f2f2;border:none;padding:0"></td></tr>';
+      const lbBg=sd.am?'#d4edda':'#e2d9f3', lbFg=sd.am?'#155724':'#3d1a78';
+      rowDepts.forEach((dept,di)=>{
+        const dEmps=employees.filter(e=>e.dept===dept);
+        h+='<tr>';
+        if(di===0)h+='<td rowspan="'+rowDepts.length+'" style="border:0.4pt solid #bbb;background:#e8e8e8;text-align:center;vertical-align:middle;padding:2pt 2pt">'
+          +'<span style="background:'+lbBg+';color:'+lbFg+';padding:1pt 3pt;border-radius:2pt;font-weight:700;font-size:6pt">'+sd.label+'</span></td>';
+        h+='<td style="border:0.4pt solid #bbb;background:#f5f5f5;text-align:center;font-size:6pt;font-weight:700;padding:2pt 2pt;white-space:nowrap">'+dept+'</td>';
+        days.forEach((_,di2)=>{
+          const entries=dEmps.filter(e=>isActiveForWeek(e,weekOffset)).map(e=>{
+            const{shiftKey,isHalf,halfType}=getDisplayInfo(e,di2);return{name:e.name,shiftKey,isHalf,halfType};
+          }).filter(x=>sd.keys.includes(x.shiftKey));
+          const cell=entries.map(x=>{
+            if(x.isHalf){const tl=getHalfLabel(x.shiftKey,x.halfType);return x.name+'<span style="font-size:5.5pt;color:#c0392b">('+tl+')</span>';}
+            return x.name;
+          }).join('<br>');
+          h+='<td style="border:0.4pt solid #bbb;padding:2pt 3pt;font-size:7pt;line-height:1.6;vertical-align:top">'+(cell||'-')+'</td>';
+        });
+        h+='</tr>';
+      });
+    });
+    return h+'</tbody></table>';
+  }
+
+  const legend='<div style="display:flex;gap:8pt;margin-top:5pt;font-size:6.5pt;color:#555">'
+    +'<span><span style="display:inline-block;width:8pt;height:8pt;background:#d4edda;border-radius:1pt;vertical-align:middle"></span> 오전(10-20)</span>'
+    +'<span><span style="display:inline-block;width:8pt;height:8pt;background:#e2d9f3;border-radius:1pt;vertical-align:middle"></span> 오후(13-23)</span>'
+    +'<span><span style="display:inline-block;width:8pt;height:8pt;background:#fff3cd;border-radius:1pt;vertical-align:middle"></span> 연차</span>'
+    +'<span><span style="display:inline-block;width:8pt;height:8pt;background:#f8d7da;border-radius:1pt;vertical-align:middle"></span> 반차</span>'
+    +'</div>';
+
+  const html='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
+    +'<style>@page{size:A4 portrait;margin:6mm 8mm}*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:"Malgun Gothic","맑은 고딕",sans-serif}</style>'
+    +'</head><body>'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5pt solid #000;padding-bottom:3pt;margin-bottom:5pt">'
+    +'<div><div style="font-size:13pt;font-weight:700">주간 근무표</div><div style="font-size:7pt;color:#555;margin-top:2pt">'+titleStr+'</div></div>'
+    +'<div style="font-size:6.5pt;color:#555;text-align:right">'+metaStr+'</div></div>'
+    +(withDetail?schH()+'<div style="border-top:0.5pt solid #bbb;margin:4pt 0 3pt"></div>':'')
+    +'<div style="font-size:8pt;font-weight:700;margin-bottom:3pt">요일별 근무 명단</div>'
+    +sumH()+legend
+    +'</body></html>';
+
+  const iframe=document.getElementById('printFrame');
+  const doc=iframe.contentDocument||iframe.contentWindow.document;
+  doc.open();doc.write(html);doc.close();
+  setTimeout(()=>iframe.contentWindow.print(),300);
+}
+
+function renderAll(){renderSidebar();initWeekDropdowns();renderSchedule();renderLeaveTable();renderEmpTable();}
+
+// ── 모바일 테이블 자동 축소 ──
+function fitTableToScreen() {
+  if (window.innerWidth > 768) return;
+  ['screenSchTable','screenSummary'].forEach(id => {
+    const tbl = document.getElementById(id);
+    if (!tbl) return;
+    const wrap = tbl.closest('.sch-wrap, .sum-wrap');
+    if (!wrap) return;
+    // scale 초기화 후 실제 너비 측정
+    tbl.style.transform = '';
+    tbl.style.transformOrigin = '';
+    const tblW = tbl.scrollWidth;
+    const wrapW = wrap.clientWidth;
+    if (tblW > wrapW) {
+      const scale = wrapW / tblW;
+      tbl.style.transform = 'scale('+scale+')';
+      tbl.style.transformOrigin = 'top left';
+      tbl.parentElement.style.height = (tbl.scrollHeight * scale) + 'px';
+      tbl.parentElement.style.overflow = 'visible';
+    }
+  });
+}
+window.addEventListener('resize', fitTableToScreen);
+
+// ── 모바일 달력 자동 축소 ──
+function fitCalToScreen() {
+  if (window.innerWidth > 768) return;
+  ['calGrid', 'otCalGrid'].forEach(id => {
+    const grid = document.getElementById(id);
+    if (!grid) return;
+    const wrap = grid.parentElement;
+    if (!wrap) return;
+    grid.style.transform = '';
+    grid.style.transformOrigin = '';
+    wrap.style.height = '';
+    wrap.style.overflow = '';
+    const gridW = grid.scrollWidth;
+    const wrapW = wrap.clientWidth;
+    if (gridW > wrapW) {
+      const scale = wrapW / gridW;
+      grid.style.transform = 'scale(' + scale + ')';
+      grid.style.transformOrigin = 'top left';
+      wrap.style.height = (grid.scrollHeight * scale) + 'px';
+      wrap.style.overflow = 'visible';
+    }
+  });
+}
+window.addEventListener('resize', fitCalToScreen);
+
+// ── Google Sheets 설정 모달 ──
+const GAS_CODE = `const SHEET_NAME = 'wms_data';
+
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
+    if (action === 'load') {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sh = ss.getSheetByName(SHEET_NAME);
+      if (!sh || sh.getLastRow() < 1) return jsonRes({ok:true, data:{}});
+      const raw = sh.getRange(1,1).getValue();
+      const data = raw ? JSON.parse(raw) : {};
+      return jsonRes({ok:true, data});
+    }
+    return jsonRes({ok:false, error:'unknown action'});
+  } catch(err) { return jsonRes({ok:false, error:err.toString()}); }
+}
+
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    if (body.action === 'save') {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      let sh = ss.getSheetByName(SHEET_NAME);
+      if (!sh) sh = ss.insertSheet(SHEET_NAME);
+      sh.getRange(1,1).setValue(JSON.stringify(body.data));
+      sh.getRange(1,2).setValue(new Date().toISOString());
+      return jsonRes({ok:true});
+    }
+    return jsonRes({ok:false, error:'unknown action'});
+  } catch(err) { return jsonRes({ok:false, error:err.toString()}); }
+}
+
+function jsonRes(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+function openSheetsSettingModal() {
+  document.getElementById('gasUrlInput').value = GAS_URL;
+  document.getElementById('gasTestResult').textContent = '';
+  document.getElementById('gasCodeBlock').textContent = GAS_CODE;
+  document.getElementById('sheetsSettingModal').classList.add('open');
+}
+
+function copyGasCode() {
+  navigator.clipboard.writeText(GAS_CODE).then(() => {
+    const btn = document.querySelector('#sheetsSettingModal pre + button') || document.querySelector('[onclick="copyGasCode()"]');
+    if (btn) { btn.textContent = '✓ 복사됨'; setTimeout(() => btn.textContent='복사', 1500); }
+  });
+}
+
+function saveGasUrl() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  setGasUrl(url);
+  closeModal('sheetsSettingModal');
+  if (url) {
+    const ind = document.getElementById('syncIndicator');
+    if (ind) { ind.textContent = '☁ 연결됨'; ind.style.color = '#2e7d32'; }
+  }
+}
+
+function testGasConnection() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  const res = document.getElementById('gasTestResult');
+  if (!url) { res.textContent = '⚠ URL을 먼저 입력하세요'; res.style.color='#f57f17'; return; }
+  res.textContent = '연결 중…'; res.style.color='#888';
+  fetch(url + '?action=load')
+    .then(r => r.json())
+    .then(d => {
+      res.textContent = d.ok ? '✓ 연결 성공!' : '✗ 응답 오류: '+d.error;
+      res.style.color = d.ok ? '#2e7d32' : '#c0392b';
+    })
+    .catch(err => { res.textContent = '✗ 연결 실패 (CORS 또는 URL 오류)'; res.style.color='#c0392b'; });
+}
+
+function pullFromSheets() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  const res = document.getElementById('gasTestResult');
+  if (!url) { res.textContent = '⚠ URL을 먼저 입력하세요'; res.style.color='#f57f17'; return; }
+  res.textContent = '가져오는 중…'; res.style.color='#888';
+  const prevUrl = GAS_URL;
+  GAS_URL = url;
+  loadFromSheets(ok => {
+    if (ok) { res.textContent = '✓ 데이터 가져오기 성공!'; res.style.color='#2e7d32'; renderAll(); }
+    else    { res.textContent = '✗ 데이터 없음 또는 실패'; res.style.color='#c0392b'; GAS_URL = prevUrl; }
+  });
+}
+
+// ── 초기화 ──
+// 1) localStorage로 빠르게 먼저 표시
+load(); loadSiteTitle(); renderAll();
+
+// 2) GAS URL이 설정되어 있으면 Sheets에서 최신 데이터 자동 로드
+if (GAS_URL) {
+  const ind = document.getElementById('syncIndicator');
+  if (ind) { ind.textContent = '☁ 불러오는 중…'; ind.style.color = '#888'; }
+  loadFromSheets(ok => {
+    if (ok) {
+      renderAll();
+      if (ind) { ind.textContent = '☁ 최신 데이터'; ind.style.color = '#2e7d32'; setTimeout(()=>{ if(ind) ind.textContent=''; }, 3000); }
+    } else {
+      if (ind) { ind.textContent = '☁ 로컬 데이터 사용 중'; ind.style.color = '#f57f17'; setTimeout(()=>{ if(ind) ind.textContent=''; }, 3000); }
+    }
+  });
+}
+</script>
+</body>
+</html>
