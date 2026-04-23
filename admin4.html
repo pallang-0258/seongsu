@@ -97,9 +97,9 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #e
   .sum-shift-inner { padding:2px 3px !important; font-size:10px !important; }
 
   /* 달력 */
-  .cal-grid { min-width:560px !important; gap:2px !important; }
-  .cal-cell { min-height:64px !important; padding:4px 3px !important; border-radius:5px !important; }
-  .cal-day-hd { font-size:15px !important; padding:3px 0 !important; }
+  .cal-grid { min-width:560px !important; gap:2px !important; grid-template-columns:repeat(7,80px) !important; }
+  .cal-cell { min-height:64px !important; padding:4px 3px !important; border-radius:5px !important; width:80px !important; }
+  .cal-day-hd { font-size:15px !important; padding:3px 0 !important; width:80px !important; }
   .cal-date { font-size:13px !important; }
   .cal-date.today-num { width:18px !important; height:18px !important; font-size:11px !important; }
   .cal-tag { font-size:13px !important; padding:2px 4px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; margin-bottom:2px !important; }
