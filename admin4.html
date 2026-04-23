@@ -334,7 +334,7 @@ select, input[type=text], input[type=date], input[type=number] {
             <button class="btn primary sm" onclick="openLeaveModal()">+ 신청 등록</button>
           </div>
         </div>
-        <table class="lv-table" id="leaveTable"></table>
+        <div id="leaveTableWrap" style="overflow:visible"><table class="lv-table" id="leaveTable"></table></div>
       </div>
       <div class="card">
         <div class="card-header">
@@ -2610,23 +2610,29 @@ function renderAll(){renderSidebar();initWeekDropdowns();renderSchedule();render
 // ── 모바일 테이블 자동 축소 ──
 function fitTableToScreen() {
   if (window.innerWidth > 768) return;
-  ['screenSchTable','screenSummary','leaveTable','overtimeTable'].forEach(id => {
-    const tbl = document.getElementById(id);
+  // id → wrap요소 매핑
+  const targets = [
+    {tblId:'screenSchTable', wrapSel:'.sch-wrap'},
+    {tblId:'screenSummary',  wrapSel:'.sum-wrap'},
+    {tblId:'leaveTable',     wrapId:'leaveTableWrap'},
+    {tblId:'overtimeTable',  wrapId:'overtimeTableWrap'},
+  ];
+  targets.forEach(({tblId, wrapSel, wrapId}) => {
+    const tbl = document.getElementById(tblId);
     if (!tbl) return;
-    const wrap = tbl.parentElement;
+    const wrap = wrapId ? document.getElementById(wrapId) : tbl.closest(wrapSel);
     if (!wrap) return;
     tbl.style.transform = '';
     tbl.style.transformOrigin = '';
     wrap.style.height = '';
-    wrap.style.overflow = '';
+    wrap.style.overflow = 'visible';
     const tblW = tbl.scrollWidth;
     const wrapW = wrap.clientWidth;
-    if (tblW > wrapW) {
+    if (tblW > wrapW && wrapW > 0) {
       const scale = wrapW / tblW;
       tbl.style.transform = 'scale('+scale+')';
       tbl.style.transformOrigin = 'top left';
-      tbl.parentElement.style.height = (tbl.scrollHeight * scale) + 'px';
-      tbl.parentElement.style.overflow = 'visible';
+      wrap.style.height = (tbl.scrollHeight * scale) + 'px';
     }
   });
 }
