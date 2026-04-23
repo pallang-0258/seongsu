@@ -97,11 +97,12 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #e
   .sum-shift-inner { padding:2px 3px !important; font-size:10px !important; }
 
   /* 달력 */
-  .cal-grid { min-width:0 !important; }
-  .cal-cell { min-height:50px !important; padding:3px 3px !important; font-size:13px !important; }
-  .cal-day-hd { font-size:13px !important; }
+  .cal-grid { min-width:0 !important; gap:2px !important; }
+  .cal-cell { min-height:64px !important; padding:4px 3px !important; border-radius:5px !important; }
+  .cal-day-hd { font-size:15px !important; padding:3px 0 !important; }
   .cal-date { font-size:13px !important; }
-  .cal-tag { font-size:12px !important; }
+  .cal-date.today-num { width:18px !important; height:18px !important; font-size:11px !important; }
+  .cal-tag { font-size:13px !important; padding:2px 4px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; margin-bottom:2px !important; }
 
   /* 직원관리 탭 모바일 */
   #tabEmployees > div { flex-direction:column !important; }
@@ -346,7 +347,7 @@ select, input[type=text], input[type=date], input[type=number] {
           </div>
         </div>
         <div class="cal-emp-filter" id="calEmpFilter"></div>
-        <div style="overflow-x:auto"><div class="cal-grid" id="calGrid"></div></div>
+        <div id="calGridWrap" style="overflow:visible"><div class="cal-grid" id="calGrid"></div></div>
         <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8e1"></div>연차</div>
           <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차(오전)</div>
@@ -401,7 +402,7 @@ select, input[type=text], input[type=date], input[type=number] {
             <button class="btn sm" onclick="otCalChangeMonth(1)">▶</button>
           </div>
         </div>
-        <div style="overflow-x:auto"><div class="cal-grid" id="otCalGrid"></div></div>
+        <div id="otCalGridWrap" style="overflow:visible"><div class="cal-grid" id="otCalGrid"></div></div>
         <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#e3f2fd"></div>추가근무</div>
         </div>
@@ -2640,18 +2641,17 @@ window.addEventListener('resize', fitTableToScreen);
 // ── 모바일 달력 자동 축소 ──
 function fitCalToScreen() {
   if (window.innerWidth > 768) return;
-  ['calGrid', 'otCalGrid'].forEach(id => {
-    const grid = document.getElementById(id);
-    if (!grid) return;
-    const wrap = grid.parentElement;
-    if (!wrap) return;
+  [['calGrid','calGridWrap'], ['otCalGrid','otCalGridWrap']].forEach(([gridId, wrapId]) => {
+    const grid = document.getElementById(gridId);
+    const wrap = document.getElementById(wrapId) || (grid && grid.parentElement);
+    if (!grid || !wrap) return;
     grid.style.transform = '';
     grid.style.transformOrigin = '';
     wrap.style.height = '';
-    wrap.style.overflow = '';
+    // 실제 너비 측정
     const gridW = grid.scrollWidth;
-    const wrapW = wrap.clientWidth;
-    if (gridW > wrapW) {
+    const wrapW = wrap.clientWidth || wrap.offsetWidth;
+    if (gridW > 0 && wrapW > 0 && gridW > wrapW) {
       const scale = wrapW / gridW;
       grid.style.transform = 'scale(' + scale + ')';
       grid.style.transformOrigin = 'top left';
