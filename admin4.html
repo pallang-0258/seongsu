@@ -6,23 +6,23 @@
 <title>근무관리 시스템</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f5f4f0; color: #1a1a1a; font-size: 13px; }
+body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #eef2f7; color: #1a1a1a; font-size: 13px; }
 
-.header { background:#fff; border-bottom:1px solid #e8e6e0; padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:52px; position:sticky; top:0; z-index:100; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-.header-title { font-size:15px; font-weight:600; }
+.header { background:#1565c0; border-bottom:1px solid #1255a8; padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:52px; position:sticky; top:0; z-index:100; box-shadow:0 2px 6px rgba(21,101,192,.3); }
+.header-title { font-size:15px; font-weight:600; color:#fff; }
 .header-tabs { display:flex; gap:2px; }
-.tab { padding:6px 14px; border-radius:8px; border:none; background:transparent; color:#888; cursor:pointer; font-size:13px; font-family:inherit; transition:background .15s; }
-.tab:hover { background:#f0ede8; color:#1a1a1a; }
-.tab.active { background:#f0ede8; color:#1a1a1a; font-weight:600; }
+.tab { padding:6px 14px; border-radius:8px; border:none; background:transparent; color:rgba(255,255,255,.7); cursor:pointer; font-size:13px; font-family:inherit; transition:background .15s; }
+.tab:hover { background:rgba(255,255,255,.15); color:#fff; }
+.tab.active { background:rgba(255,255,255,.2); color:#fff; font-weight:600; }
 
 .layout { display:flex; height:calc(100vh - 52px); }
-.sidebar { width:190px; min-width:190px; background:#fff; border-right:1px solid #e8e6e0; padding:12px 8px; overflow-y:auto; }
+.sidebar { width:190px; min-width:190px; background:#fff; border-right:1px solid #dde4ee; padding:12px 8px; overflow-y:auto; }
 .main { flex:1; padding:16px; overflow-y:auto; }
 
-.sidebar-label { font-size:10px; font-weight:600; color:#aaa; letter-spacing:.07em; text-transform:uppercase; padding:0 6px; margin-bottom:5px; margin-top:10px; }
+.sidebar-label { font-size:10px; font-weight:600; color:#90aac8; letter-spacing:.07em; text-transform:uppercase; padding:0 6px; margin-bottom:5px; margin-top:10px; }
 .emp-item { display:flex; align-items:center; gap:7px; padding:5px 8px; border-radius:8px; cursor:pointer; transition:background .1s; }
-.emp-item:hover { background:#f5f4f0; }
-.emp-item.selected { background:#e8f0fe; }
+.emp-item:hover { background:#eef2f7; }
+.emp-item.selected { background:#dbeafe; }
 
 /* 모바일 사이드바 오버레이 */
 .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:149; }
@@ -58,7 +58,7 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f
 
   .mobile-tabbar {
     display:flex; position:fixed; bottom:0; left:0; right:0; height:56px;
-    background:#fff; border-top:1px solid #e8e6e0;
+    background:#fff; border-top:1px solid #dde4ee;
     z-index:100; box-shadow:0 -2px 8px rgba(0,0,0,.06);
   }
   .mobile-tab {
@@ -67,7 +67,7 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f
     font-family:inherit; cursor:pointer; transition:color .15s; padding:6px 2px;
   }
   .mobile-tab .mt-icon { font-size:18px; line-height:1; }
-  .mobile-tab.active { color:#1a1a1a; font-weight:600; }
+  .mobile-tab.active { color:#1565c0; font-weight:600; }
   .mobile-tab.active .mt-icon { transform:scale(1.1); }
 
   .stats-grid { grid-template-columns:repeat(3,1fr); gap:7px; }
@@ -120,23 +120,23 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f
 .avatar { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; flex-shrink:0; }
 .emp-name-s { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-.btn { padding:6px 12px; border-radius:8px; border:1px solid #d8d5cf; background:#fff; color:#1a1a1a; cursor:pointer; font-size:12px; font-family:inherit; transition:background .15s; white-space:nowrap; }
-.btn:hover { background:#f5f4f0; }
-.btn.primary { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
-.btn.primary:hover { background:#333; }
+.btn { padding:6px 12px; border-radius:8px; border:1px solid #c8d6e8; background:#fff; color:#1a1a1a; cursor:pointer; font-size:12px; font-family:inherit; transition:background .15s; white-space:nowrap; }
+.btn:hover { background:#eef2f7; }
+.btn.primary { background:#1565c0; color:#fff; border-color:#1565c0; }
+.btn.primary:hover { background:#1255a8; }
 .btn.sm { padding:4px 10px; font-size:11px; }
 .btn.danger { color:#c0392b; border-color:#f5c6c2; }
 .btn.danger:hover { background:#fdf2f2; }
 
-.card { background:#fff; border:1px solid #e8e6e0; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+.card { background:#fff; border:1px solid #dde4ee; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
 .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .card-title { font-size:14px; font-weight:600; }
 
 .stats-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
-.stat-card { background:#f5f4f0; border-radius:10px; padding:12px 14px; }
-.stat-label { font-size:11px; color:#888; margin-bottom:4px; }
-.stat-value { font-size:22px; font-weight:600; }
-.stat-sub { font-size:11px; color:#aaa; margin-top:1px; }
+.stat-card { background:#eef2f7; border-radius:10px; padding:12px 14px; }
+.stat-label { font-size:11px; color:#6b8cae; margin-bottom:4px; }
+.stat-value { font-size:22px; font-weight:600; color:#1a1a1a; }
+.stat-sub { font-size:11px; color:#90aac8; margin-top:1px; }
 
 .wk-badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
 .confirm-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
@@ -145,14 +145,14 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f
 
 .sch-wrap { overflow-x:auto; }
 .sch-table { width:100%; border-collapse:collapse; font-size:12px; }
-.sch-table th, .sch-table td { border:1px solid #e8e6e0; padding:0; text-align:center; }
-.sch-table th { background:#f5f4f0; font-weight:600; padding:7px 10px; color:#666; font-size:11px; }
+.sch-table th, .sch-table td { border:1px solid #dde4ee; padding:0; text-align:center; }
+.sch-table th { background:#eef2f7; font-weight:600; padding:7px 10px; color:#4a6fa5; font-size:11px; }
 .sch-table th.wknd { color:#c0392b; }
 .sch-table td { height:40px; position:relative; }
 .emp-cell { text-align:left; padding:4px 12px; background:#fff; white-space:nowrap; }
-.dept-cell { text-align:center; padding:4px 8px; background:#f9f8f6; font-size:11px; color:#888; white-space:nowrap; }
+.dept-cell { text-align:center; padding:4px 8px; background:#f4f7fb; font-size:11px; color:#6b8cae; white-space:nowrap; }
 .shift-cell { width:100%; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.shift-cell:hover { background:#f5f4f0; }
+.shift-cell:hover { background:#eef2f7; }
 .shift-pill { padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; pointer-events:none; }
 .s-1020 { background:#e8f5e9; color:#2e7d32; }
 .s-1019 { background:#e8f5e9; color:#2e7d32; }
@@ -162,58 +162,58 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f
 
 .sum-wrap { overflow-x:auto; }
 .sum-table { width:100%; border-collapse:collapse; font-size:11px; }
-.sum-table th, .sum-table td { border:1px solid #dedad4; }
-.sum-table th { background:#f5f4f0; font-weight:600; text-align:center; padding:6px 10px; font-size:11px; color:#555; }
+.sum-table th, .sum-table td { border:1px solid #dde4ee; }
+.sum-table th { background:#eef2f7; font-weight:600; text-align:center; padding:6px 10px; font-size:11px; color:#4a6fa5; }
 .sum-table th.wknd { color:#c0392b; }
-.sum-shift-cell { background:#f0f0ee; text-align:center; padding:0; vertical-align:middle; width:44px; }
+.sum-shift-cell { background:#dde4ee; text-align:center; padding:0; vertical-align:middle; width:44px; }
 .sum-shift-inner { display:flex; align-items:center; justify-content:center; height:100%; padding:4px 6px; }
-.sum-dept-cell { background:#fafaf8; font-size:10px; font-weight:600; color:#888; text-align:center; padding:4px 8px; white-space:nowrap; width:72px; }
+.sum-dept-cell { background:#f4f7fb; font-size:10px; font-weight:600; color:#6b8cae; text-align:center; padding:4px 8px; white-space:nowrap; width:72px; }
 .sum-name-cell { padding:4px 10px; font-size:11px; line-height:1.7; color:#222; vertical-align:top; }
 
 .lv-table { width:100%; border-collapse:collapse; }
-.lv-table th, .lv-table td { border-bottom:1px solid #f0ede8; padding:9px 10px; text-align:left; font-size:12px; }
-.lv-table th { font-weight:600; color:#888; background:#f9f8f6; }
+.lv-table th, .lv-table td { border-bottom:1px solid #dde4ee; padding:9px 10px; text-align:left; font-size:12px; }
+.lv-table th { font-weight:600; color:#6b8cae; background:#f4f7fb; }
 .lv-table tr:last-child td { border-bottom:none; }
-.lv-table tr:hover td { background:#fafaf8; }
+.lv-table tr:hover td { background:#f4f7fb; }
 .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
 .badge-pending  { background:#fff8e1; color:#f57f17; }
 .badge-approved { background:#e8f5e9; color:#2e7d32; }
 .badge-rejected { background:#fce4ec; color:#880e4f; }
-.leave-bar { height:6px; border-radius:3px; background:#e8e6e0; overflow:hidden; margin-top:4px; }
+.leave-bar { height:6px; border-radius:3px; background:#dde4ee; overflow:hidden; margin-top:4px; }
 .leave-bar-fill { height:100%; border-radius:3px; }
 
 .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; align-items:center; justify-content:center; }
 .modal-bg.open { display:flex; }
 .modal { background:#fff; border-radius:14px; padding:24px; width:400px; max-width:96vw; box-shadow:0 20px 60px rgba(0,0,0,.15); }
-.modal-title { font-size:15px; font-weight:600; margin-bottom:16px; }
+.modal-title { font-size:15px; font-weight:600; margin-bottom:16px; color:#1565c0; }
 .form-row { margin-bottom:12px; }
-.form-label { font-size:12px; color:#888; margin-bottom:4px; display:block; }
+.form-label { font-size:12px; color:#6b8cae; margin-bottom:4px; display:block; }
 select, input[type=text], input[type=date], input[type=number] {
-  width:100%; height:36px; border-radius:8px; border:1px solid #d8d5cf;
+  width:100%; height:36px; border-radius:8px; border:1px solid #c8d6e8;
   background:#fff; color:#1a1a1a; padding:0 10px; font-size:13px; font-family:inherit;
 }
 .modal-footer { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
 
 /* 달력 */
 .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; min-width:560px; }
-.cal-day-hd { text-align:center; font-size:11px; font-weight:600; color:#888; padding:4px 0; }
+.cal-day-hd { text-align:center; font-size:11px; font-weight:600; color:#6b8cae; padding:4px 0; }
 .cal-day-hd.wknd { color:#c0392b; }
-.cal-cell { border:1px solid #f0ede8; border-radius:8px; min-height:76px; padding:5px 6px; font-size:11px; background:#fff; }
-.cal-cell:not(.other-month):hover { border-color:#d8d5cf; background:#fafaf8; cursor:pointer; }
-.cal-cell.other-month { background:#fafaf8; }
-.cal-cell.today { border-color:#1a1a1a; }
-.cal-date { font-size:11px; font-weight:600; color:#555; }
+.cal-cell { border:1px solid #dde4ee; border-radius:8px; min-height:76px; padding:5px 6px; font-size:11px; background:#fff; }
+.cal-cell:not(.other-month):hover { border-color:#90aac8; background:#f4f7fb; cursor:pointer; }
+.cal-cell.other-month { background:#f4f7fb; }
+.cal-cell.today { border-color:#1565c0; }
+.cal-date { font-size:11px; font-weight:600; color:#4a6fa5; }
 .cal-date.wknd { color:#c0392b; }
-.cal-date.today-num { background:#1a1a1a; color:#fff; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; }
+.cal-date.today-num { background:#1565c0; color:#fff; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; }
 .cal-add-btn { font-size:14px; color:#ccc; display:none; cursor:pointer; padding:0 2px; }
-.cal-cell:not(.other-month):hover .cal-add-btn { display:inline; color:#888; }
+.cal-cell:not(.other-month):hover .cal-add-btn { display:inline; color:#6b8cae; }
 .cal-tag { display:block; border-radius:3px; padding:1px 5px; font-size:10px; font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cal-tag.annual { background:#fff8e1; color:#f57f17; }
 .cal-tag.half    { background:#fce4ec; color:#880e4f; }
 .cal-tag.half_pm { background:#ede7f6; color:#4527a0; }
 .cal-emp-filter { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px; }
-.cal-emp-btn { padding:3px 10px; border-radius:20px; border:1px solid #d8d5cf; background:#fff; font-size:11px; cursor:pointer; transition:all .15s; font-family:inherit; }
-.cal-emp-btn:hover { background:#f5f4f0; }
+.cal-emp-btn { padding:3px 10px; border-radius:20px; border:1px solid #c8d6e8; background:#fff; font-size:11px; cursor:pointer; transition:all .15s; font-family:inherit; }
+.cal-emp-btn:hover { background:#eef2f7; }
 .cal-emp-btn.active { border-color:transparent; font-weight:600; }
 </style>
 </head>
@@ -231,7 +231,7 @@ select, input[type=text], input[type=date], input[type=number] {
   </div>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="syncIndicator" style="font-size:11px;color:#2e7d32;min-width:70px;text-align:right"></span>
-    <button class="btn sm" onclick="openSheetsSettingModal()" title="Google Sheets 연동 설정">⚙ 연동 설정</button>
+    <button class="btn sm" onclick="openSheetsSettingModal()" title="Google Sheets 연동 설정" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)">⚙ 연동 설정</button>
   </div>
 </div>
 
@@ -1280,8 +1280,7 @@ function renderLeaveHistory(){
       const [bg,fg]=COLORS[e.color%COLORS.length];
       const earned=calcEarnedAnnual(e.joinDate);const used=calcUsedAnnual(e.id);const rem=earned-used;
       html+='<div style="margin-bottom:16px">'
-        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #f0ede8">'
-        +'<div class="avatar" style="background:'+bg+';color:'+fg+';width:24px;height:24px;font-size:10px;flex-shrink:0">'+e.name[0]+'</div>'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #dde4ee">'
         +'<span style="font-weight:600;font-size:13px">'+e.name+'</span>'
         +'<span style="font-size:11px;color:#aaa">'+e.dept+'</span>'
         +'<span style="margin-left:auto;font-size:11px;color:#888">발생 '+earned+'일 · 사용 '+used+'일 · <strong style="color:'+(rem<0?'#c0392b':'#2e7d32')+'">'+rem+'일 잔여</strong></span>'
