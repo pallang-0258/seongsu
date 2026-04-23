@@ -97,7 +97,7 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #e
   .sum-shift-inner { padding:2px 3px !important; font-size:10px !important; }
 
   /* 달력 */
-  .cal-grid { min-width:0 !important; gap:2px !important; }
+  .cal-grid { min-width:560px !important; gap:2px !important; }
   .cal-cell { min-height:64px !important; padding:4px 3px !important; border-radius:5px !important; }
   .cal-day-hd { font-size:15px !important; padding:3px 0 !important; }
   .cal-date { font-size:13px !important; }
@@ -1215,8 +1215,8 @@ function renderCalendar(){
       return '<span class="cal-tag '+tc+'"'+(en.status==='pending'?' style="opacity:.6"':'')+'>'+en.name+' '+tl+'</span>';
     }).join('');
     const moreHtml=entries.length>4?'<span style="font-size:10px;color:#aaa">+'+(entries.length-4)+'명 더</span>':'';
-    html+='<div class="cal-cell'+(isToday?' today':'')+'" onclick="openCalLeaveModal(\''+dateStr+'\')">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'+dateNumHtml+'<span class="cal-add-btn">+</span></div>'
+    html+='<div class="cal-cell'+(isToday?' today':'')+'">'
+      +'<div style="margin-bottom:3px">'+dateNumHtml+'</div>'
       +tagsHtml+moreHtml+'</div>';
   }
   const total=startDow+lastDay.getDate();const remain=total%7===0?0:7-(total%7);
