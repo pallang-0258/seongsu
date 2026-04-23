@@ -1709,7 +1709,7 @@ function saveEmp(){
     }
     DEFAULT_SHIFT[e.id]=newShift;
   } else {
-    const id=(employees[employees.length-1]?.id||0)+1;
+    const id = (employees.length > 0 ? Math.max(...employees.map(e => e.id)) : 0) + 1;
     employees.push({id,name,dept:document.getElementById('nDept').value,joinDate,leaveDate,annual:calcEarnedAnnual(joinDate)||0,used:0,color:id%COLORS.length,workType,workDays});
     DEFAULT_SHIFT[id]=dayShifts.map(s=>s==='off'?null:s);
   }
