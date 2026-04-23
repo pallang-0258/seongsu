@@ -89,12 +89,12 @@ body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #f
   .shift-pill { font-size:11px !important; padding:2px 5px !important; border-radius:3px !important; white-space:nowrap !important; }
 
   /* 요약표 */
-  .sum-table { min-width:0 !important; font-size:9px !important; }
-  .sum-table th { font-size:9px !important; padding:3px 1px !important; }
-  .sum-dept-cell { font-size:8px !important; padding:2px 2px !important; width:28px !important; }
-  .sum-name-cell { font-size:9px !important; padding:2px 3px !important; line-height:1.5 !important; }
-  .sum-shift-cell { width:24px !important; }
-  .sum-shift-inner { padding:2px 3px !important; }
+  .sum-table { min-width:0 !important; font-size:11px !important; }
+  .sum-table th { font-size:11px !important; padding:3px 2px !important; white-space:nowrap !important; }
+  .sum-dept-cell { font-size:10px !important; padding:2px 3px !important; width:30px !important; }
+  .sum-name-cell { font-size:12px !important; padding:2px 4px !important; line-height:1.8 !important; white-space:nowrap !important; }
+  .sum-shift-cell { width:26px !important; }
+  .sum-shift-inner { padding:2px 3px !important; font-size:10px !important; }
 
   /* 달력 */
   .cal-grid { min-width:0 !important; }
@@ -526,9 +526,9 @@ select, input[type=text], input[type=date], input[type=number] {
 
 <!-- 직원 추가/수정 모달 -->
 <div class="modal-bg" id="empModal">
-  <div class="modal" style="width:420px">
+  <div class="modal" style="width:min(96vw,620px)">
     <div class="modal-title" id="empModalTitle">직원 추가</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+    <div style="display:grid;grid-template-columns:2fr 1.2fr 1.5fr 1.5fr;gap:10px">
       <div class="form-row" style="margin:0"><label class="form-label">이름</label><input type="text" id="nName" placeholder="홍길동"></div>
       <div class="form-row" style="margin:0"><label class="form-label">부서</label>
         <select id="nDept"><option>약사</option><option>일본어</option><option>중국어</option><option>물류</option></select>
@@ -749,33 +749,7 @@ let employees = [
   {id:25,name:'조문준',dept:'물류',annual:15,used:0,color:0,workType:'full',workDays:[1,1,1,1,1,0,0]},
 ];
 
-const DEFAULT_SHIFT = {
-  1:['1020','1020','1020','1020',null,null,'1323'],
-  2:[null,'1020','1020','1020','1323','1323',null],
-  3:['1020','1323','1323',null,'1020','1020',null],
-  4:['1323','1020',null,'1323','1020','1020',null],
-  5:[null,null,null,null,'1020','1020',null],
-  6:['1323',null,'1323','1323','1323','1323',null],
-  7:[null,null,null,null,null,null,'1020'],
-  8:[null,null,null,null,null,null,'1323'],
-  9:[null,null,null,null,null,null,'1020'],
-  10:[null,null,null,null,null,null,'1020'],
-  11:['1323','1323','1020',null,'1020',null,'1323'],
-  12:['1323',null,'1020','1020','1323','1020',null],
-  13:['1020','1323',null,'1323','1020',null,'1020'],
-  14:[null,'1020','1323','1020','1323','1323',null],
-  15:['1020','1020','1323',null,null,'1323','1020'],
-  16:[null,null,null,null,null,'1020','1323'],
-  17:['1323','1323',null,'1020','1323',null,'1020'],
-  18:['1323',null,'1020','1020','1323','1020',null],
-  19:['1020','1020',null,'1323','1020',null,'1020'],
-  20:[null,'1020','1020','1020','1020','1323',null],
-  21:['1020',null,'1020','1323',null,'1323','1020'],
-  22:['1020','1020','1323',null,null,null,null],
-  23:['1020',null,null,'1323','1020','1323','1020'],
-  24:[null,'1323','1323',null,null,null,null],
-  25:['1019','1019','1019','1019','1019',null,null],
-};
+let DEFAULT_SHIFT = {};
 
 let leaveRequests = [];
 let overtimeRecords = [];
@@ -795,7 +769,10 @@ function setGasUrl(url) {
 
 // ── 저장/불러오기 ──
 function save() {
-  const data = {employees, leaveRequests, schedules, confirmed, overtimeRecords, empMemos, defaultShift: DEFAULT_SHIFT};
+  // DEFAULT_SHIFT 키를 숫자로 통일해서 저장
+  const shiftToSave = {};
+  Object.keys(DEFAULT_SHIFT).forEach(k => { shiftToSave[+k] = DEFAULT_SHIFT[k]; });
+  const data = {employees, leaveRequests, schedules, confirmed, overtimeRecords, empMemos, defaultShift: shiftToSave};
   // 1) 로컬 저장 (즉시)
   try { localStorage.setItem('wms_v6', JSON.stringify(data)); } catch(e) {}
   // 2) Google Sheets 동기화 (비동기, 실패해도 로컬은 저장됨)
@@ -813,7 +790,9 @@ function load() {
       if (d.confirmed)     confirmed     = d.confirmed;
       if (d.overtimeRecords) overtimeRecords = d.overtimeRecords;
       if (d.empMemos)      empMemos      = d.empMemos;
-      if (d.defaultShift)  Object.assign(DEFAULT_SHIFT, d.defaultShift);
+      if (d.defaultShift) {
+        DEFAULT_SHIFT = d.defaultShift;
+      }
     }
   } catch(e) {}
 }
@@ -860,7 +839,9 @@ function loadFromSheets(callback) {
         if (d.confirmed)     confirmed     = d.confirmed;
         if (d.overtimeRecords) overtimeRecords = d.overtimeRecords;
         if (d.empMemos)      empMemos      = d.empMemos;
-        if (d.defaultShift)  Object.assign(DEFAULT_SHIFT, d.defaultShift);
+        if (d.defaultShift) {
+          DEFAULT_SHIFT = d.defaultShift;
+        }
         try { localStorage.setItem('wms_v6', JSON.stringify(d)); } catch(e) {}
         if (callback) callback(true);
       } else { if (callback) callback(false); }
