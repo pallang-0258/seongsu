@@ -1173,19 +1173,45 @@ function updateStats(){
 }
 
 // ── 달력 ──
-function initCalendar(){calYear=TODAY.getFullYear();calMonth=TODAY.getMonth();calSelectedEmps=new Set();renderCalEmpFilter();renderCalendar();}
+function initCalendar(){calYear=TODAY.getFullYear();calMonth=TODAY.getMonth();calSelectedEmps=new Set();calSelectedDept=null;renderCalEmpFilter();renderCalendar();}
+let calSelectedDept = null;
+
+function calToggleDept(dept){
+  if(calSelectedDept===dept){
+    calSelectedDept=null; calSelectedEmps=new Set();
+  } else {
+    calSelectedDept=dept;
+    calSelectedEmps=new Set(employees.filter(e=>e.dept===dept&&!isResigned(e)).map(e=>e.id));
+  }
+  renderCalEmpFilter(); renderCalendar();
+}
+
 function renderCalEmpFilter(){
   const wrap=document.getElementById('calEmpFilter');if(!wrap)return;
   const allActive=calSelectedEmps.size===0;
-  let html='<button class="cal-emp-btn'+(allActive?' active':'')+'" style="'+(allActive?'background:#1a1a1a;color:#fff;border-color:#1a1a1a':'')+'" onclick="calToggleEmp(null)">전체</button>';
-  employees.forEach(e=>{
+  let html='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #dde4ee">';
+  html+='<button class="cal-emp-btn'+(allActive?' active':'')+'" style="'+(allActive?'background:#1565c0;color:#fff;border-color:#1565c0':'')+'" onclick="calToggleEmp(null)">전체</button>';
+  DEPTS.forEach(dept=>{
+    const active=calSelectedDept===dept;
+    html+='<button class="cal-emp-btn'+(active?' active':'')+'" style="'+(active?'background:#1565c0;color:#fff;border-color:#1565c0':'')+'" onclick="calToggleDept(\''+dept+'\')">'+dept+'</button>';
+  });
+  html+='</div>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:5px">';
+  const visibleEmps = calSelectedDept ? employees.filter(e=>e.dept===calSelectedDept&&!isResigned(e)) : employees.filter(e=>!isResigned(e));
+  visibleEmps.forEach(e=>{
     const [bg,fg]=COLORS[e.color%COLORS.length];
-    const active=calSelectedEmps.has(e.id);
+    const active=calSelectedEmps.has(e.id)&&calSelectedDept===null;
     html+='<button class="cal-emp-btn'+(active?' active':'')+'" style="'+(active?'background:'+bg+';color:'+fg+';border-color:'+fg:'')+'" onclick="calToggleEmp('+e.id+')">'+e.name+'</button>';
   });
+  html+='</div>';
   wrap.innerHTML=html;
 }
-function calToggleEmp(id){if(id===null){calSelectedEmps=new Set();}else{if(calSelectedEmps.has(id))calSelectedEmps.delete(id);else calSelectedEmps.add(id);}renderCalEmpFilter();renderCalendar();}
+function calToggleEmp(id){
+  calSelectedDept=null;
+  if(id===null){calSelectedEmps=new Set();}
+  else{if(calSelectedEmps.has(id))calSelectedEmps.delete(id);else calSelectedEmps.add(id);}
+  renderCalEmpFilter();renderCalendar();
+}
 function calChangeMonth(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
 function renderCalendar(){
   const lbl=document.getElementById('calMonthLabel');const grid=document.getElementById('calGrid');if(!lbl||!grid)return;

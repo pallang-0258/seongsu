@@ -566,8 +566,8 @@ select, input[type=text], input[type=date], input[type=number] {
       </table>
     </div>
     <!-- 수정 시에만 표시되는 적용 시작일 섹션 -->
-    <div id="empApplyFromWrap" style="display:none;margin-top:12px;padding:12px;background:#fffbf0;border:1px solid #ffe082;border-radius:10px">
-      <div style="font-size:12px;font-weight:600;color:#f57f17;margin-bottom:8px">📅 변경 적용 시점</div>
+    <div id="empApplyFromWrap" style="display:none;margin-top:12px;padding:12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px">
+      <div style="font-size:12px;font-weight:600;color:#1565c0;margin-bottom:8px">📅 변경 적용 시점</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
           <input type="radio" name="applyFromMode" value="now" checked onchange="onApplyFromModeChange()" style="width:auto;height:auto"> 즉시 적용 (이번 주부터)
@@ -577,7 +577,12 @@ select, input[type=text], input[type=date], input[type=number] {
         </label>
       </div>
       <div id="empApplyDateRow" style="display:none;margin-top:10px">
-        <label class="form-label">적용 시작일 <span style="color:#f57f17;font-size:11px">(해당 날짜가 포함된 주부터 새 근무일정이 적용됩니다)</span></label>
+        <label class="form-label">적용 시작일
+          <span style="color:#1565c0;font-size:11px">
+            — 입력한 날짜 당일부터 새 근무일정이 적용됩니다.<br>
+            &nbsp;&nbsp;&nbsp;예) 4월 21일 입력 시 → 4월 20일(월~일)까지는 기존 스케줄 유지, 4월 21일부터 새 스케줄
+          </span>
+        </label>
         <input type="date" id="nApplyFrom">
       </div>
     </div>
@@ -673,6 +678,17 @@ select, input[type=text], input[type=date], input[type=number] {
   </div>
 </div>
 
+<!-- 스케줄 변경 이력 모달 -->
+<div class="modal-bg" id="shiftHistoryModal">
+  <div class="modal" style="width:min(96vw,520px)">
+    <div class="modal-title" id="shiftHistoryTitle">스케줄 변경 예정</div>
+    <div id="shiftHistoryBody"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('shiftHistoryModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 직원 메모 모달 -->
 <div class="modal-bg" id="empMemoModal">
   <div class="modal" style="width:440px">
@@ -760,6 +776,7 @@ let DEFAULT_SHIFT = {};
 let leaveRequests = [];
 let overtimeRecords = [];
 let empMemos = []; // 직원 메모: {id, empId, date, content, createdAt}
+let shiftHistory = {}; // 스케줄 변경 이력: {empId: [{applyFrom, newShift, oldShift, registeredAt}]}
 let schedules={}, confirmed={};
 let weekOffset=0, selectedEmpId=null, editingCell=null, editingEmpId=null;
 let calYear=TODAY.getFullYear(), calMonth=TODAY.getMonth(), calSelectedEmps=new Set();
@@ -775,10 +792,9 @@ function setGasUrl(url) {
 
 // ── 저장/불러오기 ──
 function save() {
-  // DEFAULT_SHIFT 키를 숫자로 통일해서 저장
   const shiftToSave = {};
   Object.keys(DEFAULT_SHIFT).forEach(k => { shiftToSave[+k] = DEFAULT_SHIFT[k]; });
-  const data = {employees, leaveRequests, schedules, confirmed, overtimeRecords, empMemos, defaultShift: shiftToSave};
+  const data = {employees, leaveRequests, schedules, confirmed, overtimeRecords, empMemos, shiftHistory, defaultShift: shiftToSave};
   // 1) 로컬 저장 (즉시)
   try { localStorage.setItem('wms_v6', JSON.stringify(data)); } catch(e) {}
   // 2) Google Sheets 동기화 (비동기, 실패해도 로컬은 저장됨)
@@ -796,6 +812,7 @@ function load() {
       if (d.confirmed)     confirmed     = d.confirmed;
       if (d.overtimeRecords) overtimeRecords = d.overtimeRecords;
       if (d.empMemos)      empMemos      = d.empMemos;
+      if (d.shiftHistory)  shiftHistory  = d.shiftHistory;
       if (d.defaultShift) {
         DEFAULT_SHIFT = d.defaultShift;
       }
@@ -845,6 +862,7 @@ function loadFromSheets(callback) {
         if (d.confirmed)     confirmed     = d.confirmed;
         if (d.overtimeRecords) overtimeRecords = d.overtimeRecords;
         if (d.empMemos)      empMemos      = d.empMemos;
+        if (d.shiftHistory)  shiftHistory  = d.shiftHistory;
         if (d.defaultShift) {
           DEFAULT_SHIFT = d.defaultShift;
         }
@@ -1183,19 +1201,47 @@ function updateStats(){
 }
 
 // ── 달력 ──
-function initCalendar(){calYear=TODAY.getFullYear();calMonth=TODAY.getMonth();calSelectedEmps=new Set();renderCalEmpFilter();renderCalendar();}
+function initCalendar(){calYear=TODAY.getFullYear();calMonth=TODAY.getMonth();calSelectedEmps=new Set();calSelectedDept=null;renderCalEmpFilter();renderCalendar();}
+let calSelectedDept = null;
+
+function calToggleDept(dept){
+  if(calSelectedDept===dept){
+    calSelectedDept=null; calSelectedEmps=new Set();
+  } else {
+    calSelectedDept=dept;
+    calSelectedEmps=new Set(employees.filter(e=>e.dept===dept&&!isResigned(e)).map(e=>e.id));
+  }
+  renderCalEmpFilter(); renderCalendar();
+}
+
 function renderCalEmpFilter(){
   const wrap=document.getElementById('calEmpFilter');if(!wrap)return;
   const allActive=calSelectedEmps.size===0;
-  let html='<button class="cal-emp-btn'+(allActive?' active':'')+'" style="'+(allActive?'background:#1a1a1a;color:#fff;border-color:#1a1a1a':'')+'" onclick="calToggleEmp(null)">전체</button>';
-  employees.forEach(e=>{
+  // 부서 버튼
+  let html='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #dde4ee">';
+  html+='<button class="cal-emp-btn'+(allActive?' active':'')+'" style="'+(allActive?'background:#1565c0;color:#fff;border-color:#1565c0':'')+'" onclick="calToggleEmp(null)">전체</button>';
+  DEPTS.forEach(dept=>{
+    const active=calSelectedDept===dept;
+    html+='<button class="cal-emp-btn'+(active?' active':'')+'" style="'+(active?'background:#1565c0;color:#fff;border-color:#1565c0':'')+'" onclick="calToggleDept(\''+dept+'\')">'+dept+'</button>';
+  });
+  html+='</div>';
+  // 직원 버튼
+  html+='<div style="display:flex;flex-wrap:wrap;gap:5px">';
+  const visibleEmps = calSelectedDept ? employees.filter(e=>e.dept===calSelectedDept&&!isResigned(e)) : employees.filter(e=>!isResigned(e));
+  visibleEmps.forEach(e=>{
     const [bg,fg]=COLORS[e.color%COLORS.length];
-    const active=calSelectedEmps.has(e.id);
+    const active=calSelectedEmps.has(e.id)&&calSelectedDept===null;
     html+='<button class="cal-emp-btn'+(active?' active':'')+'" style="'+(active?'background:'+bg+';color:'+fg+';border-color:'+fg:'')+'" onclick="calToggleEmp('+e.id+')">'+e.name+'</button>';
   });
+  html+='</div>';
   wrap.innerHTML=html;
 }
-function calToggleEmp(id){if(id===null){calSelectedEmps=new Set();}else{if(calSelectedEmps.has(id))calSelectedEmps.delete(id);else calSelectedEmps.add(id);}renderCalEmpFilter();renderCalendar();}
+function calToggleEmp(id){
+  calSelectedDept=null;
+  if(id===null){calSelectedEmps=new Set();}
+  else{if(calSelectedEmps.has(id))calSelectedEmps.delete(id);else calSelectedEmps.add(id);}
+  renderCalEmpFilter();renderCalendar();
+}
 function calChangeMonth(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
 function renderCalendar(){
   const lbl=document.getElementById('calMonthLabel');const grid=document.getElementById('calGrid');if(!lbl||!grid)return;
@@ -1439,11 +1485,20 @@ function renderEmpTable(){
     const isFuture=e.joinDate&&new Date(e.joinDate)>TODAY;
     const resigned=isResigned(e);
     const rowStyle=resigned?'opacity:0.5;background:#fafafa;':'';
+
+    // 스케줄 변경 예정 확인
+    const todayStr = toLocalDateStr(TODAY);
+    const pendingChanges = (shiftHistory[e.id]||[]).filter(h => h.applyFrom > todayStr);
+    const pendingBadge = pendingChanges.length > 0
+      ? ' <span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:10px;cursor:pointer" onclick="showShiftHistory('+e.id+')" title="클릭하여 변경 예정 상세보기">📅 변경예정 '+pendingChanges.length+'건</span>'
+      : '';
+
     html+='<tr data-id="'+e.id+'" style="'+rowStyle+'">'
       +'<td style="text-align:center;cursor:grab;color:#ccc;font-size:14px;user-select:none" class="drag-handle" title="드래그하여 순서 변경">⠿</td>'
       +'<td><strong>'+e.name+'</strong>'
         +(isFuture?' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px">입사예정</span>':'')
         +(resigned?' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>':'')
+        +pendingBadge
       +'</td>'
       +'<td>'+e.dept+'</td>'
       +'<td style="font-size:11px;color:#888">'+(e.joinDate||'-')+'</td>'
@@ -1630,58 +1685,71 @@ function saveEmp(){
     e.workType=workType;e.workDays=workDays;
 
     if(shiftChanged && applyFrom){
-      // 특정 날짜부터 적용: applyFrom이 포함된 주의 weekOffset 계산
-      const applyFromStart=new Date(applyFrom);
-      const dow=applyFromStart.getDay();
-      applyFromStart.setDate(applyFromStart.getDate()-(dow===0?6:dow-1));
-      applyFromStart.setHours(0,0,0,0);
-      const todayStart=getWeekStart(0);
-      const applyOffsetWeeks=Math.round((applyFromStart-todayStart)/(7*86400000));
+      // 적용 시작일 계산
+      const applyDate = new Date(applyFrom);
+      applyDate.setHours(0,0,0,0);
+      const applyDow = applyDate.getDay();
+      const applyDi = applyDow === 0 ? 6 : applyDow - 1;
+      const applyWeekMon = new Date(applyDate);
+      applyWeekMon.setDate(applyDate.getDate() - applyDi);
+      applyWeekMon.setHours(0,0,0,0);
+      const todayStart = getWeekStart(0);
+      const applyOffsetWeeks = Math.round((applyWeekMon - todayStart) / (7 * 86400000));
 
-      // 적용 시작 주 이전 주들에는 기존 DEFAULT_SHIFT를 schedules에 고정(스냅샷)
-      // 단, 이미 수동 변경이 있는 셀은 건드리지 않음
-      // 적용 시작 주부터는 DEFAULT_SHIFT를 새 값으로 변경
-      if(applyOffsetWeeks>0){
-        // 현재 주 ~ 적용 직전 주까지 기존 근무일정을 schedules에 freeze
-        for(let off=0;off<applyOffsetWeeks;off++){
-          const k=weekKey(off);
-          if(!schedules[k])schedules[k]={};
-          if(!schedules[k][e.id])schedules[k][e.id]={};
-          // 기존 DEFAULT_SHIFT 기준으로, 아직 수동 설정 안 된 날만 고정
-          for(let di=0;di<7;di++){
-            if(schedules[k][e.id][di]===undefined){
-              // workDays도 반영
-              const wd=workDays[di]; // 새 workDays 아닌 기존 workDays 사용
-              const oldWd=e.workDays?e.workDays[di]:1;
-              if(!oldWd){
-                // 원래 비근무일이면 '__off__'로 두기 위해 아무것도 안함
-              } else {
-                const sh=oldShift[di];
-                if(sh)schedules[k][e.id][di]=sh;
-                else schedules[k][e.id][di]='off';
-              }
-            }
+      // 변경 이력 저장
+      if(!shiftHistory[e.id]) shiftHistory[e.id] = [];
+      const applyDateStr = toLocalDateStr(applyDate);
+      shiftHistory[e.id] = shiftHistory[e.id].filter(h => h.applyFrom !== applyDateStr);
+      shiftHistory[e.id].push({
+        applyFrom: applyDateStr,
+        newShift: [...newShift],
+        oldShift: [...oldShift],
+        registeredAt: toLocalDateStr(TODAY)
+      });
+      shiftHistory[e.id] = shiftHistory[e.id].slice(-10);
+
+      // ── 적용 시작 주 이전 주들: 기존 스케줄 고정 ──
+      for(let off = 0; off < applyOffsetWeeks; off++){
+        const k = weekKey(off);
+        if(!schedules[k]) schedules[k] = {};
+        if(!schedules[k][e.id]) schedules[k][e.id] = {};
+        for(let di = 0; di < 7; di++){
+          if(schedules[k][e.id][di] === undefined){
+            const oldWd = (oldShift[di] !== null) ? 1 : 0;
+            if(oldWd){ schedules[k][e.id][di] = oldShift[di] || 'off'; }
           }
         }
-        // 적용 이후 주 schedules에서 이 직원의 수동 오버라이드 제거 (새 DEFAULT로 적용되도록)
-        Object.keys(schedules).forEach(k=>{
-          const wStart=new Date(k);
-          const wOff=Math.round((wStart-getWeekStart(0))/(7*86400000));
-          if(wOff>=applyOffsetWeeks&&schedules[k][e.id]){
-            const notes=schedules[k][e.id]?._notes;
-            delete schedules[k][e.id];
-            if(notes){if(!schedules[k][e.id])schedules[k][e.id]={};schedules[k][e.id]._notes=notes;}
-          }
-        });
-      } else {
-        // 현재 주 또는 과거부터 즉시 적용 → 기존 로직과 동일 (schedules 오버라이드 제거)
-        Object.keys(schedules).forEach(k=>{
-          if(schedules[k][e.id]){
-            const notes=schedules[k]?._notes?.[e.id];
-            delete schedules[k][e.id];
-          }
-        });
       }
+
+      // ── 적용 시작 주: applyDi 이전 요일들은 기존 스케줄 고정, 이후는 새 스케줄 ──
+      if(applyOffsetWeeks >= 0){
+        const k = weekKey(applyOffsetWeeks);
+        if(!schedules[k]) schedules[k] = {};
+        if(!schedules[k][e.id]) schedules[k][e.id] = {};
+        for(let di = 0; di < applyDi; di++){
+          // 시작일 이전 요일 → 기존 스케줄 고정
+          if(schedules[k][e.id][di] === undefined){
+            schedules[k][e.id][di] = oldShift[di] || 'off';
+          }
+        }
+        // 시작일 이후 요일 → 이미 수동 설정된 것만 제거 (새 DEFAULT 적용)
+        for(let di = applyDi; di < 7; di++){
+          delete schedules[k][e.id][di];
+        }
+      }
+
+      // ── 적용 시작 주 다음 주부터: 수동 오버라이드 제거 (새 DEFAULT 적용) ──
+      Object.keys(schedules).forEach(k => {
+        const parts = k.split('-').map(Number);
+        const wStart = new Date(parts[0], parts[1]-1, parts[2]);
+        const wOff = Math.round((wStart - todayStart) / (7 * 86400000));
+        if(wOff > applyOffsetWeeks && schedules[k][e.id]){
+          const notes = schedules[k][e.id]?._notes;
+          delete schedules[k][e.id];
+          if(notes){ schedules[k][e.id] = { _notes: notes }; }
+        }
+      });
+
     } else if(shiftChanged) {
       // 즉시 적용: 미래 주의 수동 오버라이드 제거 (현재 주부터 새 DEFAULT 반영)
       const todayKey=weekKey(0);
@@ -1807,11 +1875,93 @@ function renderSummaryModal(){
   buildSummaryTable(el, smOffset);
 }
 
+// ── 스케줄 변경 이력 ──
+function showShiftHistory(empId) {
+  const e = employees.find(x => x.id === empId); if(!e) return;
+  const history = (shiftHistory[empId]||[]).slice().sort((a,b) => a.applyFrom.localeCompare(b.applyFrom));
+  const todayStr = toLocalDateStr(TODAY);
+  document.getElementById('shiftHistoryTitle').textContent = e.name + ' — 스케줄 변경 이력';
+  const DAY_LABEL = ['월','화','수','목','금','토','일'];
+  const SHIFT_NAME = {'1020':'10-20 (오전)','1019':'10-19 (오전)','1323':'13-23 (오후)',null:'휴무'};
+
+  let html = '';
+  if(!history.length) {
+    html = '<div style="color:#aaa;text-align:center;padding:16px">변경 이력이 없습니다</div>';
+  } else {
+    history.forEach(h => {
+      const isPast = h.applyFrom <= todayStr;
+      const statusBadge = isPast
+        ? '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 7px;border-radius:10px">적용됨</span>'
+        : '<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 7px;border-radius:10px">적용예정</span>';
+
+      // 변경된 요일만 추려서 표시
+      const changes = [];
+      for(let di = 0; di < 7; di++) {
+        const o = h.oldShift[di], n = h.newShift[di];
+        if(o !== n) changes.push(DAY_LABEL[di]+': '+(SHIFT_NAME[o]||'휴무')+' → '+(SHIFT_NAME[n]||'휴무'));
+      }
+
+      html += '<div style="border:1px solid #dde4ee;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:'+(isPast?'#fafafa':'#fffbf5')+'">'
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+        +'<strong style="font-size:13px">'+h.applyFrom+' 부터 적용</strong>'
+        +statusBadge
+        +'<span style="margin-left:auto;font-size:11px;color:#aaa">등록일: '+h.registeredAt+'</span>'
+        +'</div>'
+        +'<div style="font-size:12px;color:#444;line-height:1.8">'
+        +changes.map(c=>'<div>• '+c+'</div>').join('')
+        +'</div>'
+        +(!isPast ? '<button class="btn sm danger" style="margin-top:8px;font-size:11px" onclick="cancelShiftHistory('+empId+',\''+h.applyFrom+'\')">예정 취소</button>' : '')
+        +'</div>';
+    });
+  }
+  document.getElementById('shiftHistoryBody').innerHTML = html;
+  document.getElementById('shiftHistoryModal').classList.add('open');
+}
+
+function cancelShiftHistory(empId, applyFrom) {
+  if(!confirm(applyFrom+' 부터 적용 예정인 스케줄 변경을 취소할까요?')) return;
+  if(shiftHistory[empId]) {
+    shiftHistory[empId] = shiftHistory[empId].filter(h => h.applyFrom !== applyFrom);
+  }
+  // 해당 날짜 이후 schedules에서 이 직원의 오버라이드 제거 (원래 DEFAULT로 복원)
+  const parts = applyFrom.split('-').map(Number);
+  const applyDate = new Date(parts[0], parts[1]-1, parts[2]);
+  const applyDow = applyDate.getDay();
+  const applyDi = applyDow === 0 ? 6 : applyDow - 1;
+  const applyWeekMon = new Date(applyDate);
+  applyWeekMon.setDate(applyDate.getDate() - applyDi);
+  applyWeekMon.setHours(0,0,0,0);
+  const todayStart = getWeekStart(0);
+  const applyOffsetWeeks = Math.round((applyWeekMon - todayStart) / (7*86400000));
+
+  Object.keys(schedules).forEach(k => {
+    const kParts = k.split('-').map(Number);
+    const wStart = new Date(kParts[0], kParts[1]-1, kParts[2]);
+    const wOff = Math.round((wStart - todayStart) / (7*86400000));
+    if(wOff >= applyOffsetWeeks && schedules[k]?.[empId]) {
+      delete schedules[k][empId];
+    }
+  });
+
+  save(); renderAll();
+  closeModal('shiftHistoryModal');
+}
+
 // ── 직원 메모 ──
 function initEmpMemoFilters(){
   const yr = document.getElementById('memoYear');
   const cur = String(TODAY.getFullYear());
   const years = new Set(empMemos.map(m => m.date.slice(0,4)));
+  // 근무표 메모 날짜도 포함
+  Object.keys(schedules).forEach(weekStart => {
+    const notes = schedules[weekStart]?._notes;
+    if(!notes) return;
+    Object.keys(notes).forEach(eid => {
+      Object.keys(notes[eid]||{}).forEach(di => {
+        if(notes[eid][di]) years.add(weekStart.slice(0,4));
+      });
+    });
+  });
   years.add(cur);
   yr.innerHTML = [...years].sort().reverse().map(y=>'<option value="'+y+'"'+(y===cur?' selected':'')+'>'+y+'년</option>').join('');
   const mo = String(TODAY.getMonth()+1).padStart(2,'0');
@@ -1824,32 +1974,69 @@ function renderEmpMemos(){
   const year = document.getElementById('memoYear')?.value || '';
   const month = document.getElementById('memoMonth')?.value || '';
   const empId = +document.getElementById('memoEmpFilter')?.value || 0;
+
+  // 1) 직접 등록 메모
   let filtered = [...empMemos];
   if(year) filtered = filtered.filter(m => m.date.startsWith(year));
   if(month && year) filtered = filtered.filter(m => m.date.startsWith(year+'-'+month));
   if(empId) filtered = filtered.filter(m => m.empId === empId);
-  filtered.sort((a,b) => b.date.localeCompare(a.date) || b.id - a.id);
+  const directMemos = filtered.map(m => ({...m, source:'direct'}));
+
+  // 2) 근무표 메모 (schedules._notes에서 수집)
+  const schMemos = [];
+  Object.keys(schedules).forEach(weekStart => {
+    const notes = schedules[weekStart]?._notes;
+    if(!notes) return;
+    Object.keys(notes).forEach(eid => {
+      const eNum = +eid;
+      if(empId && eNum !== empId) return;
+      Object.keys(notes[eid]).forEach(diStr => {
+        const di = +diStr;
+        const noteText = notes[eid][diStr];
+        if(!noteText || !noteText.trim()) return;
+        // 해당 요일의 실제 날짜 계산
+        const parts = weekStart.split('-').map(Number);
+        const mon = new Date(parts[0], parts[1]-1, parts[2]);
+        const dateObj = new Date(mon);
+        dateObj.setDate(mon.getDate() + di);
+        const dateStr = toLocalDateStr(dateObj);
+        if(year && !dateStr.startsWith(year)) return;
+        if(month && year && !dateStr.startsWith(year+'-'+month)) return;
+        schMemos.push({
+          id: 'sch_'+weekStart+'_'+eid+'_'+di,
+          empId: eNum,
+          date: dateStr,
+          content: noteText,
+          source: 'schedule'
+        });
+      });
+    });
+  });
+
+  // 3) 합치기 + 정렬
+  const allMemos = [...directMemos, ...schMemos]
+    .sort((a,b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)));
 
   const wrap = document.getElementById('empMemoList');
   if(!wrap) return;
-  if(!filtered.length){
+  if(!allMemos.length){
     wrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:24px;font-size:13px">등록된 메모가 없습니다</div>';
     return;
   }
 
-  // 월별 그룹핑
+  // 4) 월별 그룹핑
   const groups = {};
-  filtered.forEach(m => {
-    const key = m.date.slice(0,7); // "YYYY-MM"
+  allMemos.forEach(m => {
+    const key = m.date.slice(0,7);
     if(!groups[key]) groups[key] = [];
     groups[key].push(m);
   });
 
   let html = '';
-  Object.keys(groups).sort().reverse().forEach(ym => {
+  Object.keys(groups).sort().forEach(ym => {
     const [y, mo] = ym.split('-');
     html += '<div style="margin-bottom:18px">'
-      + '<div style="font-size:12px;font-weight:700;color:#888;letter-spacing:.05em;padding:6px 2px 8px;border-bottom:1px solid #f0ede8;margin-bottom:10px">'
+      + '<div style="font-size:12px;font-weight:700;color:#6b8cae;letter-spacing:.05em;padding:6px 2px 8px;border-bottom:1px solid #dde4ee;margin-bottom:10px">'
       + y+'년 '+parseInt(mo)+'월</div>';
     groups[ym].forEach(m => {
       const emp = employees.find(e => e.id === m.empId);
@@ -1858,17 +2045,33 @@ function renderEmpMemos(){
       const parts = m.date.split('-');
       const dateObj = new Date(+parts[0], +parts[1]-1, +parts[2]);
       const dayStr = ['일','월','화','수','목','금','토'][dateObj.getDay()];
-      html += '<div style="display:flex;gap:12px;padding:10px 4px;border-bottom:1px solid #f8f6f2;align-items:flex-start">'
+
+      // 출처 배지
+      const sourceBadge = m.source === 'schedule'
+        ? '<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:8px;margin-left:4px">근무표</span>'
+        : '<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;margin-left:4px">직접</span>';
+
+      // 추가근무 라인과 일반 메모 분리
+      const lines = m.content.split('\n');
+      const otLines = lines.filter(l => l.startsWith('[추가근무]'));
+      const manualLines = lines.filter(l => !l.startsWith('[추가근무]') && l.trim());
+      let contentHtml = '';
+      if(otLines.length) contentHtml += '<div style="color:#1565c0;font-size:12px">'+escHtml(otLines.join('\n'))+'</div>';
+      if(manualLines.length) contentHtml += '<div style="color:#1a1a1a;font-size:13px;white-space:pre-wrap">'+escHtml(manualLines.join('\n'))+'</div>';
+
+      html += '<div style="display:flex;gap:12px;padding:10px 4px;border-bottom:1px solid #eef2f7;align-items:flex-start">'
         + '<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:52px">'
         + '<div style="font-size:12px;font-weight:600;color:#555">'+parseInt(parts[2])+'일('+dayStr+')</div>'
-        + '<div class="avatar" style="background:'+bg+';color:'+fg+';width:28px;height:28px;font-size:11px">'+emp.name[0]+'</div>'
         + '<div style="font-size:11px;color:#666;font-weight:600">'+emp.name+'</div>'
+        + sourceBadge
         + '</div>'
-        + '<div style="flex:1;font-size:13px;color:#1a1a1a;line-height:1.7;white-space:pre-wrap;padding-top:2px">'+escHtml(m.content)+'</div>'
-        + '<div style="flex-shrink:0;display:flex;gap:4px;padding-top:2px">'
-        + '<button class="btn sm" onclick="openEditEmpMemo('+m.id+')">수정</button>'
-        + '<button class="btn sm danger" onclick="deleteEmpMemo('+m.id+')">삭제</button>'
-        + '</div>'
+        + '<div style="flex:1;line-height:1.7;padding-top:2px">'+contentHtml+'</div>'
+        + (m.source==='direct'
+          ? '<div style="flex-shrink:0;display:flex;gap:4px;padding-top:2px">'
+            + '<button class="btn sm" onclick="openEditEmpMemo('+m.id+')">수정</button>'
+            + '<button class="btn sm danger" onclick="deleteEmpMemo('+m.id+')">삭제</button>'
+            + '</div>'
+          : '')
         + '</div>';
     });
     html += '</div>';
