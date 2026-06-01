@@ -906,10 +906,12 @@ function getShift(emp,di,off){
   return pat?(pat[di]||'off'):'off';
 }
 function getBaseShift(emp,di,off){
-  if(!shouldWork(emp,di,off))return '__off__';
   const k=weekKey(off);
   const ov=schedules[k]?.[emp.id]?.[di];
+  // 수동 오버라이드가 있으면 (반차/연차/annual 제외) 우선 반환
   if(ov!==undefined&&ov!=='half'&&ov!=='half_pm'&&ov!=='annual')return ov;
+  // 수동 오버라이드가 없고 원래 비근무일이면 '__off__'
+  if(!shouldWork(emp,di,off))return '__off__';
   const pat=DEFAULT_SHIFT[emp.id];
   return pat?(pat[di]||'off'):'off';
 }
