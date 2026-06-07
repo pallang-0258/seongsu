@@ -737,14 +737,18 @@ function getHalfLabel(baseShift, halfType) {
 // ═══════════════════════════════════════════
 //  연차 계산
 // ═══════════════════════════════════════════
-function calcEarnedAnnual(joinDateStr) {
-  if (!joinDateStr) return 0;
-  const join = new Date(joinDateStr);
-  if (TODAY < join) return 0;
-  let months = (TODAY.getFullYear()-join.getFullYear())*12 + (TODAY.getMonth()-join.getMonth());
-  const anniv = new Date(TODAY.getFullYear(), TODAY.getMonth(), join.getDate());
-  if (TODAY < anniv) months--;
-  return Math.min(Math.max(months, 0), 15);
+function calcEarnedAnnual(joinDateStr, bonusAnnual) {
+  let base = 0;
+  if (joinDateStr) {
+    const join = new Date(joinDateStr);
+    if (TODAY >= join) {
+      let months = (TODAY.getFullYear()-join.getFullYear())*12 + (TODAY.getMonth()-join.getMonth());
+      const anniv = new Date(TODAY.getFullYear(), TODAY.getMonth(), join.getDate());
+      if (TODAY < anniv) months--;
+      base = Math.min(Math.max(months, 0), 15);
+    }
+  }
+  return base + (bonusAnnual || 0);
 }
 function calcUsedAnnual(empId) {
   return leaveRequests.filter(r => r.empId === empId && r.status === 'approved').reduce((s,r) => {
@@ -983,7 +987,7 @@ function renderLeaveBalance() {
     + '<th>이름</th><th>부서</th><th>입사일</th><th>발생</th><th>사용</th><th>잔여</th><th style="min-width:80px">사용률</th>'
     + '</tr></thead><tbody>';
   emps.forEach(e => {
-    const earned = calcEarnedAnnual(e.joinDate);
+    const earned = calcEarnedAnnual(e.joinDate, e.bonusAnnual);
     const used   = calcUsedAnnual(e.id);
     const rem    = earned - used;
     const pct    = earned > 0 ? Math.min(Math.round(used/earned*100), 100) : 0;
@@ -1031,7 +1035,7 @@ function renderLeaveHistory() {
     filtered.forEach(r => { if (!grouped[r.empId]) grouped[r.empId]=[]; grouped[r.empId].push(r); });
     html = '';
     employees.filter(e => grouped[e.id]).forEach(e => {
-      const earned=calcEarnedAnnual(e.joinDate), used=calcUsedAnnual(e.id), rem=earned-used;
+      const earned=calcEarnedAnnual(e.joinDate, e.bonusAnnual), used=calcUsedAnnual(e.id), rem=earned-used;
       html += '<div style="margin-bottom:16px">'
         + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #dde4ee">'
         + '<strong style="font-size:13px">'+e.name+'</strong>'

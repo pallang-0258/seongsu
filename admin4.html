@@ -355,7 +355,12 @@ select, input[type=text], input[type=date], input[type=number] {
         </div>
       </div>
       <div class="card">
-        <div class="card-title" style="margin-bottom:10px">연차 잔여 현황</div>
+        <div class="card-header">
+          <div>
+            <div class="card-title">연차 잔여 현황</div>
+            <div style="font-size:11px;color:#90aac8;margin-top:2px">연차 조정은 직원 관리 탭에서 가능합니다</div>
+          </div>
+        </div>
         <table class="lv-table" id="leaveBalanceSimpleTable"></table>
       </div>
       <div class="card">
@@ -654,6 +659,41 @@ select, input[type=text], input[type=date], input[type=number] {
 
 <iframe id="printFrame" style="display:none"></iframe>
 
+<!-- 승계 연차 수정 모달 -->
+<div class="modal-bg" id="bonusAnnualModal">
+  <div class="modal" style="width:min(96vw,460px)">
+    <div class="modal-title" id="bonusAnnualModalTitle">연차 조정 – </div>
+    <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:10px 14px;font-size:12px;color:#1565c0;margin-bottom:14px;line-height:1.6">
+      💡 입사일 기준 발생 연차 외에 <strong>추가로 부여할 연차</strong>를 설정합니다.<br>
+      음수 입력 시 발생 연차에서 차감됩니다.
+    </div>
+    <div class="form-row">
+      <label class="form-label">입사일 기준 발생 연차 (자동)</label>
+      <div id="bonusBaseInfo" style="height:36px;display:flex;align-items:center;font-size:13px;font-weight:600;color:#4a6fa5;padding:0 10px;background:#f4f7fb;border-radius:8px;border:1px solid #dde4ee"></div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">추가 부여 연차 (승계 등)</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="bonusAnnualInput" step="0.5" min="-30" max="30" style="flex:1" placeholder="0">
+        <span style="font-size:13px;color:#888">일</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">사유 <span style="color:#bbb;font-size:11px">(기록용)</span></label>
+      <input type="text" id="bonusAnnualReason" placeholder="예) 타지점 잔여 연차 3일 승계">
+    </div>
+    <!-- 이력 -->
+    <div id="bonusAnnualHistoryWrap" style="display:none;margin-top:4px">
+      <div style="font-size:11px;font-weight:600;color:#90aac8;margin-bottom:6px;letter-spacing:.04em">조정 이력</div>
+      <div id="bonusAnnualHistory" style="max-height:130px;overflow-y:auto;font-size:11px;color:#555;border:1px solid #dde4ee;border-radius:8px;padding:8px 10px;background:#fafbfc;line-height:1.9"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('bonusAnnualModal')">취소</button>
+      <button class="btn primary" onclick="saveBonusAnnual()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- 근무 명단 요약 모달 -->
 <div class="modal-bg" id="summaryModal">
   <div class="modal" style="width:min(96vw,900px);max-height:90vh;display:flex;flex-direction:column">
@@ -924,14 +964,18 @@ function setShiftRaw(empId,di,sh,off){
 }
 
 // ── 연차 계산 ──
-function calcEarnedAnnual(joinDateStr){
-  if(!joinDateStr)return 0;
-  const join=new Date(joinDateStr);const now=TODAY;
-  if(now<join)return 0;
-  let months=(now.getFullYear()-join.getFullYear())*12+(now.getMonth()-join.getMonth());
-  const anniv=new Date(now.getFullYear(),now.getMonth(),join.getDate());
-  if(now<anniv)months--;
-  return Math.min(Math.max(months,0),15);
+function calcEarnedAnnual(joinDateStr, bonusAnnual){
+  let base=0;
+  if(joinDateStr){
+    const join=new Date(joinDateStr);const now=TODAY;
+    if(now>=join){
+      let months=(now.getFullYear()-join.getFullYear())*12+(now.getMonth()-join.getMonth());
+      const anniv=new Date(now.getFullYear(),now.getMonth(),join.getDate());
+      if(now<anniv)months--;
+      base=Math.min(Math.max(months,0),15);
+    }
+  }
+  return base + (bonusAnnual||0);
 }
 function calcUsedAnnual(empId){
   return leaveRequests.filter(r=>r.empId===empId&&r.status==='approved').reduce((s,r)=>{
@@ -1288,16 +1332,54 @@ function renderLeaveBalanceSimple(){
   const el=document.getElementById('leaveBalanceSimpleTable');if(!el)return;
   let html='<thead><tr><th>이름</th><th>부서</th><th>입사일</th><th>발생</th><th>사용</th><th>잔여</th></tr></thead><tbody>';
   employees.forEach(e=>{
-    const earned=calcEarnedAnnual(e.joinDate);const used=calcUsedAnnual(e.id);const rem=earned-used;
+    const earned=calcEarnedAnnual(e.joinDate,e.bonusAnnual);
+    const used=calcUsedAnnual(e.id);const rem=earned-used;
     const isFuture=e.joinDate&&new Date(e.joinDate)>TODAY;
-    html+='<tr><td><strong>'+e.name+'</strong>'+(isFuture?' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:8px">예정</span>':'')+'</td>'
+    html+='<tr>'
+      +'<td><strong>'+e.name+'</strong>'+(isFuture?' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:8px">예정</span>':'')+'</td>'
       +'<td style="color:#888">'+e.dept+'</td>'
       +'<td style="font-size:11px;color:#888">'+(e.joinDate||'-')+'</td>'
       +'<td style="text-align:center">'+earned+'일</td>'
       +'<td style="text-align:center">'+used+'일</td>'
-      +'<td style="text-align:center;font-weight:600;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</td></tr>';
+      +'<td style="text-align:center;font-weight:600;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</td>'
+      +'</tr>';
   });
   el.innerHTML=html+'</tbody>';
+}
+
+// ── 승계 연차 조정 모달 ──
+function openBonusAnnualModal(empId){
+  const e=employees.find(emp=>emp.id===empId);if(!e)return;
+  editingEmpId=empId;
+  document.getElementById('bonusAnnualModalTitle').textContent='연차 조정 – '+e.name;
+  const base=calcEarnedAnnual(e.joinDate,0);
+  document.getElementById('bonusBaseInfo').textContent='입사일 기준 '+base+'일 발생';
+  document.getElementById('bonusAnnualInput').value=e.bonusAnnual||0;
+  document.getElementById('bonusAnnualReason').value='';
+  // 이력 표시
+  const histWrap=document.getElementById('bonusAnnualHistoryWrap');
+  const hist=e.bonusAnnualHistory||[];
+  if(hist.length){
+    histWrap.style.display='';
+    document.getElementById('bonusAnnualHistory').innerHTML=
+      [...hist].reverse().map(h=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid #f0ede8">'
+        +'<span style="color:#1565c0;font-weight:600">'+(h.bonus>0?'+':'')+h.bonus+'일</span>'
+        +'<span style="flex:1;color:#555">'+(h.reason||'–')+'</span>'
+        +'<span style="color:#aaa;white-space:nowrap">'+h.date+'</span>'
+        +'</div>').join('');
+  } else {
+    histWrap.style.display='none';
+  }
+  document.getElementById('bonusAnnualModal').classList.add('open');
+}
+function saveBonusAnnual(){
+  const e=employees.find(emp=>emp.id===editingEmpId);if(!e)return;
+  const val=parseFloat(document.getElementById('bonusAnnualInput').value)||0;
+  const reason=document.getElementById('bonusAnnualReason').value.trim();
+  if(!e.bonusAnnualHistory)e.bonusAnnualHistory=[];
+  e.bonusAnnualHistory.push({bonus:val,reason,date:toLocalDateStr(TODAY)});
+  e.bonusAnnual=val;
+  save();closeModal('bonusAnnualModal');renderLeaveBalanceSimple();renderLeaveHistory();
 }
 
 // ── 연차 내역 ──
@@ -1327,7 +1409,7 @@ function renderLeaveHistory(){
     let html='';
     employees.filter(e=>grouped[e.id]).forEach(e=>{
       const [bg,fg]=COLORS[e.color%COLORS.length];
-      const earned=calcEarnedAnnual(e.joinDate);const used=calcUsedAnnual(e.id);const rem=earned-used;
+      const earned=calcEarnedAnnual(e.joinDate,e.bonusAnnual);const used=calcUsedAnnual(e.id);const rem=earned-used;
       html+='<div style="margin-bottom:16px">'
         +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #dde4ee">'
         +'<span style="font-weight:600;font-size:13px">'+e.name+'</span>'
@@ -1481,7 +1563,9 @@ function renderEmpTable(){
   }
   filtered.forEach(e=>{
     const pat=DEFAULT_SHIFT[e.id]||Array(7).fill(null);
-    const earned=calcEarnedAnnual(e.joinDate);
+    const base=calcEarnedAnnual(e.joinDate,0);
+    const bonus=e.bonusAnnual||0;
+    const earned=base+bonus;
     const used=calcUsedAnnual(e.id);
     const rem=earned-used;
     const isFuture=e.joinDate&&new Date(e.joinDate)>TODAY;
@@ -1515,8 +1599,11 @@ function renderEmpTable(){
             :'<span style="color:#ccc;font-size:11px">—</span>')
         +'</td>';
     });
-    html+='<td style="font-size:11px"><span style="font-weight:600;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</span>'
-      +' <span style="color:#aaa">(발생 '+earned+'/사용 '+used+')</span></td>'
+    html+='<td style="font-size:11px;white-space:nowrap">'
+      +'<span style="font-weight:600;color:'+(rem<0?'#c0392b':rem===0?'#888':'#2e7d32')+'">'+rem+'일</span>'
+      +' <span style="color:#aaa">('+base+(bonus?'<span style="color:#f57f17;font-weight:600">+'+(bonus)+'</span>':'')+'/사용 '+used+')</span>'
+      +' <button class="btn sm" onclick="openBonusAnnualModal('+e.id+')" style="font-size:10px;padding:2px 7px;margin-left:3px" title="연차 조정">✏</button>'
+      +'</td>'
       +'<td style="white-space:nowrap">'
         +'<button class="btn sm" onclick="openEditEmp('+e.id+')" style="margin-right:4px">수정</button>'
         +'<button class="btn sm danger" onclick="removeEmp('+e.id+')">삭제</button>'
