@@ -324,6 +324,8 @@ select.filter-sel {
   .tabs-wrap { top: 48px; padding: 0 10px; overflow-x: auto; }
   .tab-btn { padding: 11px 12px; font-size: 12px; }
   .main { padding: 10px; padding-bottom: 70px; }
+  .card { padding: 10px 12px; }
+  .card-header { flex-wrap: wrap; gap: 8px; }
   .mobile-tabbar {
     display: flex;
     position: fixed; bottom: 0; left: 0; right: 0; height: 56px;
@@ -338,14 +340,41 @@ select.filter-sel {
   .mobile-tab .mt-icon { font-size: 18px; line-height: 1; }
   .mobile-tab.active { color: #1565c0; font-weight: 600; }
   .tabs-wrap { display: none; }
-  .sch-table { font-size: 11px; }
-  .sch-table th { padding: 5px 2px; font-size: 10px; }
-  .sch-table td { height: 36px; }
-  .emp-cell { padding: 2px 6px; font-size: 12px; }
-  .dept-cell { font-size: 10px; padding: 2px 3px; }
-  .shift-pill { font-size: 10px; padding: 2px 5px; }
-  .setup-banner { flex-direction: column; align-items: stretch; }
-  .setup-banner input { width: 100%; }
+
+  /* 가로 스크롤 완전 제거 — scale()로 축소 */
+  body { overflow-x: hidden; }
+  .sch-wrap { overflow-x: visible; }
+  .sum-wrap { overflow-x: visible; }
+
+  /* 근무표: min-width 제거, 폰트/셀 극소화 */
+  .sch-table { min-width: 0 !important; font-size: 11px !important; }
+  .sch-table th { font-size: 11px !important; padding: 6px 2px !important; white-space: nowrap !important; }
+  .sch-table td { height: 36px !important; }
+  .emp-cell { padding: 2px 6px !important; font-size: 13px !important; white-space: nowrap !important; }
+  .dept-cell { font-size: 11px !important; padding: 2px 3px !important; }
+  .shift-cell { height: 32px !important; }
+  .shift-pill { font-size: 11px !important; padding: 2px 5px !important; border-radius: 3px !important; white-space: nowrap !important; }
+
+  /* 요약표 */
+  .sum-table { min-width: 0 !important; font-size: 11px !important; }
+  .sum-table th { font-size: 11px !important; padding: 3px 2px !important; white-space: nowrap !important; }
+  .sum-dept-cell { font-size: 10px !important; padding: 2px 3px !important; width: 30px !important; }
+  .sum-name-cell { font-size: 12px !important; padding: 2px 4px !important; line-height: 1.8 !important; white-space: nowrap !important; }
+  .sum-shift-cell { width: 26px !important; }
+  .sum-shift-inner { padding: 2px 3px !important; font-size: 10px !important; }
+
+  /* 연차 테이블 */
+  .lv-table { min-width: 0 !important; font-size: 11px !important; }
+  .lv-table th { font-size: 10px !important; padding: 5px 4px !important; white-space: nowrap !important; }
+  .lv-table td { font-size: 11px !important; padding: 6px 4px !important; white-space: nowrap !important; }
+
+  /* 달력 */
+  .cal-grid { min-width: 560px !important; gap: 2px !important; grid-template-columns: repeat(7, 80px) !important; }
+  .cal-cell { min-height: 64px !important; padding: 4px 3px !important; border-radius: 5px !important; width: 80px !important; }
+  .cal-day-hd { font-size: 15px !important; padding: 3px 0 !important; width: 80px !important; }
+  .cal-date { font-size: 13px !important; }
+  .cal-date.today-num { width: 18px !important; height: 18px !important; font-size: 11px !important; }
+  .cal-tag { font-size: 13px !important; padding: 2px 4px !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; margin-bottom: 2px !important; }
 }
 @media (max-width: 480px) {
   .header-title { font-size: 13px; }
@@ -900,6 +929,7 @@ function renderSchedule() {
   // ── 요약표 ──
   buildSummaryTable(weekOffset);
   document.getElementById('summaryCard').style.display = '';
+  setTimeout(fitTableToScreen, 50);
 }
 
 function buildSummaryTable(off) {
@@ -936,6 +966,7 @@ function buildSummaryTable(off) {
     });
   });
   document.getElementById('summaryTable').innerHTML = html + '</tbody>';
+  setTimeout(fitTableToScreen, 50);
 }
 
 // ═══════════════════════════════════════════
@@ -1098,10 +1129,56 @@ function renderCalendar() {
   const remain = total%7===0?0:7-(total%7);
   for (let i=1; i<=remain; i++) html += '<div class="cal-cell other-month"><div class="cal-date">'+i+'</div></div>';
   grid.innerHTML = html;
+  setTimeout(fitCalToScreen, 50);
 }
 
 // ═══════════════════════════════════════════
-//  전체 렌더
+//  모바일 자동 축소
+// ═══════════════════════════════════════════
+function fitTableToScreen() {
+  if (window.innerWidth > 768) return;
+  const targets = [
+    {tblId:'schTable',     wrapSel:'.sch-wrap'},
+    {tblId:'summaryTable', wrapSel:'.sum-wrap'},
+  ];
+  targets.forEach(({tblId, wrapSel}) => {
+    const tbl = document.getElementById(tblId);
+    if (!tbl) return;
+    const wrap = tbl.closest(wrapSel);
+    if (!wrap) return;
+    tbl.style.transform = '';
+    tbl.style.transformOrigin = '';
+    wrap.style.height = '';
+    wrap.style.overflow = 'visible';
+    const tblW = tbl.scrollWidth;
+    const wrapW = wrap.clientWidth;
+    if (tblW > wrapW && wrapW > 0) {
+      const scale = wrapW / tblW;
+      tbl.style.transform = 'scale(' + scale + ')';
+      tbl.style.transformOrigin = 'top left';
+      wrap.style.height = (tbl.scrollHeight * scale) + 'px';
+    }
+  });
+}
+function fitCalToScreen() {
+  if (window.innerWidth > 768) return;
+  const grid = document.getElementById('calGrid');
+  const wrap = grid && grid.closest('.cal-wrap');
+  if (!grid || !wrap) return;
+  grid.style.transform = '';
+  grid.style.transformOrigin = '';
+  wrap.style.height = '';
+  const gridW = grid.scrollWidth;
+  const wrapW = wrap.clientWidth || wrap.offsetWidth;
+  if (gridW > 0 && wrapW > 0 && gridW > wrapW) {
+    const scale = wrapW / gridW;
+    grid.style.transform = 'scale(' + scale + ')';
+    grid.style.transformOrigin = 'top left';
+    wrap.style.height = (grid.scrollHeight * scale) + 'px';
+    wrap.style.overflow = 'visible';
+  }
+}
+window.addEventListener('resize', () => { fitTableToScreen(); fitCalToScreen(); });
 // ═══════════════════════════════════════════
 function renderAll() {
   initDeptFilter();
