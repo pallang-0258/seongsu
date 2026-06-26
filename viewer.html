@@ -709,6 +709,8 @@ function isResigned(emp) {
 function getShift(emp, di, off) {
   const dayDate = getWeekDays(off)[di];
   const dateStr = toLocalDateStr(dayDate);
+  if (emp.joinDate && dateStr < emp.joinDate) return '__off__';
+  if (emp.leaveDate && dateStr > emp.leaveDate) return '__off__';
   const lr = (leaveRequests||[]).find(r =>
     r.empId === emp.id && r.status === 'approved' && dateStr >= r.start && dateStr <= r.end
   );
@@ -721,6 +723,10 @@ function getShift(emp, di, off) {
   return pat ? (pat[di] || 'off') : 'off';
 }
 function getBaseShift(emp, di, off) {
+  const dayDate = getWeekDays(off)[di];
+  const dateStr = toLocalDateStr(dayDate);
+  if (emp.joinDate && dateStr < emp.joinDate) return '__off__';
+  if (emp.leaveDate && dateStr > emp.leaveDate) return '__off__';
   const k = weekKey(off);
   const ov = schedules[k]?.[emp.id]?.[di];
   if (ov !== undefined && ov !== 'half' && ov !== 'half_pm' && ov !== 'annual') return ov;
