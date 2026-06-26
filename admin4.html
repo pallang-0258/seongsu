@@ -936,23 +936,34 @@ function shouldWork(emp,di,off){
 function getShift(emp,di,off){
   const dayDate=getWeekDays(off)[di];
   const dateStr=toLocalDateStr(dayDate);
+  // 입사일 이전 날짜는 미근무
+  if(emp.joinDate && dateStr < emp.joinDate) return '__off__';
+  // 퇴사일 이후 날짜는 미근무
+  if(emp.leaveDate && dateStr > emp.leaveDate) return '__off__';
   const lr=(leaveRequests||[]).find(r=>r.empId===emp.id&&r.status==='approved'&&dateStr>=r.start&&dateStr<=r.end);
   if(lr)return lr.type==='half_pm'?'half_pm':lr.type==='half'?'half':'annual';
   const k=weekKey(off);
   const ov=schedules[k]?.[emp.id]?.[di];
   if(ov!==undefined)return ov;
   if(!shouldWork(emp,di,off))return '__off__';
-  const pat=DEFAULT_SHIFT[emp.id];
+  // shiftHistory 참조: 해당 날짜에 적용될 스케줄 찾기
+  const hist=(shiftHistory[emp.id]||[]).slice().sort((a,b)=>b.applyFrom.localeCompare(a.applyFrom));
+  const applicable=hist.find(h=>h.applyFrom<=dateStr);
+  const pat=applicable?applicable.newShift:DEFAULT_SHIFT[emp.id];
   return pat?(pat[di]||'off'):'off';
 }
 function getBaseShift(emp,di,off){
+  const dayDate=getWeekDays(off)[di];
+  const dateStr=toLocalDateStr(dayDate);
+  if(emp.joinDate && dateStr < emp.joinDate) return '__off__';
+  if(emp.leaveDate && dateStr > emp.leaveDate) return '__off__';
   const k=weekKey(off);
   const ov=schedules[k]?.[emp.id]?.[di];
-  // 수동 오버라이드가 있으면 (반차/연차/annual 제외) 우선 반환
   if(ov!==undefined&&ov!=='half'&&ov!=='half_pm'&&ov!=='annual')return ov;
-  // 수동 오버라이드가 없고 원래 비근무일이면 '__off__'
   if(!shouldWork(emp,di,off))return '__off__';
-  const pat=DEFAULT_SHIFT[emp.id];
+  const hist=(shiftHistory[emp.id]||[]).slice().sort((a,b)=>b.applyFrom.localeCompare(a.applyFrom));
+  const applicable=hist.find(h=>h.applyFrom<=dateStr);
+  const pat=applicable?applicable.newShift:DEFAULT_SHIFT[emp.id];
   return pat?(pat[di]||'off'):'off';
 }
 function setShiftRaw(empId,di,sh,off){
@@ -1850,7 +1861,11 @@ function saveEmp(){
         }
       });
     }
-    DEFAULT_SHIFT[e.id]=newShift;
+    // 즉시 적용이거나 shiftHistory가 없는 경우에만 DEFAULT_SHIFT 바로 교체
+    // 특정 날짜부터 적용인 경우 DEFAULT_SHIFT는 그대로 두고 getShift에서 shiftHistory 참조
+    if(!(shiftChanged && applyFrom)){
+      DEFAULT_SHIFT[e.id]=newShift;
+    }
   } else {
     const id = (employees.length > 0 ? Math.max(...employees.map(e => e.id)) : 0) + 1;
     employees.push({id,name,dept:document.getElementById('nDept').value,joinDate,leaveDate,annual:calcEarnedAnnual(joinDate)||0,used:0,color:id%COLORS.length,workType,workDays});
@@ -2897,7 +2912,23 @@ function doPrint(withDetail){
   setTimeout(()=>iframe.contentWindow.print(),300);
 }
 
-function renderAll(){renderSidebar();initWeekDropdowns();renderSchedule();renderLeaveTable();renderEmpTable();}
+// 날짜가 지난 shiftHistory 항목을 DEFAULT_SHIFT로 승격
+function promoteShiftHistory(){
+  const todayStr=toLocalDateStr(TODAY);
+  Object.keys(shiftHistory).forEach(empIdStr=>{
+    const empId=Number(empIdStr);
+    const hist=(shiftHistory[empId]||[]).slice().sort((a,b)=>a.applyFrom.localeCompare(b.applyFrom));
+    // 오늘 이전 항목 중 가장 마지막 것으로 DEFAULT_SHIFT 업데이트
+    const past=hist.filter(h=>h.applyFrom<=todayStr);
+    if(past.length){
+      const latest=past[past.length-1];
+      DEFAULT_SHIFT[empId]=latest.newShift;
+      // 적용 완료된 항목 제거
+      shiftHistory[empId]=hist.filter(h=>h.applyFrom>todayStr);
+    }
+  });
+}
+function renderAll(){promoteShiftHistory();renderSidebar();initWeekDropdowns();renderSchedule();renderLeaveTable();renderEmpTable();}
 
 // ── 모바일 테이블 자동 축소 ──
 function fitTableToScreen() {
