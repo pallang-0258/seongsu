@@ -547,6 +547,7 @@ let leaveRequests = [];
 let schedules = {};
 let confirmed = {};
 let DEFAULT_SHIFT = {};
+let shiftHistory = {};
 let weekOffset = 0;
 let currentTab = 'schedule';
 let selectedDept = '';
@@ -618,6 +619,7 @@ function applyData(d) {
   if (d.schedules)      schedules     = d.schedules;
   if (d.confirmed)      confirmed     = d.confirmed;
   if (d.defaultShift)   DEFAULT_SHIFT = d.defaultShift;
+  if (d.shiftHistory)   shiftHistory  = d.shiftHistory;
 }
 
 function showEmptySchedule() {
@@ -706,6 +708,17 @@ function isResigned(emp) {
   if (!emp.leaveDate) return false;
   return new Date(emp.leaveDate) < TODAY;
 }
+function getPatternAt(empId, dateStr){
+  const hist=(shiftHistory[empId]||[]).slice().sort((a,b)=>a.applyFrom.localeCompare(b.applyFrom));
+  if(!hist.length) return DEFAULT_SHIFT[empId];
+  if(dateStr < hist[0].applyFrom) return hist[0].oldShift;
+  let pat=hist[0].newShift;
+  for(let i=1;i<hist.length;i++){
+    if(dateStr >= hist[i].applyFrom) pat=hist[i].newShift;
+    else break;
+  }
+  return pat;
+}
 function getShift(emp, di, off) {
   const dayDate = getWeekDays(off)[di];
   const dateStr = toLocalDateStr(dayDate);
@@ -719,7 +732,7 @@ function getShift(emp, di, off) {
   const ov = schedules[k]?.[emp.id]?.[di];
   if (ov !== undefined) return ov;
   if (!shouldWork(emp, di, off)) return '__off__';
-  const pat = DEFAULT_SHIFT[emp.id];
+  const pat = getPatternAt(emp.id, dateStr);
   return pat ? (pat[di] || 'off') : 'off';
 }
 function getBaseShift(emp, di, off) {
@@ -731,7 +744,7 @@ function getBaseShift(emp, di, off) {
   const ov = schedules[k]?.[emp.id]?.[di];
   if (ov !== undefined && ov !== 'half' && ov !== 'half_pm' && ov !== 'annual') return ov;
   if (!shouldWork(emp, di, off)) return '__off__';
-  const pat = DEFAULT_SHIFT[emp.id];
+  const pat = getPatternAt(emp.id, dateStr);
   return pat ? (pat[di] || 'off') : 'off';
 }
 function getHalfLabel(baseShift, halfType) {
