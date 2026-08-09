@@ -942,8 +942,8 @@ function getShift(emp,di,off){
   if(lr)return lr.type==='half_pm'?'half_pm':lr.type==='half'?'half':'annual';
   const k=weekKey(off);
   const ov=schedules[k]?.[emp.id]?.[di];
-  if(ov!==undefined)return ov;
-  if(!shouldWork(emp,di,off))return '__off__';
+  if(ov!==undefined) return ov==='__off__'?'__off__':ov;
+  if(!shouldWork(emp,di,off)) return '__off__';
   const pat=DEFAULT_SHIFT[emp.id];
   return pat?(pat[di]||'off'):'off';
 }
@@ -954,8 +954,8 @@ function getBaseShift(emp,di,off){
   if(emp.leaveDate && dateStr > emp.leaveDate) return '__off__';
   const k=weekKey(off);
   const ov=schedules[k]?.[emp.id]?.[di];
-  if(ov!==undefined&&ov!=='half'&&ov!=='half_pm'&&ov!=='annual')return ov;
-  if(!shouldWork(emp,di,off))return '__off__';
+  if(ov!==undefined&&ov!=='half'&&ov!=='half_pm'&&ov!=='annual') return ov==='__off__'?'__off__':ov;
+  if(!shouldWork(emp,di,off)) return '__off__';
   const pat=DEFAULT_SHIFT[emp.id];
   return pat?(pat[di]||'off'):'off';
 }
@@ -1752,40 +1752,6 @@ function onApplyFromModeChange(){
   const mode=document.querySelector('input[name="applyFromMode"]:checked')?.value;
   document.getElementById('empApplyDateRow').style.display=(mode==='date')?'':'none';
 }
-// 과거 주(이번 주 이전) 전체를 schedules에 고정 — DEFAULT_SHIFT 변경 전 이력 보존
-function freezePastWeeks(emp, oldShift){
-  const todayMon = getWeekStart(0);
-  const joinDate = emp.joinDate ? new Date(emp.joinDate) : null;
-  let startMon;
-  if(joinDate){
-    startMon = new Date(joinDate);
-    const dow = startMon.getDay();
-    startMon.setDate(startMon.getDate() - (dow === 0 ? 6 : dow - 1));
-    startMon.setHours(0,0,0,0);
-  } else {
-    // 입사일 없으면 현재 주 1년 전부터
-    startMon = new Date(todayMon);
-    startMon.setFullYear(startMon.getFullYear() - 1);
-  }
-  const cur = new Date(startMon);
-  while(cur < todayMon){
-    const k = toLocalDateStr(cur);
-    if(!schedules[k]) schedules[k] = {};
-    if(!schedules[k][emp.id]) schedules[k][emp.id] = {};
-    for(let di = 0; di < 7; di++){
-      if(schedules[k][emp.id][di] === undefined){
-        const dayDate = new Date(cur);
-        dayDate.setDate(cur.getDate() + di);
-        const dateStr = toLocalDateStr(dayDate);
-        if(emp.joinDate && dateStr < emp.joinDate) continue;
-        if(emp.leaveDate && dateStr > emp.leaveDate) continue;
-        const oldWd = emp.workDays ? emp.workDays[di] : 1;
-        if(oldWd) schedules[k][emp.id][di] = oldShift[di] || 'off';
-      }
-    }
-    cur.setDate(cur.getDate() + 7);
-  }
-}
 function saveEmp(){
   const name=document.getElementById('nName').value.trim();if(!name)return;
   const workType=document.getElementById('nWorkType').value;
@@ -1808,126 +1774,105 @@ function saveEmp(){
     const oldShift=DEFAULT_SHIFT[e.id]||Array(7).fill(null);
     const shiftChanged=newShift.some((v,i)=>v!==oldShift[i]);
 
-    if(shiftChanged){
-      if(applyFrom){
-        const applyDate=new Date(applyFrom);
-        applyDate.setHours(0,0,0,0);
-        const applyDateStr=toLocalDateStr(applyDate);
-
-        // ── 1) applyDate 이전의 모든 날 → schedules에 oldShift로 고정 ──
-        // 입사일 기준 첫 주부터 오늘 주까지 순회
-        const joinDate=e.joinDate?new Date(e.joinDate):null;
-        let cur=joinDate?new Date(joinDate):new Date(getWeekStart(0));
-        {
-          const dow=cur.getDay();
-          cur.setDate(cur.getDate()-(dow===0?6:dow-1));
-          cur.setHours(0,0,0,0);
-        }
-        // applyDate가 포함된 주의 월요일
-        const applyMon=new Date(applyDate);
-        {
-          const dow=applyMon.getDay();
-          applyMon.setDate(applyMon.getDate()-(dow===0?6:dow-1));
-          applyMon.setHours(0,0,0,0);
-        }
-        // applyDate 이전 모든 주
-        while(cur<applyMon){
-          const k=toLocalDateStr(cur);
-          if(!schedules[k])schedules[k]={};
-          if(!schedules[k][e.id])schedules[k][e.id]={};
-          for(let di=0;di<7;di++){
-            if(schedules[k][e.id][di]===undefined){
-              const dayDate=new Date(cur);
-              dayDate.setDate(cur.getDate()+di);
-              const ds=toLocalDateStr(dayDate);
-              if(e.joinDate&&ds<e.joinDate)continue;
-              if(e.leaveDate&&ds>e.leaveDate)continue;
-              const wd=e.workDays?e.workDays[di]:1;
-              if(wd)schedules[k][e.id][di]=oldShift[di]||'off';
-            }
-          }
-          console.log('[freeze past]',k, JSON.stringify(schedules[k][e.id]));
-          cur.setDate(cur.getDate()+7);
-        }
-        // applyDate가 포함된 주: applyDate 이전 요일은 oldShift, 이후는 newShift
-        {
-          const k=toLocalDateStr(applyMon);
-          if(!schedules[k])schedules[k]={};
-          if(!schedules[k][e.id])schedules[k][e.id]={};
-          const applyDow=applyDate.getDay();
-          const applyDi=applyDow===0?6:applyDow-1;
-          for(let di=0;di<7;di++){
-            const dayDate=new Date(applyMon);
-            dayDate.setDate(applyMon.getDate()+di);
-            const ds=toLocalDateStr(dayDate);
-            if(e.joinDate&&ds<e.joinDate)continue;
-            if(e.leaveDate&&ds>e.leaveDate)continue;
-            const wd=di<applyDi?(e.workDays?e.workDays[di]:1):(workDays[di]);
-            const sh=di<applyDi?oldShift[di]:newShift[di];
-            if(wd&&sh)schedules[k][e.id][di]=sh;
-            else if(wd)schedules[k][e.id][di]='off';
-            else delete schedules[k][e.id][di];
-          }
-          console.log('[applyMon week]',k,'applyDi=',applyDi, JSON.stringify(schedules[k][e.id]));
-        }
-        // applyDate 이후 주: schedules 오버라이드 제거 → DEFAULT_SHIFT(newShift)로 렌더
-        Object.keys(schedules).forEach(k=>{
-          const wStart=new Date(k);
-          if(wStart>applyMon&&schedules[k][e.id]){
-            console.log('[delete future]',k);
-            const notes=schedules[k][e.id]?._notes;
-            delete schedules[k][e.id];
-            if(notes){schedules[k][e.id]={_notes:notes};}
-          }
-        });
-        console.log('[saveEmp] oldShift=',JSON.stringify(oldShift),'newShift=',JSON.stringify(newShift),'applyDate=',applyDateStr,'applyMon=',toLocalDateStr(applyMon));
-        // DEFAULT_SHIFT를 newShift로 교체 (applyDate 이후 주 렌더용)
-        DEFAULT_SHIFT[e.id]=newShift;
-
-        // shiftHistory 기록 (이력 뷰어용)
-        if(!shiftHistory[e.id])shiftHistory[e.id]=[];
-        shiftHistory[e.id]=shiftHistory[e.id].filter(h=>h.applyFrom!==applyDateStr);
-        shiftHistory[e.id].push({applyFrom:applyDateStr,newShift:[...newShift],oldShift:[...oldShift],registeredAt:toLocalDateStr(TODAY)});
-        shiftHistory[e.id]=shiftHistory[e.id].slice(-10);
-
-      } else {
-        // ── 즉시 적용: 과거 전체 oldShift 고정 후 DEFAULT_SHIFT 교체 ──
-        const joinDate=e.joinDate?new Date(e.joinDate):null;
-        let cur=joinDate?new Date(joinDate):new Date(getWeekStart(0));
-        {const dow=cur.getDay();cur.setDate(cur.getDate()-(dow===0?6:dow-1));cur.setHours(0,0,0,0);}
-        const todayMon=getWeekStart(0);
-        while(cur<todayMon){
-          const k=toLocalDateStr(cur);
-          if(!schedules[k])schedules[k]={};
-          if(!schedules[k][e.id])schedules[k][e.id]={};
-          for(let di=0;di<7;di++){
-            if(schedules[k][e.id][di]===undefined){
-              const dayDate=new Date(cur);
-              dayDate.setDate(cur.getDate()+di);
-              const ds=toLocalDateStr(dayDate);
-              if(e.joinDate&&ds<e.joinDate)continue;
-              if(e.leaveDate&&ds>e.leaveDate)continue;
-              const wd=e.workDays?e.workDays[di]:1;
-              if(wd)schedules[k][e.id][di]=oldShift[di]||'off';
-            }
-          }
-          cur.setDate(cur.getDate()+7);
-        }
-        // 현재·미래 주 오버라이드 제거
-        Object.keys(schedules).forEach(k=>{
-          const wStart=new Date(k);
-          if(wStart>=todayMon&&schedules[k][e.id]){
-            const notes=schedules[k][e.id]?._notes;
-            delete schedules[k][e.id];
-            if(notes){schedules[k][e.id]={_notes:notes};}
-          }
-        });
-        DEFAULT_SHIFT[e.id]=newShift;
-      }
-    }
-    // 직원 기본 정보 업데이트
     e.name=name;e.dept=document.getElementById('nDept').value;e.joinDate=joinDate;e.leaveDate=leaveDate;
     e.workType=workType;e.workDays=workDays;
+
+    if(shiftChanged && applyFrom){
+      const applyDate=new Date(applyFrom); applyDate.setHours(0,0,0,0);
+      const applyDateStr=toLocalDateStr(applyDate);
+      const applyDow=applyDate.getDay();
+      const applyDi=applyDow===0?6:applyDow-1;
+      // applyDate가 속한 주 월요일
+      const applyMonDate=new Date(applyDate);
+      applyMonDate.setDate(applyDate.getDate()-applyDi);
+      applyMonDate.setHours(0,0,0,0);
+      const applyMonStr=toLocalDateStr(applyMonDate);
+
+      // 시작점: 입사일 첫 주 월요일
+      const startDate=e.joinDate?new Date(e.joinDate):new Date(applyMonDate);
+      const startDow=startDate.getDay();
+      startDate.setDate(startDate.getDate()-(startDow===0?6:startDow-1));
+      startDate.setHours(0,0,0,0);
+
+      // 오늘 주 월요일
+      const todayMon=getWeekStart(0);
+      const todayMonStr=toLocalDateStr(todayMon);
+
+      // ── 입사일 첫 주 ~ 오늘 주까지 모든 날을 schedules에 확정 ──
+      const cur=new Date(startDate);
+      while(toLocalDateStr(cur)<=todayMonStr){
+        const k=toLocalDateStr(cur);
+        if(!schedules[k]) schedules[k]={};
+        if(!schedules[k][e.id]) schedules[k][e.id]={};
+        for(let di=0;di<7;di++){
+          // 이미 수동 입력된 값은 유지
+          if(schedules[k][e.id][di]!==undefined) { cur.setDate(cur.getDate()); }
+          else {
+            const dayDate=new Date(cur); dayDate.setDate(cur.getDate()+di);
+            const ds=toLocalDateStr(dayDate);
+            if(e.joinDate&&ds<e.joinDate){schedules[k][e.id][di]='__off__';continue;}
+            if(e.leaveDate&&ds>e.leaveDate){schedules[k][e.id][di]='__off__';continue;}
+            // 적용일 이전 → oldShift, 이후 → newShift
+            const sh=ds<applyDateStr?oldShift[di]:newShift[di];
+            schedules[k][e.id][di]=sh||'__off__';
+          }
+        }
+        cur.setDate(cur.getDate()+7);
+      }
+
+      // 오늘 이후 주: schedules 수동오버라이드 제거 → DEFAULT_SHIFT로 렌더
+      Object.keys(schedules).forEach(k=>{
+        if(k<=todayMonStr) return;
+        if(schedules[k][e.id]){
+          const notes=schedules[k][e.id]?._notes;
+          delete schedules[k][e.id];
+          if(notes) schedules[k][e.id]={_notes:notes};
+        }
+      });
+
+      DEFAULT_SHIFT[e.id]=newShift;
+
+      // shiftHistory 기록 (이력 뷰어용)
+      if(!shiftHistory[e.id]) shiftHistory[e.id]=[];
+      shiftHistory[e.id]=shiftHistory[e.id].filter(h=>h.applyFrom!==applyDateStr);
+      shiftHistory[e.id].push({applyFrom:applyDateStr,newShift:[...newShift],oldShift:[...oldShift],registeredAt:toLocalDateStr(TODAY)});
+      shiftHistory[e.id]=shiftHistory[e.id].slice(-20);
+
+    } else if(shiftChanged) {
+      // 즉시 적용: 과거 주 모두 oldShift로 확정 후 DEFAULT_SHIFT 교체
+      const startDate=e.joinDate?new Date(e.joinDate):new Date(getWeekStart(0));
+      const startDow=startDate.getDay();
+      startDate.setDate(startDate.getDate()-(startDow===0?6:startDow-1));
+      startDate.setHours(0,0,0,0);
+      const todayMon=getWeekStart(0);
+      const todayMonStr=toLocalDateStr(todayMon);
+      const cur=new Date(startDate);
+      while(toLocalDateStr(cur)<todayMonStr){
+        const k=toLocalDateStr(cur);
+        if(!schedules[k]) schedules[k]={};
+        if(!schedules[k][e.id]) schedules[k][e.id]={};
+        for(let di=0;di<7;di++){
+          if(schedules[k][e.id][di]===undefined){
+            const dayDate=new Date(cur); dayDate.setDate(cur.getDate()+di);
+            const ds=toLocalDateStr(dayDate);
+            if(e.joinDate&&ds<e.joinDate){schedules[k][e.id][di]='__off__';continue;}
+            if(e.leaveDate&&ds>e.leaveDate){schedules[k][e.id][di]='__off__';continue;}
+            schedules[k][e.id][di]=oldShift[di]||'__off__';
+          }
+        }
+        cur.setDate(cur.getDate()+7);
+      }
+      // 현재·미래 수동오버라이드 제거
+      Object.keys(schedules).forEach(k=>{
+        if(k<todayMonStr) return;
+        if(schedules[k][e.id]){
+          const notes=schedules[k][e.id]?._notes;
+          delete schedules[k][e.id];
+          if(notes) schedules[k][e.id]={_notes:notes};
+        }
+      });
+      DEFAULT_SHIFT[e.id]=newShift;
+    }
   } else {
     const id = (employees.length > 0 ? Math.max(...employees.map(e => e.id)) : 0) + 1;
     employees.push({id,name,dept:document.getElementById('nDept').value,joinDate,leaveDate,annual:calcEarnedAnnual(joinDate)||0,used:0,color:id%COLORS.length,workType,workDays});
