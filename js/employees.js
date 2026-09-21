@@ -87,6 +87,7 @@ function openEmpModal() {
   document.getElementById('nLeaveDate').value = '';
   document.getElementById('nEmploymentType').value = 'fulltime';
   document.getElementById('nPhone').value = '';
+  document.getElementById('nTrueJoinDate').value = '';
   document.getElementById('workTypeHint').textContent = '';
   document.getElementById('empApplyFromWrap').style.display = 'none';
   renderDayShiftRow(null);
@@ -101,6 +102,7 @@ function openEditEmp(id) {
   document.getElementById('nWorkType').value = e.workType || 'full';
   document.getElementById('nEmploymentType').value = e.employmentType || 'fulltime';
   document.getElementById('nPhone').value = e.phone || '';
+  document.getElementById('nTrueJoinDate').value = e.trueJoinDate || '';
   onWorkTypeChange();
   const pat = getCurrentPattern(e.id);
   renderDayShiftRow(pat);
@@ -136,6 +138,7 @@ function saveEmp() {
   const leaveDate = document.getElementById('nLeaveDate').value || '';
   const employmentType = document.getElementById('nEmploymentType').value || 'fulltime';
   const phone = document.getElementById('nPhone').value.trim();
+  const trueJoinDate = document.getElementById('nTrueJoinDate').value || '';
   const dayShifts = gatherDayShiftsFromForm();
   const workDays = dayShifts.map(v => v !== null ? 1 : 0);
 
@@ -152,7 +155,7 @@ function saveEmp() {
     const shiftChanged = newShift.some((v, i) => !dayShiftEqual(v, oldShift[i]));
 
     e.name = name; e.dept = document.getElementById('nDept').value; e.joinDate = joinDate; e.leaveDate = leaveDate;
-    e.workType = workType; e.workDays = workDays; e.employmentType = employmentType; e.phone = phone;
+    e.workType = workType; e.workDays = workDays; e.employmentType = employmentType; e.phone = phone; e.trueJoinDate = trueJoinDate;
 
     if (shiftChanged && applyFrom) {
       const applyDate = new Date(applyFrom); applyDate.setHours(0, 0, 0, 0);
@@ -190,7 +193,7 @@ function saveEmp() {
     }
   } else {
     const id = (state.employees.length > 0 ? Math.max(...state.employees.map(e => e.id)) : 0) + 1;
-    state.employees.push({ id, name, dept: document.getElementById('nDept').value, joinDate, leaveDate, annual: 0, used: 0, color: id % COLORS.length, workType, workDays, employmentType, phone });
+    state.employees.push({ id, name, dept: document.getElementById('nDept').value, joinDate, leaveDate, annual: 0, used: 0, color: id % COLORS.length, workType, workDays, employmentType, phone, trueJoinDate });
     state.defaultShift[id] = dayShifts;
   }
   // 부서별 자동 정렬 (퇴사자는 맨 아래)

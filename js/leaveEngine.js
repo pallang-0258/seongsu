@@ -8,11 +8,14 @@ function fulltimeEmployees() { return state.employees.filter(isFulltime); }
 //  - 근속 1년 미만: 개근한 달마다 1일, 최대 11일
 //  - 근속 1년 이상: 기본 15일 + (근속연수-1)/2를 내림한 값 (3년,5년,7년,...마다 +1), 최대 25일
 // 파트타임 직원은 연차 발생 대상이 아니므로 항상 0.
+// 타지점 등에서 이동해온 경우 emp.trueJoinDate(연차 인정 시작일)가 있으면 그 날짜를
+// 근속 기산일로 쓴다 (이 지점 근무 시작일인 joinDate와는 별개 — 스케줄/입사예정 표시는 joinDate 그대로 사용).
 function calcEarnedAnnual(joinDateStr, bonusAnnual, emp) {
   if (emp && !isFulltime(emp)) return 0; // 파트타임: 연차 시스템에서 완전히 제외
+  const effectiveJoinStr = (emp && emp.trueJoinDate) || joinDateStr;
   let base = 0;
-  if (joinDateStr) {
-    const join = parseLocalDate(joinDateStr);
+  if (effectiveJoinStr) {
+    const join = parseLocalDate(effectiveJoinStr);
     const now = TODAY;
     if (now >= join) {
       let months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth());

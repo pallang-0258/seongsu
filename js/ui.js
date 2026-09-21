@@ -597,7 +597,7 @@ function renderLeaveBalanceSimple() {
     const isFuture = e.joinDate && parseLocalDate(e.joinDate) > TODAY;
     html += '<tr><td><strong>' + e.name + '</strong>' + (isFuture ? ' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:8px">예정</span>' : '') + '</td>'
       + '<td style="color:#888">' + e.dept + '</td>'
-      + '<td style="font-size:11px;color:#888">' + (e.joinDate || '-') + '</td>'
+      + '<td style="font-size:11px;color:#888">' + (e.joinDate || '-') + (e.trueJoinDate ? '<div style="color:#1565c0">연차 ' + e.trueJoinDate + '~</div>' : '') + '</td>'
       + '<td style="text-align:center">' + earned + '일</td>'
       + '<td style="text-align:center">' + used + '일</td>'
       + '<td style="text-align:center;font-weight:600;color:' + (rem < 0 ? '#c0392b' : rem === 0 ? '#888' : '#2e7d32') + '">' + rem + '일</td></tr>';
@@ -610,7 +610,8 @@ function openBonusAnnualModal(empId) {
   ui.editingEmpId = empId;
   document.getElementById('bonusAnnualModalTitle').textContent = '연차 조정 – ' + e.name;
   const base = calcEarnedAnnual(e.joinDate, 0, e);
-  document.getElementById('bonusBaseInfo').textContent = '입사일 기준 ' + base + '일 발생';
+  const baseLabel = e.trueJoinDate ? ('연차 인정 시작일(' + e.trueJoinDate + ') 기준') : '입사일 기준';
+  document.getElementById('bonusBaseInfo').textContent = baseLabel + ' ' + base + '일 발생';
   document.getElementById('bonusAnnualInput').value = e.bonusAnnual || 0;
   document.getElementById('bonusAnnualReason').value = '';
   const histWrap = document.getElementById('bonusAnnualHistoryWrap');
