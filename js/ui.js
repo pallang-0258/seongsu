@@ -423,8 +423,11 @@ function submitSwap() {
   setShiftRaw(empA.id, dateToDayIndex(dateA), shiftB, dateToWeekOffset(dateA));
   setShiftRaw(empB.id, dateToDayIndex(dateB), shiftA, dateToWeekOffset(dateB));
   closeModal('swapModal');
+  // 버그수정: 바꾼 날짜가 지금 보고 있는 주와 다르면 화면이 그대로라 안 바뀐 것처럼 보였음.
+  // 교대한 날짜(A 기준)가 보이는 주로 화면을 옮겨서 바로 결과를 확인할 수 있게 함.
+  ui.weekOffset = dateToWeekOffset(dateA);
   renderSchedule();
-  alert(empA.name + '님과 ' + empB.name + '님의 근무를 맞바꿨습니다.');
+  alert(empA.name + '님과 ' + empB.name + '님의 근무를 맞바꿨습니다.\n(' + dateA + '가 포함된 주로 화면을 이동했습니다)');
 }
 
 // ── 근무 변경 모달 ──
