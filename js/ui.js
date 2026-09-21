@@ -352,6 +352,81 @@ function confirmScheduleUI() { confirmSchedule(ui.weekOffset); renderSchedule();
 function unconfirmScheduleUI() { unconfirmSchedule(ui.weekOffset); }
 function resetWeekScheduleUI() { resetWeekSchedule(ui.weekOffset); }
 
+// ── 근무 교대 (직원끼리 서로 근무 맞바꾸기, 같은 부서만) ──
+function swapShiftLabel(emp, dateStr) {
+  const sh = getShiftForDate(emp, dateStr);
+  if (sh === '__off__') return '휴무 (원래 비근무일)';
+  if (sh === 'off') return '휴무';
+  if (sh === 'annual') return '연차';
+  if (sh === 'half' || sh === 'half_pm') { const base = getBaseShiftForDate(emp, dateStr); return getHalfLabel(base, sh); }
+  return SHIFT_LABEL[sh] || sh;
+}
+function isSwappableShift(sh) { return sh === '1020' || sh === '1019' || sh === '1323' || sh === 'half' || sh === 'half_pm'; }
+
+function openSwapModal() {
+  const opts = state.employees.filter(e => !isResigned(e)).map(e => '<option value="' + e.id + '">' + e.name + ' (' + e.dept + ')</option>').join('');
+  document.getElementById('swapEmpA').innerHTML = '<option value="">선택</option>' + opts;
+  document.getElementById('swapEmpB').innerHTML = '<option value="">먼저 A를 선택하세요</option>';
+  document.getElementById('swapDateA').value = '';
+  document.getElementById('swapDateB').value = '';
+  document.getElementById('swapAInfo').textContent = '';
+  document.getElementById('swapBInfo').textContent = '';
+  document.getElementById('swapPreview').style.display = 'none';
+  document.getElementById('swapModal').classList.add('open');
+}
+function onSwapChange() {
+  const aId = +document.getElementById('swapEmpA').value || null;
+  const bSel = document.getElementById('swapEmpB');
+  const prevB = bSel.value;
+  const empA = state.employees.find(e => e.id === aId);
+  if (empA) {
+    const sameDept = state.employees.filter(e => !isResigned(e) && e.dept === empA.dept && e.id !== aId);
+    bSel.innerHTML = '<option value="">선택</option>' + sameDept.map(e => '<option value="' + e.id + '">' + e.name + '</option>').join('');
+    if (sameDept.some(e => String(e.id) === prevB)) bSel.value = prevB;
+  } else {
+    bSel.innerHTML = '<option value="">먼저 A를 선택하세요</option>';
+  }
+  const dateA = document.getElementById('swapDateA').value;
+  const bId = +bSel.value || null;
+  const empB = state.employees.find(e => e.id === bId);
+  const dateB = document.getElementById('swapDateB').value;
+
+  document.getElementById('swapAInfo').textContent = (empA && dateA) ? ('현재: ' + swapShiftLabel(empA, dateA)) : '';
+  document.getElementById('swapBInfo').textContent = (empB && dateB) ? ('현재: ' + swapShiftLabel(empB, dateB)) : '';
+
+  const preview = document.getElementById('swapPreview');
+  if (empA && empB && dateA && dateB) {
+    preview.style.display = '';
+    preview.innerHTML = empA.name + ' (' + dateA + '): <strong>' + swapShiftLabel(empA, dateA) + '</strong> → <strong>' + swapShiftLabel(empB, dateB) + '</strong><br>'
+      + empB.name + ' (' + dateB + '): <strong>' + swapShiftLabel(empB, dateB) + '</strong> → <strong>' + swapShiftLabel(empA, dateA) + '</strong>';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+function submitSwap() {
+  const aId = +document.getElementById('swapEmpA').value || null;
+  const bId = +document.getElementById('swapEmpB').value || null;
+  const dateA = document.getElementById('swapDateA').value;
+  const dateB = document.getElementById('swapDateB').value;
+  const empA = state.employees.find(e => e.id === aId);
+  const empB = state.employees.find(e => e.id === bId);
+  if (!empA || !empB || !dateA || !dateB) { alert('직원 A/B와 날짜를 모두 선택하세요.'); return; }
+  if (empA.dept !== empB.dept) { alert('같은 부서끼리만 근무를 바꿀 수 있습니다.'); return; }
+  if (isWeekConfirmed(dateToWeekOffset(dateA)) || isWeekConfirmed(dateToWeekOffset(dateB))) {
+    alert('해당 날짜가 포함된 주가 이미 확정되어 있습니다. 먼저 확정을 해제한 뒤 다시 시도해주세요.'); return;
+  }
+  const shiftA = getShiftForDate(empA, dateA);
+  const shiftB = getShiftForDate(empB, dateB);
+  if (!isSwappableShift(shiftA) || !isSwappableShift(shiftB)) {
+    alert('연차나 휴무는 근무 교대로 처리할 수 없습니다. 실제 근무일끼리만 바꿀 수 있어요.'); return;
+  }
+  setShiftRaw(empA.id, dateToDayIndex(dateA), shiftB, dateToWeekOffset(dateA));
+  setShiftRaw(empB.id, dateToDayIndex(dateB), shiftA, dateToWeekOffset(dateB));
+  closeModal('swapModal');
+  renderSchedule();
+  alert(empA.name + '님과 ' + empB.name + '님의 근무를 맞바꿨습니다.');
+}
+
 // ── 근무 변경 모달 ──
 function openShiftEdit(empId, di) {
   if (isWeekConfirmed(ui.weekOffset)) { alert('이 주는 확정되어 있습니다. 수정하려면 먼저 확정을 해제하세요.'); return; }
