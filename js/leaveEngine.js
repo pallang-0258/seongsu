@@ -4,35 +4,46 @@
 function isFulltime(emp) { return (emp.employmentType || 'fulltime') !== 'parttime'; }
 function fulltimeEmployees() { return state.employees.filter(isFulltime); }
 
-// 새 연차 발생 공식:
+// fromDate부터 toDate까지 완주한 개월 수 (toDate가 fromDate보다 이르면 0)
+function monthsElapsed(fromDate, toDate) {
+  if (toDate < fromDate) return 0;
+  let months = (toDate.getFullYear() - fromDate.getFullYear()) * 12 + (toDate.getMonth() - fromDate.getMonth());
+  const annivThisMonth = new Date(toDate.getFullYear(), toDate.getMonth(), fromDate.getDate());
+  if (toDate < annivThisMonth) months--;
+  return Math.max(months, 0);
+}
+
+// 새 연차 발생 공식 (2012년 개정 근로기준법 기준):
 //  - 근속 1년 미만: 개근한 달마다 1일, 최대 11일
-//  - 근속 1년 이상: 기본 15일 + (근속연수-1)/2를 내림한 값 (3년,5년,7년,...마다 +1), 최대 25일
+//  - 근속 1년 이상: 1년 미만 기간 동안 쌓인 최대 11일은 사라지지 않고 그대로 유지된 채,
+//    그 위에 15일(3년차부터 2년마다 +1, 최대 25일)이 "합산"된다 — 2012년 개정 전에는 서로 상쇄됐지만
+//    지금은 법적으로 상쇄 조항이 삭제되어 최대 11+15=26일부터 시작한다.
 // 파트타임 직원은 연차 발생 대상이 아니므로 항상 0.
-// 타지점 등에서 이동해온 경우 emp.trueJoinDate(연차 인정 시작일)가 있으면 그 날짜를
-// 근속 기산일로 쓴다 (이 지점 근무 시작일인 joinDate와는 별개 — 스케줄/입사예정 표시는 joinDate 그대로 사용).
+// 타지점 등에서 이동해온 경우 emp.trueJoinDate(연차 인정 시작일)가 "1년 경과 여부" 판단 기준이 되고,
+// 1년 미만 구간의 매달 가산은 이 지점 실제 근무 시작일(joinDate) 기준으로 계산한다
+// (타지점 재직 기간의 매달 가산은 그쪽에서 이미 별도로 관리했을 것이므로 중복 계산하지 않음).
 function calcEarnedAnnual(joinDateStr, bonusAnnual, emp) {
   if (emp && !isFulltime(emp)) return 0; // 파트타임: 연차 시스템에서 완전히 제외
+  if (!joinDateStr) return (bonusAnnual || 0);
   const effectiveJoinStr = (emp && emp.trueJoinDate) || joinDateStr;
+  const trueJoin = parseLocalDate(effectiveJoinStr);
+  const branchJoin = parseLocalDate(joinDateStr);
+  const now = TODAY;
   let base = 0;
-  if (effectiveJoinStr) {
-    const join = parseLocalDate(effectiveJoinStr);
-    const now = TODAY;
-    if (now >= join) {
-      let months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth());
-      const annivThisMonth = new Date(now.getFullYear(), now.getMonth(), join.getDate());
-      if (now < annivThisMonth) months--;
-      months = Math.max(months, 0);
+  if (now >= trueJoin) {
+    let years = now.getFullYear() - trueJoin.getFullYear();
+    const annivThisYear = new Date(now.getFullYear(), trueJoin.getMonth(), trueJoin.getDate());
+    if (now < annivThisYear) years--;
+    years = Math.max(years, 0);
 
-      let years = now.getFullYear() - join.getFullYear();
-      const annivThisYear = new Date(now.getFullYear(), join.getMonth(), join.getDate());
-      if (now < annivThisYear) years--;
-      years = Math.max(years, 0);
-
-      if (years < 1) {
-        base = Math.min(months, 11);
-      } else {
-        base = Math.min(15 + Math.floor((years - 1) / 2), 25);
-      }
+    if (years < 1) {
+      base = Math.min(monthsElapsed(branchJoin, now), 11);
+    } else {
+      // 1년 시점(연차 인정 시작일 기준 1주년)까지 이 지점에서 쌓였을 개월수를 고정값으로 반영
+      const trueAnniv = new Date(trueJoin.getFullYear() + 1, trueJoin.getMonth(), trueJoin.getDate());
+      const firstYearCredit = Math.min(monthsElapsed(branchJoin, trueAnniv), 11);
+      const yearNCredit = Math.min(15 + Math.floor((years - 1) / 2), 25);
+      base = firstYearCredit + yearNCredit;
     }
   }
   return base + (bonusAnnual || 0);
