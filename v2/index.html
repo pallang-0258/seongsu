@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>근무관리 시스템 v2</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="mobileSidebarBtn" class="btn sm" onclick="toggleMobileSidebar()" style="display:none;padding:4px 10px;font-size:16px;border:none;background:none">☰</button>
+    <div class="header-title" id="siteTitle" onclick="startEditTitle()" title="클릭하여 이름 수정" style="cursor:pointer">📋 근무관리 시스템</div>
+  </div>
+  <div class="header-tabs">
+    <button class="tab active" onclick="switchTab('schedule')">근무표</button>
+    <button class="tab" onclick="switchTab('leave')">연차/반차</button>
+    <button class="tab" onclick="switchTab('overtime')">추가근무</button>
+    <button class="tab" onclick="switchTab('employees')">직원 관리</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span id="syncIndicator" style="font-size:11px;color:#2e7d32;min-width:70px;text-align:right"></span>
+    <button class="btn sm" onclick="openSheetsSettingModal()" title="Google Sheets 연동 설정" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)">⚙ 연동 설정</button>
+  </div>
+</div>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+<div class="mobile-tabbar">
+  <button class="mobile-tab active" id="mtab-schedule" onclick="switchTab('schedule')"><span class="mt-icon">📋</span>근무표</button>
+  <button class="mobile-tab" id="mtab-leave" onclick="switchTab('leave')"><span class="mt-icon">📅</span>연차/반차</button>
+  <button class="mobile-tab" id="mtab-overtime" onclick="switchTab('overtime')"><span class="mt-icon">⏰</span>추가근무</button>
+  <button class="mobile-tab" id="mtab-employees" onclick="switchTab('employees')"><span class="mt-icon">👥</span>직원관리</button>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:600;color:#aaa;letter-spacing:.05em">직원 필터</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn sm" onclick="toggleSearch()" id="searchToggleBtn" title="검색" style="padding:3px 8px;font-size:13px;border:none;background:none;color:#888">🔍</button>
+        <button class="btn sm" onclick="clearSearch()" style="font-size:11px">전체</button>
+      </div>
+    </div>
+    <div class="search-wrap" id="searchWrap">
+      <input type="text" id="searchEmp" placeholder="직원 검색" style="height:30px;font-size:12px;width:100%;margin-bottom:6px" oninput="renderSidebar()">
+    </div>
+    <div id="empList"></div>
+    <div style="margin-top:14px;border-top:1px solid #f0ede8;padding-top:12px">
+      <div class="sidebar-label">범례</div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;padding:0 4px">
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#d4edda"></div>오전 (10-20)</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#e2d9f3"></div>오후 (13-23)</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#fff3cd"></div>연차</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#f0f0f0;border:1px solid #ddd"></div>격주 미근무</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#fff8f7;border:1px solid #f5c6c2"></div>공휴일</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- 근무표 탭 -->
+    <div id="tabSchedule">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">전체 직원</div><div class="stat-value" id="statTotal">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">약사</div><div class="stat-value" id="statDept0">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">일본어</div><div class="stat-value" id="statDept1">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">중국어</div><div class="stat-value" id="statDept2">-</div><div class="stat-sub">명</div></div>
+        <div class="stat-card"><div class="stat-label">물류</div><div class="stat-value" id="statDept3">-</div><div class="stat-sub">명</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="weekYearSel" onchange="onWeekSelChange()" style="height:32px;font-size:12px;width:76px"></select>
+            <select id="weekMonthSel" onchange="onWeekSelChange()" style="height:32px;font-size:12px;width:60px"></select>
+            <select id="weekPickSel" onchange="onWeekPick()" style="height:32px;font-size:13px;font-weight:600;width:200px"></select>
+            <button class="btn sm" onclick="changeWeek(-1)" title="이전 주">◀</button>
+            <button class="btn sm" onclick="changeWeek(1)" title="다음 주">▶</button>
+            <button class="btn sm" onclick="goToThisWeek()" style="font-size:11px">이번 주</button>
+            <div class="wk-badge" id="weekTypeBadge" style="background:#e8f5e9;color:#2e7d32">홀수 주</div>
+            <div class="confirm-badge unconfirmed" id="confirmBadge">● 미확정</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn sm" id="confirmScheduleBtn" onclick="confirmScheduleUI()">근무표 확정</button>
+            <button class="btn sm danger" id="unconfirmScheduleBtn" onclick="unconfirmScheduleUI()" style="display:none">🔓 확정 해제</button>
+            <button class="btn sm danger" id="resetWeekBtn" onclick="resetWeekScheduleUI()" title="이 주의 수동 변경을 모두 취소하고 기본 근무표로 되돌립니다">↩ 이 주 초기화</button>
+            <button class="btn sm" onclick="doPrint(false)">🖨 요약표만</button>
+            <button class="btn primary sm" onclick="doPrint(true)">🖨 전체출력</button>
+            <button class="btn sm" onclick="doPrintFixed()">🖨 고정근무표</button>
+          </div>
+        </div>
+        <div class="sch-wrap"><table class="sch-table" id="screenSchTable"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">요일별 근무 명단 요약</div>
+        <div class="sum-wrap"><table class="sum-table" id="screenSummary"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">공휴일 관리</div></div>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap">
+          <div style="flex:0 0 auto"><label class="form-label">날짜 지정/해제</label><input type="date" id="holidayDateInput" style="width:170px"></div>
+          <button class="btn sm" onclick="addHolidayFromInput()">공휴일로 지정</button>
+          <span style="font-size:11px;color:#888">기본 공휴일 데이터셋 외에 지점 사정에 맞는 대체휴일 등을 직접 추가/해제할 수 있습니다.</span>
+        </div>
+        <div id="holidayManagerWrap" style="font-size:12px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">월별 공휴일 근무 리포트</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="hrYearSel" onchange="onHolidayReportSelChange()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="hrMonthSel" onchange="onHolidayReportSelChange()" style="height:32px;font-size:12px;width:70px"></select>
+          </div>
+        </div>
+        <div id="holidayReportWrap"></div>
+      </div>
+    </div>
+
+    <!-- 연차/반차 탭 -->
+    <div id="tabLeave" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">연차 / 반차 신청 현황</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="leaveTableYear" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="leaveTableMonth" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <button class="btn primary sm" onclick="openLeaveModal()">+ 신청 등록</button>
+          </div>
+        </div>
+        <div id="leaveTableWrap" style="overflow:visible"><table class="lv-table" id="leaveTable"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">연차/반차 달력</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn sm" onclick="calChangeMonth(-1)">◀</button>
+            <div style="font-weight:600;font-size:13px;min-width:90px;text-align:center" id="calMonthLabel"></div>
+            <button class="btn sm" onclick="calChangeMonth(1)">▶</button>
+          </div>
+        </div>
+        <div class="cal-emp-filter" id="calEmpFilter"></div>
+        <div id="calGridWrap" style="overflow:visible"><div class="cal-grid" id="calGrid"></div></div>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8e1"></div>연차</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차(오전)</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#ede7f6"></div>반차(오후)</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8f7;border:1px solid #f5c6c2"></div>공휴일</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">연차 잔여 현황</div>
+            <div style="font-size:11px;color:#90aac8;margin-top:2px">연차 조정은 직원 관리 탭에서 가능합니다 · 파트타임 직원은 표시되지 않습니다</div>
+          </div>
+        </div>
+        <table class="lv-table" id="leaveBalanceSimpleTable"></table>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">직원별 사용 내역</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="leaveEmpFilter" onchange="renderLeaveHistory()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
+            <select id="leaveYearFilter" onchange="renderLeaveHistory()" style="height:32px;font-size:12px;width:90px"></select>
+          </div>
+        </div>
+        <div id="leaveHistory"></div>
+      </div>
+    </div>
+
+    <!-- 추가근무 탭 -->
+    <div id="tabOvertime" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">추가근무 기록</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="otYear" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="otMonth" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <select id="otEmpFilter" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
+            <button class="btn primary sm" onclick="openOvertimeModal()">+ 추가근무 등록</button>
+          </div>
+        </div>
+        <div id="overtimeTableWrap"><table class="lv-table" id="overtimeTable"></table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">일자별 추가근무 현황</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn sm" onclick="otCalChangeMonth(-1)">◀</button>
+            <div style="font-weight:600;font-size:13px;min-width:90px;text-align:center" id="otCalMonthLabel"></div>
+            <button class="btn sm" onclick="otCalChangeMonth(1)">▶</button>
+          </div>
+        </div>
+        <div id="otCalGridWrap" style="overflow:visible"><div class="cal-grid" id="otCalGrid"></div></div>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#e3f2fd"></div>추가근무</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">직원별 월간 합계 (정규근무 + 추가근무 — 급여 참고용)</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="otSumYear" onchange="renderOvertimeSummary()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="otSumMonth" onchange="renderOvertimeSummary()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <button class="btn sm" onclick="exportOvertimeMonthCsvUI()">⬇ 월별 내보내기 (CSV)</button>
+          </div>
+        </div>
+        <table class="lv-table" id="overtimeSummaryTable"></table>
+      </div>
+    </div>
+
+    <!-- 직원 관리 탭 -->
+    <div id="tabEmployees" style="display:none">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <div class="card-title">직원 목록</div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap" id="empDeptFilter">
+                  <button class="cal-emp-btn active" style="background:#1a1a1a;color:#fff;border-color:#1a1a1a" onclick="setEmpDeptFilter('')">전체</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('약사')">약사</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('일본어')">일본어</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('중국어')">중국어</button>
+                  <button class="cal-emp-btn" onclick="setEmpDeptFilter('물류')">물류</button>
+                </div>
+              </div>
+              <button class="btn primary sm" onclick="openEmpModal()">+ 직원 추가</button>
+              <button class="btn sm" onclick="openSummaryModal()">📋 근무 명단 요약</button>
+            </div>
+            <div style="overflow-x:auto"><table class="lv-table" id="empTable"></table></div>
+          </div>
+        </div>
+        <div style="width:320px;flex-shrink:0">
+          <div class="card" style="margin-bottom:0">
+            <div class="card-header" style="margin-bottom:10px">
+              <div class="card-title">직원 메모</div>
+              <button class="btn primary sm" onclick="openEmpMemoModal()">+ 추가</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+              <select id="memoYear" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:78px"></select>
+              <select id="memoMonth" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:66px">
+                <option value="">전체</option>
+                <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+                <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+                <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+                <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+              </select>
+              <select id="memoEmpFilter" onchange="renderEmpMemos()" style="height:30px;font-size:12px;flex:1;min-width:80px"><option value="">전체 직원</option></select>
+            </div>
+            <div id="empMemoList" style="max-height:calc(100vh - 220px);overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 근무 변경 모달 -->
+<div class="modal-bg" id="shiftModal">
+  <div class="modal">
+    <div class="modal-title" id="shiftModalTitle">근무 변경</div>
+    <div class="form-row"><label class="form-label">근무 유형</label>
+      <select id="shiftSelect">
+        <option value="1020">오전 (10-20)</option>
+        <option value="1019">오전 (10-19)</option>
+        <option value="1323">오후 (13-23)</option>
+        <option value="annual">연차</option>
+        <option value="half">반차 (오전)</option>
+        <option value="half_pm">반차 (오후)</option>
+        <option value="off">휴무</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">메모 <span style="font-size:11px;color:#bbb">（근무표에 표시되지 않음）</span></label>
+      <div id="shiftOtNote" style="display:none;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:7px 10px;font-size:12px;color:#1565c0;margin-bottom:6px;white-space:pre-line;line-height:1.6"></div>
+      <textarea id="shiftNote" rows="2" placeholder="메모를 입력하세요 (선택 사항)"
+        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('shiftModal')">취소</button>
+      <button class="btn primary" onclick="applyShift()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 연차 모달 -->
+<div class="modal-bg" id="leaveModal">
+  <div class="modal">
+    <div class="modal-title" id="leaveModalTitle">연차 / 반차 신청</div>
+    <div class="form-row"><label class="form-label">직원</label><select id="leaveEmpSel"></select></div>
+    <div class="form-row"><label class="form-label">유형</label>
+      <select id="leaveTypeSel"><option value="annual">연차</option><option value="half">반차(오전)</option><option value="half_pm">반차(오후)</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0"><label class="form-label">시작일</label><input type="date" id="lvStart"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">종료일</label><input type="date" id="lvEnd"></div>
+    </div>
+    <div class="form-row" style="margin-top:10px"><label class="form-label">사유</label><input type="text" id="lvReason" placeholder="선택 사항"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('leaveModal')">취소</button>
+      <button class="btn primary" onclick="submitLeave()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 직원 추가/수정 모달 -->
+<div class="modal-bg" id="empModal">
+  <div class="modal" style="width:min(96vw,660px)">
+    <div class="modal-title" id="empModalTitle">직원 추가</div>
+    <div style="display:grid;grid-template-columns:2fr 1.2fr 1.5fr 1.5fr;gap:10px">
+      <div class="form-row" style="margin:0"><label class="form-label">이름</label><input type="text" id="nName" placeholder="홍길동"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">부서</label>
+        <select id="nDept"><option>약사</option><option>일본어</option><option>중국어</option><option>물류</option></select>
+      </div>
+      <div class="form-row" style="margin:0"><label class="form-label">입사일</label><input type="date" id="nJoinDate"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">퇴사일 <span style="font-size:10px;color:#aaa">(선택)</span></label><input type="date" id="nLeaveDate"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">근무 유형</label>
+        <select id="nWorkType" onchange="onWorkTypeChange()">
+          <option value="full">매주</option>
+          <option value="biweek_odd">격주 – 홀수주</option>
+          <option value="biweek_even">격주 – 짝수주</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin:0"><label class="form-label">고용형태</label>
+        <select id="nEmploymentType">
+          <option value="fulltime">정규직</option>
+          <option value="parttime">파트타임 (연차 미적용)</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label class="form-label">요일별 근무 시간 <span style="font-size:11px;color:#aaa">(휴무 선택 시 미출근 / "격주 교대"는 홀·짝수주마다 다른 시프트로 매주 근무)</span></label>
+      <div id="workTypeHint" style="font-size:11px;color:#888;margin-bottom:6px"></div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">월</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">화</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">수</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">목</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#555">금</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#c0392b">토</th>
+          <th style="padding:5px 4px;background:#f5f4f0;border:1px solid #e8e6e0;font-weight:600;color:#c0392b">일</th>
+        </tr></thead>
+        <tbody><tr id="dayShiftRow"></tr></tbody>
+      </table>
+    </div>
+    <div id="empApplyFromWrap" style="display:none;margin-top:12px;padding:12px;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px">
+      <div style="font-size:12px;font-weight:600;color:#1565c0;margin-bottom:8px">📅 변경 적용 시점</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="radio" name="applyFromMode" value="now" checked onchange="onApplyFromModeChange()" style="width:auto;height:auto"> 즉시 적용 (이번 주부터)
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="radio" name="applyFromMode" value="date" onchange="onApplyFromModeChange()" style="width:auto;height:auto"> 특정 날짜부터 적용
+        </label>
+      </div>
+      <div id="empApplyDateRow" style="display:none;margin-top:10px">
+        <label class="form-label">적용 시작일
+          <span style="color:#1565c0;font-size:11px">— 입력한 날짜 당일부터 새 근무일정이 적용됩니다. (이미 확정된 주는 영향받지 않습니다)</span>
+        </label>
+        <input type="date" id="nApplyFrom">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('empModal')">취소</button>
+      <button class="btn primary" onclick="saveEmp()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 추가근무 모달 -->
+<div class="modal-bg" id="overtimeModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title" id="overtimeModalTitle">추가근무 등록</div>
+    <div class="form-row"><label class="form-label">직원</label><select id="otEmpSel"></select></div>
+    <div class="form-row"><label class="form-label">날짜</label><input type="date" id="otDate"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0"><label class="form-label">시작 시간</label><input type="time" id="otStartTime"></div>
+      <div class="form-row" style="margin:0"><label class="form-label">종료 시간</label><input type="time" id="otEndTime"></div>
+    </div>
+    <div class="form-row" style="margin-top:10px"><label class="form-label">총 시간 <span id="otCalcHours" style="color:#1565c0;font-weight:600"></span></label></div>
+    <div class="form-row"><label class="form-label">사유 / 메모</label><input type="text" id="otReason" placeholder="선택 사항"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('overtimeModal')">취소</button>
+      <button class="btn primary" onclick="submitOvertime()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Sheets 연동 설정 모달 -->
+<div class="modal-bg" id="sheetsSettingModal">
+  <div class="modal" style="width:480px">
+    <div class="modal-title">☁ Google Sheets 연동 설정</div>
+    <div style="background:#f0f7ff;border:1px solid #90caf9;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.8;color:#1a1a1a">
+      <strong>설정 방법</strong><br>
+      1. <a href="https://script.google.com" target="_blank" style="color:#1565c0">script.google.com</a> 접속 → 새 프로젝트 생성<br>
+      2. 아래 코드를 붙여넣기 후 저장 (💾)<br>
+      3. <strong>배포 → 새 배포</strong> → 유형: <strong>웹 앱</strong><br>
+      4. 실행 권한: <strong>나</strong> / 액세스 권한: <strong>모든 사용자</strong><br>
+      5. 배포 후 나타나는 <strong>웹앱 URL</strong>을 아래에 붙여넣기
+    </div>
+    <div style="background:#1a1a1a;border-radius:8px;padding:12px;margin-bottom:14px;position:relative">
+      <pre id="gasCodeBlock" style="color:#a8ff78;font-size:10.5px;line-height:1.6;overflow-x:auto;white-space:pre;font-family:monospace;margin:0"></pre>
+      <button onclick="copyGasCode()" style="position:absolute;top:8px;right:8px;padding:3px 10px;border-radius:6px;border:1px solid #444;background:#333;color:#ccc;font-size:11px;cursor:pointer">복사</button>
+    </div>
+    <div class="form-row"><label class="form-label">웹앱 URL</label><input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/..."></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn sm" onclick="testGasConnection()" style="color:#1565c0;border-color:#90caf9">연결 테스트</button>
+      <button class="btn sm" onclick="pullFromSheets()" style="color:#2e7d32;border-color:#a5d6a7">☁ 최신 데이터 가져오기</button>
+      <span id="gasTestResult" style="font-size:11px;line-height:32px"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('sheetsSettingModal')">닫기</button>
+      <button class="btn primary" onclick="saveGasUrl()">저장</button>
+    </div>
+  </div>
+</div>
+
+<iframe id="printFrame" style="display:none"></iframe>
+
+<!-- 승계 연차 수정 모달 -->
+<div class="modal-bg" id="bonusAnnualModal">
+  <div class="modal" style="width:min(96vw,460px)">
+    <div class="modal-title" id="bonusAnnualModalTitle">연차 조정 – </div>
+    <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:10px 14px;font-size:12px;color:#1565c0;margin-bottom:14px;line-height:1.6">
+      💡 입사일 기준 발생 연차 외에 <strong>추가로 부여할 연차</strong>를 설정합니다.<br>음수 입력 시 발생 연차에서 차감됩니다.
+    </div>
+    <div class="form-row">
+      <label class="form-label">입사일 기준 발생 연차 (자동)</label>
+      <div id="bonusBaseInfo" style="height:36px;display:flex;align-items:center;font-size:13px;font-weight:600;color:#4a6fa5;padding:0 10px;background:#f4f7fb;border-radius:8px;border:1px solid #dde4ee"></div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">추가 부여 연차 (승계 등)</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="bonusAnnualInput" step="0.5" min="-30" max="30" style="flex:1" placeholder="0">
+        <span style="font-size:13px;color:#888">일</span>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">사유 <span style="color:#bbb;font-size:11px">(기록용)</span></label>
+      <input type="text" id="bonusAnnualReason" placeholder="예) 타지점 잔여 연차 3일 승계">
+    </div>
+    <div id="bonusAnnualHistoryWrap" style="display:none;margin-top:4px">
+      <div style="font-size:11px;font-weight:600;color:#90aac8;margin-bottom:6px;letter-spacing:.04em">조정 이력</div>
+      <div id="bonusAnnualHistory" style="max-height:130px;overflow-y:auto;font-size:11px;color:#555;border:1px solid #dde4ee;border-radius:8px;padding:8px 10px;background:#fafbfc;line-height:1.9"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('bonusAnnualModal')">취소</button>
+      <button class="btn primary" onclick="saveBonusAnnualUI()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 근무 명단 요약 모달 -->
+<div class="modal-bg" id="summaryModal">
+  <div class="modal" style="width:min(96vw,900px);max-height:90vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0">
+      <div class="modal-title" style="margin:0">요일별 근무 명단 요약</div>
+      <button class="btn" style="font-size:18px;padding:0 8px;border:none;background:none;color:#888;cursor:pointer" onclick="closeModal('summaryModal')">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;flex-shrink:0;padding-bottom:12px;border-bottom:1px solid #f0ede8">
+      <select id="smYearSel" onchange="onSmSelChange()" style="height:32px;font-size:12px;width:76px"></select>
+      <select id="smMonthSel" onchange="onSmSelChange()" style="height:32px;font-size:12px;width:60px"></select>
+      <select id="smWeekSel" onchange="onSmWeekPick()" style="height:32px;font-size:13px;font-weight:600;width:210px"></select>
+      <button class="btn sm" onclick="smChangeWeek(-1)">◀</button>
+      <button class="btn sm" onclick="smChangeWeek(1)">▶</button>
+      <button class="btn sm" onclick="smGoToday()">이번 주</button>
+      <div id="smWeekBadge" class="wk-badge" style="background:#e8f5e9;color:#2e7d32"></div>
+    </div>
+    <div style="overflow:auto;flex:1"><table class="sum-table" id="summaryModalTable"></table></div>
+  </div>
+</div>
+
+<!-- 스케줄 변경 이력 모달 -->
+<div class="modal-bg" id="shiftHistoryModal">
+  <div class="modal" style="width:min(96vw,520px)">
+    <div class="modal-title" id="shiftHistoryTitle">스케줄 변경 예정</div>
+    <div id="shiftHistoryBody"></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('shiftHistoryModal')">닫기</button></div>
+  </div>
+</div>
+
+<!-- 직원 메모 모달 -->
+<div class="modal-bg" id="empMemoModal">
+  <div class="modal" style="width:440px">
+    <div class="modal-title" id="empMemoModalTitle">메모 추가</div>
+    <div class="form-row"><label class="form-label">직원</label><select id="memoEmpSel"></select></div>
+    <div class="form-row"><label class="form-label">날짜</label><input type="date" id="memoDate"></div>
+    <div class="form-row">
+      <label class="form-label">메모 내용</label>
+      <textarea id="memoContent" rows="4" placeholder="메모를 입력하세요"
+        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('empMemoModal')">취소</button>
+      <button class="btn primary" onclick="submitEmpMemo()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/constants.js"></script>
+<script src="js/dateUtils.js"></script>
+<script src="js/holidays.js"></script>
+<script src="js/state.js"></script>
+<script src="js/scheduleEngine.js"></script>
+<script src="js/leaveEngine.js"></script>
+<script src="js/overtimeEngine.js"></script>
+<script src="js/holidayReport.js"></script>
+<script src="js/employees.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/print.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
