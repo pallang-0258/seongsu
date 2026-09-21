@@ -117,18 +117,45 @@ function onApplyFromModeChange() {
   document.getElementById('empApplyDateRow').style.display = (mode === 'date') ? '' : 'none';
 }
 
-// applyFrom 날짜 이후의 schedules 수동 오버라이드를 제거하되, 확정(스냅샷)된 주는 절대 건드리지 않는다.
-// (요구사항: 직원 고정패턴/이력 수정이 confirmedSnapshots가 있는 주에는 영향을 주면 안 됨)
-function clearFutureOverridesFrom(empId, fromDateStr) {
+// 버그수정: 예전에는 직원의 고정 시간표를 바꾸면 fromDateStr 이후 근무표에서 수동으로
+// 바꿔둔 근무(state.schedules의 개별 오버라이드)를 전부 지워버렸다. 이제는 지우지 않는다 —
+// getShiftForDate가 이미 오버라이드를 패턴보다 우선해서 보여주므로(수동 수정이 항상 우선 적용),
+// 그냥 그대로 두면 된다. 대신 저장 시점에 "이 직원의 어느 날짜가 이미 수동으로 설정되어 있어서
+// 새 고정시간표가 그 날짜에는 적용되지 않는다"는 걸 알려주기 위해 그 목록만 모아서 반환한다.
+// (fromDateStr 이후 & 아직 확정되지 않은 주만 대상 — 확정된 주는 애초에 영향받지 않는다.)
+function collectFutureManualOverrides(empId, fromDateStr) {
+  const results = [];
   Object.keys(state.schedules).forEach(k => {
-    if (k < fromDateStr) return;
-    if (state.confirmedSnapshots[k]) return; // 확정된 주는 절대 건드리지 않음
-    if (state.schedules[k][empId]) {
-      const notes = state.schedules[k][empId]?._notes;
-      delete state.schedules[k][empId];
-      if (notes) state.schedules[k][empId] = { _notes: notes };
-    }
+    if (state.confirmedSnapshots[k]) return;
+    const empOv = state.schedules[k][empId];
+    if (!empOv) return;
+    const weekOff = dateToWeekOffset(k);
+    Object.keys(empOv).forEach(diKey => {
+      if (diKey === '_notes') return;
+      const di = +diKey;
+      const dateStr = toLocalDateStr(getWeekDays(weekOff)[di]);
+      if (dateStr < fromDateStr) return;
+      results.push({ dateStr, value: empOv[diKey] });
+    });
   });
+  return results.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+}
+function manualOverrideValueLabel(v) {
+  if (v === 'off') return '휴무(수동 지정)';
+  return SHIFT_LABEL[v] || String(v);
+}
+function showManualOverrideWarning(empName, overrides) {
+  if (!overrides.length) return;
+  document.getElementById('shiftHistoryTitle').textContent = empName + ' — 새 고정시간표가 적용되지 않는 날짜';
+  const html = '<div style="font-size:12px;color:#555;margin-bottom:10px;line-height:1.6">'
+    + '아래 날짜들은 근무표에서 이미 수동으로 변경되어 있어서, 방금 바꾼 고정시간표 대신 <strong>기존 수동 설정이 그대로 유지</strong>됩니다.<br>바꾸고 싶다면 근무표 탭에서 해당 날짜를 다시 클릭해 수정하세요.</div>'
+    + '<div style="border:1px solid #dde4ee;border-radius:10px;overflow:hidden">'
+    + overrides.map((o, i) => '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;' + (i > 0 ? 'border-top:1px solid #f0ede8' : '') + '">'
+      + '<span style="font-weight:600">' + o.dateStr + '</span>'
+      + '<span style="color:#1565c0">' + manualOverrideValueLabel(o.value) + '</span></div>').join('')
+    + '</div>';
+  document.getElementById('shiftHistoryBody').innerHTML = html;
+  document.getElementById('shiftHistoryModal').classList.add('open');
 }
 
 function saveEmp() {
@@ -141,6 +168,8 @@ function saveEmp() {
   const trueJoinDate = document.getElementById('nTrueJoinDate').value || '';
   const dayShifts = gatherDayShiftsFromForm();
   const workDays = dayShifts.map(v => v !== null ? 1 : 0);
+
+  let pendingOverrideWarning = null; // { empName, overrides } — 저장 완료 후에 보여줄 경고 팝업
 
   if (ui.editingEmpId) {
     const e = state.employees.find(emp => emp.id === ui.editingEmpId); if (!e) return;
@@ -175,7 +204,8 @@ function saveEmp() {
       }
       state.shiftHistory[e.id].push({ applyFrom: applyDateStr, newShift: [...newShift], oldShift: [...oldShift], registeredAt: toLocalDateStr(TODAY) });
       state.shiftHistory[e.id] = state.shiftHistory[e.id].slice(-20);
-      clearFutureOverridesFrom(e.id, applyDateStr);
+      const affected1 = collectFutureManualOverrides(e.id, applyDateStr);
+      if (affected1.length) pendingOverrideWarning = { empName: e.name, overrides: affected1 };
       state.defaultShift[e.id] = newShift;
     } else if (shiftChanged) {
       if (!state.shiftHistory[e.id]) state.shiftHistory[e.id] = [];
@@ -188,7 +218,8 @@ function saveEmp() {
       state.shiftHistory[e.id].push({ applyFrom: todayStr, newShift: [...newShift], oldShift: [...oldShift], registeredAt: todayStr });
       state.shiftHistory[e.id] = state.shiftHistory[e.id].slice(-20);
       const todayMonStr = toLocalDateStr(getWeekStart(0));
-      clearFutureOverridesFrom(e.id, todayMonStr);
+      const affected2 = collectFutureManualOverrides(e.id, todayMonStr);
+      if (affected2.length) pendingOverrideWarning = { empName: e.name, overrides: affected2 };
       state.defaultShift[e.id] = newShift;
     }
   } else {
@@ -205,6 +236,7 @@ function saveEmp() {
     return 0;
   });
   save(); closeModal('empModal'); renderAll();
+  if (pendingOverrideWarning) showManualOverrideWarning(pendingOverrideWarning.empName, pendingOverrideWarning.overrides);
 }
 function removeEmp(id) { if (!confirm('정말 삭제하시겠습니까?')) return; state.employees = state.employees.filter(e => e.id !== id); save(); renderAll(); }
 
@@ -243,7 +275,6 @@ function showShiftHistory(empId) {
 function cancelShiftHistory(empId, applyFrom) {
   if (!confirm(applyFrom + ' 부터 적용 예정인 스케줄 변경을 취소할까요?')) return;
   if (state.shiftHistory[empId]) state.shiftHistory[empId] = state.shiftHistory[empId].filter(h => h.applyFrom !== applyFrom);
-  clearFutureOverridesFrom(empId, applyFrom);
   save(); renderAll();
   closeModal('shiftHistoryModal');
 }
