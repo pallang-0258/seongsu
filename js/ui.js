@@ -352,7 +352,11 @@ function confirmScheduleUI() { confirmSchedule(ui.weekOffset); renderSchedule();
 function unconfirmScheduleUI() { unconfirmSchedule(ui.weekOffset); }
 function resetWeekScheduleUI() { resetWeekSchedule(ui.weekOffset); }
 
-// ── 근무 교대 (직원끼리 서로 근무 맞바꾸기, 같은 부서만) ──
+// ── 근무 교대 (같은 부서 두 직원이 "누가 그 날 나오는지"를 서로 맞바꿈, 같은 부서만) ──
+// 핵심 개념: dateA에는 원래 A가 나오고 dateB에는 원래 B가 나온다.
+// 교대하면 → dateA에는 이제 B가 나오고(A의 원래 근무를 이어받음), A는 그날 쉬고 대신 dateB에 나온다.
+//          dateB에는 이제 A가 나오고(B의 원래 근무를 이어받음), B는 그날 쉬고 대신 dateA에 나온다.
+// 즉 "각자 자기 날짜에서 시간대만 바뀌는 것"이 아니라 "누가 어느 날 출근하는지 날짜 자체가 바뀌는 것".
 function swapShiftLabel(emp, dateStr) {
   const sh = getShiftForDate(emp, dateStr);
   if (sh === '__off__') return '휴무 (원래 비근무일)';
@@ -391,14 +395,14 @@ function onSwapChange() {
   const empB = state.employees.find(e => e.id === bId);
   const dateB = document.getElementById('swapDateB').value;
 
-  document.getElementById('swapAInfo').textContent = (empA && dateA) ? ('현재: ' + swapShiftLabel(empA, dateA)) : '';
-  document.getElementById('swapBInfo').textContent = (empB && dateB) ? ('현재: ' + swapShiftLabel(empB, dateB)) : '';
+  document.getElementById('swapAInfo').textContent = (empA && dateA) ? ('현재 이 날 근무: ' + swapShiftLabel(empA, dateA)) : '';
+  document.getElementById('swapBInfo').textContent = (empB && dateB) ? ('현재 이 날 근무: ' + swapShiftLabel(empB, dateB)) : '';
 
   const preview = document.getElementById('swapPreview');
   if (empA && empB && dateA && dateB) {
-    preview.style.display = '';
-    preview.innerHTML = empA.name + ' (' + dateA + '): <strong>' + swapShiftLabel(empA, dateA) + '</strong> → <strong>' + swapShiftLabel(empB, dateB) + '</strong><br>'
-      + empB.name + ' (' + dateB + '): <strong>' + swapShiftLabel(empB, dateB) + '</strong> → <strong>' + swapShiftLabel(empA, dateA) + '</strong>';
+    preview.style.display = ''; preview.style.background = '#f4f7fb'; preview.style.borderColor = '#dde4ee'; preview.style.color = '#333';
+    preview.innerHTML = empA.name + ': ' + dateA + '(' + swapShiftLabel(empA, dateA) + ') 대신 <strong>' + dateB + '에 근무</strong> (' + swapShiftLabel(empB, dateB) + ')<br>'
+      + empB.name + ': ' + dateB + '(' + swapShiftLabel(empB, dateB) + ') 대신 <strong>' + dateA + '에 근무</strong> (' + swapShiftLabel(empA, dateA) + ')';
   } else {
     preview.style.display = 'none';
   }
@@ -415,31 +419,42 @@ function submitSwap() {
   if (isWeekConfirmed(dateToWeekOffset(dateA)) || isWeekConfirmed(dateToWeekOffset(dateB))) {
     alert('해당 날짜가 포함된 주가 이미 확정되어 있습니다. 먼저 확정을 해제한 뒤 다시 시도해주세요.'); return;
   }
-  const shiftA = getShiftForDate(empA, dateA);
-  const shiftB = getShiftForDate(empB, dateB);
+  const shiftA = getShiftForDate(empA, dateA); // A가 dateA에 원래 하던 근무 → B가 이어받음
+  const shiftB = getShiftForDate(empB, dateB); // B가 dateB에 원래 하던 근무 → A가 이어받음
   if (!isSwappableShift(shiftA) || !isSwappableShift(shiftB)) {
     alert('연차나 휴무는 근무 교대로 처리할 수 없습니다. 실제 근무일끼리만 바꿀 수 있어요.'); return;
   }
   const offA = dateToWeekOffset(dateA), diA = dateToDayIndex(dateA);
   const offB = dateToWeekOffset(dateB), diB = dateToDayIndex(dateB);
-  // 되돌리기를 위해 "교대 전 실제 오버라이드 값"(없었으면 undefined)을 기록해둔다 —
-  // 되돌릴 때 단순히 값을 넣는 게 아니라 원래 상태(수동설정 없음 vs 특정 값)까지 정확히 복원하기 위함.
-  const prevOverrideA = state.schedules[weekKey(offA)]?.[empA.id]?.[diA];
-  const prevOverrideB = state.schedules[weekKey(offB)]?.[empB.id]?.[diB];
+  // B가 dateA에, A가 dateB에 원래도 근무가 있었다면(둘 다 그 주에 근무하는 경우) 그 근무는 사라지게 되므로 미리 확인
+  const existingB_atDateA = getShiftForDate(empB, dateA);
+  const existingA_atDateB = getShiftForDate(empA, dateB);
+  if (isSwappableShift(existingB_atDateA) || isSwappableShift(existingA_atDateB)) {
+    const msgs = [];
+    if (isSwappableShift(existingB_atDateA)) msgs.push(empB.name + '님은 ' + dateA + '에도 원래 근무(' + swapShiftLabel(empB, dateA) + ')가 있습니다.');
+    if (isSwappableShift(existingA_atDateB)) msgs.push(empA.name + '님은 ' + dateB + '에도 원래 근무(' + swapShiftLabel(empA, dateB) + ')가 있습니다.');
+    if (!confirm(msgs.join('\n') + '\n교대를 진행하면 그 근무는 사라집니다. 계속할까요?')) return;
+  }
+  // 되돌리기를 위해 4칸 모두의 "교대 전 실제 오버라이드 값"(없었으면 undefined)을 기록해둔다.
+  const prevA_atDateA = state.schedules[weekKey(offA)]?.[empA.id]?.[diA];
+  const prevB_atDateA = state.schedules[weekKey(offA)]?.[empB.id]?.[diA];
+  const prevB_atDateB = state.schedules[weekKey(offB)]?.[empB.id]?.[diB];
+  const prevA_atDateB = state.schedules[weekKey(offB)]?.[empA.id]?.[diB];
   state.swapHistory.push({
     id: nextId(state.swapHistory),
-    empAId: empA.id, empAName: empA.name, dateA, oldA: shiftA, newA: shiftB, prevOverrideA,
-    empBId: empB.id, empBName: empB.name, dateB, oldB: shiftB, newB: shiftA, prevOverrideB,
+    empAId: empA.id, empAName: empA.name, dateA, shiftA,
+    empBId: empB.id, empBName: empB.name, dateB, shiftB,
+    prevA_atDateA, prevB_atDateA, prevB_atDateB, prevA_atDateB,
     registeredAt: toLocalDateStr(TODAY),
   });
-  setShiftRaw(empA.id, diA, shiftB, offA);
-  setShiftRaw(empB.id, diB, shiftA, offB);
+  setShiftRaw(empA.id, diA, 'off', offA);   // A는 dateA에 더는 안 나옴
+  setShiftRaw(empB.id, diA, shiftA, offA);  // B가 dateA에 A 대신 근무
+  setShiftRaw(empB.id, diB, 'off', offB);   // B는 dateB에 더는 안 나옴
+  setShiftRaw(empA.id, diB, shiftB, offB);  // A가 dateB에 B 대신 근무
   closeModal('swapModal');
-  // 버그수정: 바꾼 날짜가 지금 보고 있는 주와 다르면 화면이 그대로라 안 바뀐 것처럼 보였음.
-  // 교대한 날짜(A 기준)가 보이는 주로 화면을 옮겨서 바로 결과를 확인할 수 있게 함.
-  ui.weekOffset = dateToWeekOffset(dateA);
+  ui.weekOffset = offA; // 바뀐 날짜가 보이는 주로 화면 이동 (다른 주였을 때 안 바뀐 것처럼 보이던 문제 방지)
   renderSchedule();
-  alert(empA.name + '님과 ' + empB.name + '님의 근무를 맞바꿨습니다.\n(' + dateA + '가 포함된 주로 화면을 이동했습니다)');
+  alert(empA.name + '님은 ' + dateA + ' 대신 ' + dateB + '에, ' + empB.name + '님은 ' + dateB + ' 대신 ' + dateA + '에 근무하도록 바꿨습니다.');
 }
 
 // ── 근무 교대 이력 조회/되돌리기 ──
@@ -456,8 +471,8 @@ function renderSwapLog() {
     return '<div style="border:1px solid #dde4ee;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fafbfc">'
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       + '<div style="font-size:12px;color:#444;line-height:1.8">'
-      + '<strong>' + h.empAName + '</strong> ' + h.dateA + ': ' + swapLogValueLabel(h.oldA) + ' → ' + swapLogValueLabel(h.newA) + '<br>'
-      + '<strong>' + h.empBName + '</strong> ' + h.dateB + ': ' + swapLogValueLabel(h.oldB) + ' → ' + swapLogValueLabel(h.newB)
+      + '<strong>' + h.empAName + '</strong>: ' + h.dateA + '(' + swapLogValueLabel(h.shiftA) + ') → ' + h.dateB + '(' + swapLogValueLabel(h.shiftB) + ')<br>'
+      + '<strong>' + h.empBName + '</strong>: ' + h.dateB + '(' + swapLogValueLabel(h.shiftB) + ') → ' + h.dateA + '(' + swapLogValueLabel(h.shiftA) + ')'
       + '</div>'
       + (stillActive ? '<button class="btn sm danger" style="flex-shrink:0" onclick="revertSwap(' + h.id + ')">되돌리기</button>' : '<span style="font-size:10px;color:#bbb;flex-shrink:0">직원 삭제됨</span>')
       + '</div>'
@@ -485,8 +500,10 @@ function revertSwap(historyId) {
     alert('해당 날짜가 포함된 주가 확정되어 있어 되돌릴 수 없습니다. 먼저 확정을 해제해주세요.'); return;
   }
   if (!confirm('이 교대를 되돌릴까요?\n' + rec.empAName + ' ' + rec.dateA + ' / ' + rec.empBName + ' ' + rec.dateB + '가 교대 전 상태로 복원됩니다.')) return;
-  restoreOverride(rec.empAId, diA, offA, rec.prevOverrideA);
-  restoreOverride(rec.empBId, diB, offB, rec.prevOverrideB);
+  restoreOverride(rec.empAId, diA, offA, rec.prevA_atDateA);
+  restoreOverride(rec.empBId, diA, offA, rec.prevB_atDateA);
+  restoreOverride(rec.empBId, diB, offB, rec.prevB_atDateB);
+  restoreOverride(rec.empAId, diB, offB, rec.prevA_atDateB);
   state.swapHistory = state.swapHistory.filter(h => h.id !== historyId);
   save();
   ui.weekOffset = offA;
