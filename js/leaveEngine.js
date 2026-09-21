@@ -48,16 +48,35 @@ function calcUsedAnnual(empId) {
 }
 
 // ── 승계/차감 연차 조정 ──
-function saveBonusAnnual(empId, bonusVal, reason) {
-  const e = state.employees.find(emp => emp.id === empId); if (!e) return;
+// 이력 항목은 두 가지 형태가 섞여 있을 수 있다:
+//  - 예전 방식(구버전 admin4_fixed.html 포함): {bonus: <그 시점의 절대값>, reason, date} — "합계를 이 값으로 설정"
+//  - 새 방식: {id, delta: <이번에 더하거나 뺄 일수>, reason, date} — "합계에 이만큼 가감"
+// 합계는 항상 이력을 순서대로 재생해서 계산한다 (delta면 누적, bonus면 그 값으로 리셋).
+// 이렇게 하면 이력 중 아무 항목이나 삭제해도 항상 정확한 합계로 다시 계산된다.
+function computeBonusAnnualTotal(history) {
+  let total = 0;
+  (history || []).forEach(h => {
+    if (h.delta !== undefined) total += h.delta;
+    else if (h.bonus !== undefined) total = h.bonus;
+  });
+  return total;
+}
+function addBonusAnnualAdjustment(empId, delta, reason) {
+  const e = state.employees.find(emp => emp.id === empId); if (!e || !delta) return;
   if (!e.bonusAnnualHistory) e.bonusAnnualHistory = [];
-  e.bonusAnnualHistory.push({ bonus: bonusVal, reason, date: toLocalDateStr(TODAY) });
-  e.bonusAnnual = bonusVal;
+  e.bonusAnnualHistory.push({ id: nextId(e.bonusAnnualHistory), delta, reason, date: toLocalDateStr(TODAY) });
+  e.bonusAnnual = computeBonusAnnualTotal(e.bonusAnnualHistory);
+  save();
+}
+function deleteBonusAnnualAdjustment(empId, historyId) {
+  const e = state.employees.find(emp => emp.id === empId); if (!e || !e.bonusAnnualHistory) return;
+  e.bonusAnnualHistory = e.bonusAnnualHistory.filter(h => h.id !== historyId);
+  e.bonusAnnual = computeBonusAnnualTotal(e.bonusAnnualHistory);
   save();
 }
 
 // ── 연차/반차 신청 CRUD ──
-function nextId(arr) { return (arr[arr.length - 1]?.id || 0) + 1; }
+function nextId(arr) { return (arr.length ? Math.max(...arr.map(x => x.id || 0)) : 0) + 1; }
 
 function createLeaveRequest({ empId, type, start, end, reason }) {
   state.leaveRequests.push({ id: nextId(state.leaveRequests), empId, type, start, end, reason, status: 'approved', createdAt: toLocalDateStr(TODAY) });

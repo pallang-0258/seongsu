@@ -103,7 +103,14 @@ function applyLoadedData(d) {
   (state.employees || []).forEach(e => { if (!e.employmentType) e.employmentType = 'fulltime'; });
 }
 
+// 버그수정: 페이지를 열자마자 백그라운드로 시작되는 loadFromSheets()가 (Apps Script는
+// 종종 느리게 응답한다) 사용자가 그 사이에 저장한 로컬 수정사항보다 "늦게" 도착해서 덮어써버리는
+// 경쟁 상태(race condition)를 막기 위한 타임스탬프. save()가 호출된 시각을 기록해두고,
+// loadFromSheets()는 자신이 요청을 보낸 시각 "이후"에 로컬 저장이 있었다면 그 응답을 무시한다.
+let _lastLocalSaveAt = 0;
+
 function save() {
+  _lastLocalSaveAt = Date.now();
   const data = serializeState();
   try { localStorage.setItem('wms_v6', JSON.stringify(data)); } catch (e) {}
   syncToSheets(data);
@@ -144,10 +151,15 @@ function syncToSheets(data) {
 
 function loadFromSheets(callback) {
   if (!GAS_URL) { if (callback) callback(false); return; }
+  const requestStartedAt = Date.now();
   fetch(GAS_URL + '?action=load')
     .then(r => r.json())
     .then(res => {
       if (res.ok && res.data && Object.keys(res.data).length) {
+        // 이 요청을 보낸 "이후"에 사용자가 로컬에서 저장을 했다면, 지금 받은 데이터는
+        // 그 저장이 반영되기 전(더 오래된) 서버 상태이므로 적용하지 않고 무시한다.
+        // (그 저장은 이미 자체적으로 서버에 전송을 예약해뒀으므로 곧 서버도 최신 상태가 된다.)
+        if (_lastLocalSaveAt > requestStartedAt) { if (callback) callback(true); return; }
         applyLoadedData(res.data);
         try { localStorage.setItem('wms_v6', JSON.stringify(res.data)); } catch (e) {}
         if (callback) callback(true);

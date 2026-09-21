@@ -605,31 +605,56 @@ function renderLeaveBalanceSimple() {
   el.innerHTML = html + '</tbody>';
 }
 
-function openBonusAnnualModal(empId) {
+function renderBonusAnnualModalContent(empId) {
   const e = state.employees.find(emp => emp.id === empId); if (!e) return;
-  ui.editingEmpId = empId;
-  document.getElementById('bonusAnnualModalTitle').textContent = '연차 조정 – ' + e.name;
   const base = calcEarnedAnnual(e.joinDate, 0, e);
   const baseLabel = e.trueJoinDate ? ('연차 인정 시작일(' + e.trueJoinDate + ') 기준') : '입사일 기준';
   document.getElementById('bonusBaseInfo').textContent = baseLabel + ' ' + base + '일 발생';
-  document.getElementById('bonusAnnualInput').value = e.bonusAnnual || 0;
-  document.getElementById('bonusAnnualReason').value = '';
+  const total = computeBonusAnnualTotal(e.bonusAnnualHistory);
+  document.getElementById('bonusCurrentTotal').textContent = (total > 0 ? '+' : '') + total + '일';
   const histWrap = document.getElementById('bonusAnnualHistoryWrap');
   const hist = e.bonusAnnualHistory || [];
   if (hist.length) {
     histWrap.style.display = '';
-    document.getElementById('bonusAnnualHistory').innerHTML = [...hist].reverse().map(h => '<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid #f0ede8">'
-      + '<span style="color:#1565c0;font-weight:600">' + (h.bonus > 0 ? '+' : '') + h.bonus + '일</span>'
-      + '<span style="flex:1;color:#555">' + (h.reason || '–') + '</span>'
-      + '<span style="color:#aaa;white-space:nowrap">' + h.date + '</span></div>').join('');
-  } else histWrap.style.display = 'none';
+    let running = 0;
+    const rows = hist.map(h => {
+      const isDelta = h.delta !== undefined;
+      running = isDelta ? running + h.delta : h.bonus;
+      const amountLabel = isDelta ? ((h.delta > 0 ? '+' : '') + h.delta + '일') : ('→ ' + h.bonus + '일로 설정 (이전 방식)');
+      const delBtn = h.id !== undefined ? '<button class="btn sm danger" style="font-size:10px;padding:1px 6px;flex-shrink:0" onclick="deleteBonusAnnualAdjustmentUI(' + empId + ',' + h.id + ')">삭제</button>' : '';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #f0ede8">'
+        + '<span style="color:#1565c0;font-weight:600;white-space:nowrap">' + amountLabel + '</span>'
+        + '<span style="flex:1;color:#555">' + (h.reason || '–') + '</span>'
+        + '<span style="color:#aaa;white-space:nowrap">' + h.date + '</span>'
+        + delBtn + '</div>';
+    });
+    document.getElementById('bonusAnnualHistory').innerHTML = rows.reverse().join('');
+  } else { histWrap.style.display = 'none'; }
+}
+function openBonusAnnualModal(empId) {
+  ui.editingEmpId = empId;
+  const e = state.employees.find(emp => emp.id === empId); if (!e) return;
+  document.getElementById('bonusAnnualModalTitle').textContent = '연차 조정 – ' + e.name;
+  document.getElementById('bonusAnnualInput').value = '';
+  document.getElementById('bonusAnnualReason').value = '';
+  renderBonusAnnualModalContent(empId);
   document.getElementById('bonusAnnualModal').classList.add('open');
 }
 function saveBonusAnnualUI() {
-  const val = parseFloat(document.getElementById('bonusAnnualInput').value) || 0;
+  const delta = parseFloat(document.getElementById('bonusAnnualInput').value) || 0;
+  if (!delta) { alert('추가하거나 차감할 일수를 입력하세요 (0이 아닌 값).'); return; }
   const reason = document.getElementById('bonusAnnualReason').value.trim();
-  saveBonusAnnual(ui.editingEmpId, val, reason);
-  closeModal('bonusAnnualModal'); renderLeaveBalanceSimple(); renderLeaveHistory(); renderEmpTable();
+  addBonusAnnualAdjustment(ui.editingEmpId, delta, reason);
+  document.getElementById('bonusAnnualInput').value = '';
+  document.getElementById('bonusAnnualReason').value = '';
+  renderBonusAnnualModalContent(ui.editingEmpId);
+  renderLeaveBalanceSimple(); renderLeaveHistory(); renderEmpTable();
+}
+function deleteBonusAnnualAdjustmentUI(empId, historyId) {
+  if (!confirm('이 조정 내역을 삭제할까요? 삭제하면 그만큼 합계에서 다시 빠집니다.')) return;
+  deleteBonusAnnualAdjustment(empId, historyId);
+  renderBonusAnnualModalContent(empId);
+  renderLeaveBalanceSimple(); renderLeaveHistory(); renderEmpTable();
 }
 
 function renderLeaveHistory() {
