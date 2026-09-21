@@ -84,6 +84,7 @@
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn sm" onclick="openSwapModal()">🔀 근무 교대</button>
+            <button class="btn sm" onclick="openSwapLogModal()">📜 교대 이력</button>
             <button class="btn sm" id="confirmScheduleBtn" onclick="confirmScheduleUI()">근무표 확정</button>
             <button class="btn sm danger" id="unconfirmScheduleBtn" onclick="unconfirmScheduleUI()" style="display:none">🔓 확정 해제</button>
             <button class="btn sm danger" id="resetWeekBtn" onclick="resetWeekScheduleUI()" title="이 주의 수동 변경을 모두 취소하고 기본 근무표로 되돌립니다">↩ 이 주 초기화</button>
@@ -325,6 +326,17 @@
       <button class="btn" onclick="closeModal('swapModal')">취소</button>
       <button class="btn primary" onclick="submitSwap()">교대 등록</button>
     </div>
+  </div>
+</div>
+
+<!-- 근무 교대 이력 모달 -->
+<div class="modal-bg" id="swapLogModal">
+  <div class="modal" style="width:min(96vw,620px);max-height:85vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0">
+      <div class="modal-title" style="margin:0">📜 근무 교대 이력</div>
+      <button class="btn" style="font-size:18px;padding:0 8px;border:none;background:none;color:#888;cursor:pointer" onclick="closeModal('swapLogModal')">✕</button>
+    </div>
+    <div id="swapLogBody" style="overflow-y:auto;flex:1"></div>
   </div>
 </div>
 

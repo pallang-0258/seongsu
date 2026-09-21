@@ -420,14 +420,78 @@ function submitSwap() {
   if (!isSwappableShift(shiftA) || !isSwappableShift(shiftB)) {
     alert('연차나 휴무는 근무 교대로 처리할 수 없습니다. 실제 근무일끼리만 바꿀 수 있어요.'); return;
   }
-  setShiftRaw(empA.id, dateToDayIndex(dateA), shiftB, dateToWeekOffset(dateA));
-  setShiftRaw(empB.id, dateToDayIndex(dateB), shiftA, dateToWeekOffset(dateB));
+  const offA = dateToWeekOffset(dateA), diA = dateToDayIndex(dateA);
+  const offB = dateToWeekOffset(dateB), diB = dateToDayIndex(dateB);
+  // 되돌리기를 위해 "교대 전 실제 오버라이드 값"(없었으면 undefined)을 기록해둔다 —
+  // 되돌릴 때 단순히 값을 넣는 게 아니라 원래 상태(수동설정 없음 vs 특정 값)까지 정확히 복원하기 위함.
+  const prevOverrideA = state.schedules[weekKey(offA)]?.[empA.id]?.[diA];
+  const prevOverrideB = state.schedules[weekKey(offB)]?.[empB.id]?.[diB];
+  state.swapHistory.push({
+    id: nextId(state.swapHistory),
+    empAId: empA.id, empAName: empA.name, dateA, oldA: shiftA, newA: shiftB, prevOverrideA,
+    empBId: empB.id, empBName: empB.name, dateB, oldB: shiftB, newB: shiftA, prevOverrideB,
+    registeredAt: toLocalDateStr(TODAY),
+  });
+  setShiftRaw(empA.id, diA, shiftB, offA);
+  setShiftRaw(empB.id, diB, shiftA, offB);
   closeModal('swapModal');
   // 버그수정: 바꾼 날짜가 지금 보고 있는 주와 다르면 화면이 그대로라 안 바뀐 것처럼 보였음.
   // 교대한 날짜(A 기준)가 보이는 주로 화면을 옮겨서 바로 결과를 확인할 수 있게 함.
   ui.weekOffset = dateToWeekOffset(dateA);
   renderSchedule();
   alert(empA.name + '님과 ' + empB.name + '님의 근무를 맞바꿨습니다.\n(' + dateA + '가 포함된 주로 화면을 이동했습니다)');
+}
+
+// ── 근무 교대 이력 조회/되돌리기 ──
+function openSwapLogModal() {
+  renderSwapLog();
+  document.getElementById('swapLogModal').classList.add('open');
+}
+function renderSwapLog() {
+  const body = document.getElementById('swapLogBody'); if (!body) return;
+  const list = [...state.swapHistory].reverse();
+  if (!list.length) { body.innerHTML = '<div style="color:#aaa;text-align:center;padding:24px 0">교대 이력이 없습니다</div>'; return; }
+  body.innerHTML = list.map(h => {
+    const stillActive = state.employees.some(e => e.id === h.empAId) && state.employees.some(e => e.id === h.empBId);
+    return '<div style="border:1px solid #dde4ee;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fafbfc">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      + '<div style="font-size:12px;color:#444;line-height:1.8">'
+      + '<strong>' + h.empAName + '</strong> ' + h.dateA + ': ' + swapLogValueLabel(h.oldA) + ' → ' + swapLogValueLabel(h.newA) + '<br>'
+      + '<strong>' + h.empBName + '</strong> ' + h.dateB + ': ' + swapLogValueLabel(h.oldB) + ' → ' + swapLogValueLabel(h.newB)
+      + '</div>'
+      + (stillActive ? '<button class="btn sm danger" style="flex-shrink:0" onclick="revertSwap(' + h.id + ')">되돌리기</button>' : '<span style="font-size:10px;color:#bbb;flex-shrink:0">직원 삭제됨</span>')
+      + '</div>'
+      + '<div style="font-size:11px;color:#aaa;margin-top:6px">등록일: ' + h.registeredAt + '</div>'
+      + '</div>';
+  }).join('');
+}
+function swapLogValueLabel(v) { return SHIFT_LABEL[v] || v; }
+function restoreOverride(empId, di, off, prevValue) {
+  const k = weekKey(off);
+  if (prevValue === undefined) {
+    if (state.schedules[k]?.[empId]) delete state.schedules[k][empId][di];
+  } else {
+    if (!state.schedules[k]) state.schedules[k] = {};
+    if (!state.schedules[k][empId]) state.schedules[k][empId] = {};
+    state.schedules[k][empId][di] = prevValue;
+  }
+  state.confirmed[k] = false;
+}
+function revertSwap(historyId) {
+  const rec = state.swapHistory.find(h => h.id === historyId); if (!rec) return;
+  const offA = dateToWeekOffset(rec.dateA), diA = dateToDayIndex(rec.dateA);
+  const offB = dateToWeekOffset(rec.dateB), diB = dateToDayIndex(rec.dateB);
+  if (isWeekConfirmed(offA) || isWeekConfirmed(offB)) {
+    alert('해당 날짜가 포함된 주가 확정되어 있어 되돌릴 수 없습니다. 먼저 확정을 해제해주세요.'); return;
+  }
+  if (!confirm('이 교대를 되돌릴까요?\n' + rec.empAName + ' ' + rec.dateA + ' / ' + rec.empBName + ' ' + rec.dateB + '가 교대 전 상태로 복원됩니다.')) return;
+  restoreOverride(rec.empAId, diA, offA, rec.prevOverrideA);
+  restoreOverride(rec.empBId, diB, offB, rec.prevOverrideB);
+  state.swapHistory = state.swapHistory.filter(h => h.id !== historyId);
+  save();
+  ui.weekOffset = offA;
+  renderSchedule();
+  renderSwapLog();
 }
 
 // ── 근무 변경 모달 ──
