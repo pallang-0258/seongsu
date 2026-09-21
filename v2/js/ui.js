@@ -30,10 +30,17 @@ function switchTab(tab) {
   if (tab === 'employees') { renderEmpTable(); initEmpMemoFilters(); renderEmpMemos(); }
 }
 
+let _wasMobileWidth = window.innerWidth <= 768;
 function checkMobile() {
   const isMobile = window.innerWidth <= 768;
   const mobileBtn = document.getElementById('mobileSidebarBtn');
   if (mobileBtn) mobileBtn.style.display = isMobile ? '' : 'none';
+  // 모바일/데스크톱 경계를 넘어 리사이즈(예: 태블릿 회전)되면 직원 표 레이아웃(카드 vs 표)을 다시 그림
+  if (isMobile !== _wasMobileWidth) {
+    _wasMobileWidth = isMobile;
+    const empTab = document.getElementById('tabEmployees');
+    if (empTab && empTab.style.display !== 'none') renderEmpTable();
+  }
 }
 window.addEventListener('resize', checkMobile);
 
@@ -903,6 +910,7 @@ function setEmpDeptFilter(dept) {
   renderEmpTable();
 }
 function renderEmpTable() {
+  if (window.innerWidth <= 768) { renderEmpTableMobile(); return; }
   const tm = { full: '매주', biweek_odd: '격주(홀수)', biweek_even: '격주(짝수)' };
   const filtered = ui.empDeptFilter ? state.employees.filter(e => e.dept === ui.empDeptFilter) : state.employees;
   let html = '<thead><tr><th style="width:28px"></th><th>이름</th><th>부서</th><th>고용형태</th><th>입사일</th><th>퇴사일</th><th>근무유형</th>'
@@ -951,7 +959,57 @@ function renderEmpTable() {
   initEmpDragDrop();
 }
 
-// ── 직원 순서 드래그앤드롭 ──
+// 모바일: 15열 표 대신 한 열짜리 카드 리스트로 렌더링 — 가로 스크롤이 생기지 않도록
+// (요일별 근무시간은 칩을 flex-wrap으로 감싸서 한 화면 폭 안에서 줄바꿈되게 함)
+function renderEmpTableMobile() {
+  const tm = { full: '매주', biweek_odd: '격주(홀수)', biweek_even: '격주(짝수)' };
+  const filtered = ui.empDeptFilter ? state.employees.filter(e => e.dept === ui.empDeptFilter) : state.employees;
+  let html = '<tbody id="empTbody">';
+  if (!filtered.length) html += '<tr><td style="text-align:center;color:#aaa;padding:16px">해당 부서 직원이 없습니다</td></tr>';
+  filtered.forEach(e => {
+    const pat = getCurrentPattern(e.id);
+    const isPT = e.employmentType === 'parttime';
+    const base = calcEarnedAnnual(e.joinDate, 0, e);
+    const bonus = e.bonusAnnual || 0;
+    const earned = base + bonus;
+    const used = calcUsedAnnual(e.id);
+    const rem = earned - used;
+    const isFuture = e.joinDate && parseLocalDate(e.joinDate) > TODAY;
+    const resigned = isResigned(e);
+    const rowStyle = resigned ? 'opacity:0.5;background:#fafafa;' : '';
+    const todayStr = toLocalDateStr(TODAY);
+    const pendingChanges = (state.shiftHistory[e.id] || []).filter(h => h.applyFrom > todayStr);
+    const pendingBadge = pendingChanges.length > 0 ? ' <span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:10px" onclick="showShiftHistory(' + e.id + ')">📅 변경예정 ' + pendingChanges.length + '건</span>' : '';
+    const dayChips = pat.map((sh, di) => {
+      if (!sh) return '';
+      const isWknd = di >= 5;
+      return '<span class="shift-pill ' + dayShiftClass(sh, 0) + '" style="font-size:10px;padding:2px 6px;' + (isWknd ? 'outline:1px solid #f5c6c2' : '') + '">' + DAY_KO[di] + ' ' + dayShiftLabel(sh) + '</span>';
+    }).join('');
+    html += '<tr data-id="' + e.id + '" style="' + rowStyle + '"><td style="padding:10px 4px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
+      + '<div style="min-width:0"><div style="font-size:14px"><strong>' + e.name + '</strong>'
+      + (isFuture ? ' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px">입사예정</span>' : '')
+      + (resigned ? ' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>' : '')
+      + '</div><div style="font-size:11px;color:#888;margin-top:2px">' + e.dept + ' · ' + (isPT ? '파트타임' : '정규직') + ' · ' + (resigned ? '퇴사' : (tm[e.workType] || e.workType)) + pendingBadge + '</div></div>'
+      + '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
+      + '<button class="btn sm" onclick="openEditEmp(' + e.id + ')">수정</button>'
+      + '<button class="btn sm danger" onclick="removeEmp(' + e.id + ')">삭제</button>'
+      + '</div></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">' + (dayChips || '<span style="font-size:11px;color:#ccc">요일별 근무 없음</span>') + '</div>'
+      + '<div style="margin-top:8px;font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+      + (isPT ? '<span style="color:#bbb">연차 해당없음</span>' : '연차 <strong style="color:' + (rem < 0 ? '#c0392b' : rem === 0 ? '#888' : '#2e7d32') + '">' + rem + '일</strong>'
+        + ' <span style="color:#aaa;font-size:11px">(' + base + (bonus ? '<span style="color:#f57f17;font-weight:600">+' + bonus + '</span>' : '') + '/사용 ' + used + ')</span>'
+        + '<button class="btn sm" onclick="openBonusAnnualModal(' + e.id + ')" style="font-size:10px;padding:2px 7px">✏ 조정</button>')
+      + '</div>'
+      + '</td></tr>';
+  });
+  const tbl = document.getElementById('empTable');
+  tbl.innerHTML = '';
+  const tmp = document.createElement('table'); tmp.innerHTML = html + '</tbody>';
+  while (tmp.firstChild) tbl.appendChild(tmp.firstChild);
+}
+
+// ── 직원 순서 드래그앤드롭 (데스크톱 표 전용) ──
 let dragSrcId = null, dragClone = null, dragOffsetY = 0;
 function initEmpDragDrop() {
   const tbody = document.getElementById('empTbody'); if (!tbody) return;
