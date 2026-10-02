@@ -103,16 +103,31 @@ function applyLoadedData(d) {
   (state.employees || []).forEach(e => { if (!e.employmentType) e.employmentType = 'fulltime'; });
 }
 
-// 버그수정: 페이지를 열자마자 백그라운드로 시작되는 loadFromSheets()가 (Apps Script는
+// 버그수정 1: 페이지를 열자마자 백그라운드로 시작되는 loadFromSheets()가 (Apps Script는
 // 종종 느리게 응답한다) 사용자가 그 사이에 저장한 로컬 수정사항보다 "늦게" 도착해서 덮어써버리는
 // 경쟁 상태(race condition)를 막기 위한 타임스탬프. save()가 호출된 시각을 기록해두고,
 // loadFromSheets()는 자신이 요청을 보낸 시각 "이후"에 로컬 저장이 있었다면 그 응답을 무시한다.
+// (단, 이건 "같은 페이지를 열어둔 동안"에만 유효 — 새로고침하면 이 변수는 0으로 리셋된다.)
 let _lastLocalSaveAt = 0;
+
+// 버그수정 2 (실제로 보고된 문제): save()는 구글시트 전송을 1초 디바운스하는데, 그 1초가
+// 지나기 전에 새로고침/탭 닫기를 하면 전송이 아예 안 나간 채로 페이지가 사라진다 — 로컬에는
+// 수정값이 저장돼 있지만 구글시트는 옛날 값 그대로라서, 다음에 페이지를 열면 자동으로 불러오는
+// loadFromSheets()가 그 옛날 값으로 덮어써버려 "수정한 게 새로고침하면 원래대로 돌아간다"가 된다.
+// 해결: localStorage에 "구글시트로 아직 못 보낸 변경사항이 있다" 표시(dirty 플래그)를 남겨두고,
+// 다음에 페이지를 열 때 이 플래그가 있으면 서버에서 불러오기 전에 먼저 그 변경사항부터 다시 전송한다.
+const DIRTY_KEY = 'wms_v6_dirty';
+function markDirty() { try { localStorage.setItem(DIRTY_KEY, '1'); } catch (e) {} }
+function clearDirty() { try { localStorage.removeItem(DIRTY_KEY); } catch (e) {} }
+function hasUnsyncedLocalChanges() {
+  try { return localStorage.getItem(DIRTY_KEY) === '1'; } catch (e) { return false; }
+}
 
 function save() {
   _lastLocalSaveAt = Date.now();
   const data = serializeState();
   try { localStorage.setItem('wms_v6', JSON.stringify(data)); } catch (e) {}
+  markDirty();
   syncToSheets(data);
 }
 
@@ -127,26 +142,32 @@ let _syncTimer = null;
 function syncToSheets(data) {
   if (!GAS_URL) return;
   clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => {
-    const indicator = document.getElementById('syncIndicator');
-    if (indicator) { indicator.textContent = '☁ 저장 중…'; indicator.style.color = '#f57f17'; }
-    fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'save', data }),
+  _syncTimer = setTimeout(() => { doSyncNow(data); }, 1000);
+}
+
+// 디바운스 없이 즉시 전송 (새로고침 복구 재전송 등에 사용). callback(ok)로 성공 여부를 알려준다.
+function doSyncNow(data, callback) {
+  const indicator = document.getElementById('syncIndicator');
+  if (indicator) { indicator.textContent = '☁ 저장 중…'; indicator.style.color = '#f57f17'; }
+  fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'save', data }),
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) clearDirty();
+      if (indicator) {
+        indicator.textContent = res.ok ? '☁ 저장됨' : '☁ 저장 실패';
+        indicator.style.color = res.ok ? '#2e7d32' : '#c0392b';
+        setTimeout(() => { if (indicator) indicator.textContent = ''; }, 3000);
+      }
+      if (callback) callback(!!res.ok);
     })
-      .then(r => r.json())
-      .then(res => {
-        if (indicator) {
-          indicator.textContent = res.ok ? '☁ 저장됨' : '☁ 저장 실패';
-          indicator.style.color = res.ok ? '#2e7d32' : '#c0392b';
-          setTimeout(() => { if (indicator) indicator.textContent = ''; }, 3000);
-        }
-      })
-      .catch(() => {
-        if (indicator) { indicator.textContent = '☁ 저장 실패'; indicator.style.color = '#c0392b'; setTimeout(() => { if (indicator) indicator.textContent = ''; }, 3000); }
-      });
-  }, 1000);
+    .catch(() => {
+      if (indicator) { indicator.textContent = '☁ 저장 실패'; indicator.style.color = '#c0392b'; setTimeout(() => { if (indicator) indicator.textContent = ''; }, 3000); }
+      if (callback) callback(false);
+    });
 }
 
 function loadFromSheets(callback) {
