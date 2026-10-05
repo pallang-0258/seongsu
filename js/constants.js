@@ -60,9 +60,35 @@ const COLORS = [
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzJNkdS9Y-429satbzJrXuUx3Em16dS2Y0cAFk_zxOBclub74kr_pZLiRCisMnAoPksaw/exec';
 
 // Apps Script에 붙여넣는 백엔드 코드.
-// 저장 충돌 방지를 위해 버전 번호(C1 셀)를 추가했다. 이 코드로 다시 배포하기 전까지는 예전처럼 동작한다.
+// 저장 충돌 방지를 위해 버전 번호(C1 셀)를 추가했고, 50,000자 칸 제한 때문에 데이터를 여러 칸에 나눠 저장한다. 이 코드로 다시 배포하기 전까지는 예전처럼 동작한다.
 // 예전 페이지(baseVersion을 안 보내는 클라이언트)의 저장도 그대로 받아준다.
 const GAS_CODE = `const SHEET_NAME = 'wms_data';
+// 구글시트 한 칸에는 50,000자까지만 들어가므로, 데이터를 A열 여러 칸(A1, A2, ...)에 나눠 저장한다.
+// B1 = 마지막 저장 시각, C1 = 버전 번호, D1 = 나눠 저장한 칸 수.
+// 각 칸 앞에 '~'를 붙여 시트가 숫자·날짜·수식으로 바꿔버리지 않게 한다 (읽을 때 떼어낸다).
+const CHUNK_SIZE = 45000;
+
+function readJson(sh) {
+  const count = Number(sh.getRange(1,4).getValue());
+  if (!count) return String(sh.getRange(1,1).getValue()); // 예전 방식(A1 한 칸)으로 저장된 데이터
+  return sh.getRange(1,1,count,1).getValues().map(r => String(r[0]).slice(1)).join('');
+}
+
+function writeJson(sh, json) {
+  const chunks = [];
+  for (let i = 0; i < json.length; ) {
+    let end = Math.min(i + CHUNK_SIZE, json.length);
+    const c = json.charCodeAt(end - 1);
+    if (end < json.length && c >= 0xD800 && c <= 0xDBFF) end--; // 이모지 등이 두 칸에 걸쳐 잘리지 않게
+    chunks.push(['~' + json.slice(i, end)]);
+    i = end;
+  }
+  if (!chunks.length) chunks.push(['~']);
+  const oldCount = Number(sh.getRange(1,4).getValue()) || 1;
+  sh.getRange(1,1,chunks.length,1).setNumberFormat('@').setValues(chunks);
+  if (oldCount > chunks.length) sh.getRange(chunks.length + 1, 1, oldCount - chunks.length, 1).clearContent();
+  sh.getRange(1,4).setValue(chunks.length);
+}
 
 function doGet(e) {
   try {
@@ -71,7 +97,7 @@ function doGet(e) {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       const sh = ss.getSheetByName(SHEET_NAME);
       if (!sh || sh.getLastRow() < 1) return jsonRes({ok:true, data:{}, version:0});
-      const raw = sh.getRange(1,1).getValue();
+      const raw = readJson(sh);
       const data = raw ? JSON.parse(raw) : {};
       return jsonRes({ok:true, data, version:Number(sh.getRange(1,3).getValue()) || 0});
     }
@@ -90,13 +116,11 @@ function doPost(e) {
       if (!sh) sh = ss.insertSheet(SHEET_NAME);
       const version = Number(sh.getRange(1,3).getValue()) || 0;
       const json = JSON.stringify(body.data);
-      // 내용이 이미 똑같으면 저장할 필요 없음 (닫힐 때 보낸 저장을 다시 보내는 경우 등)
-      if (json === sh.getRange(1,1).getValue()) return jsonRes({ok:true, version});
-      // 다른 기기가 그 사이 저장했으면 덮어쓰지 않고 알려준다
+      if (json === readJson(sh)) return jsonRes({ok:true, version});
       if (body.baseVersion !== undefined && !body.force && Number(body.baseVersion) !== version) {
         return jsonRes({ok:false, conflict:true, version});
       }
-      sh.getRange(1,1).setValue(json);
+      writeJson(sh, json);
       sh.getRange(1,2).setValue(new Date().toISOString());
       sh.getRange(1,3).setValue(version + 1);
       return jsonRes({ok:true, version: version + 1});
