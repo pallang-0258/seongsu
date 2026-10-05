@@ -19,14 +19,30 @@ function swapNorm(v) { return (v === '__off__' || !v) ? 'off' : v; }
 
 function activeShiftSwaps() { return (state.shiftSwaps || []).filter(s => !s.cancelled); }
 
-// 직원 + 날짜 칸에 지금도 유효한(값이 교환 결과 그대로인) 교환 기록
+// 직원 + 날짜 칸에 걸린(취소되지 않은) 교환 기록.
+// 교환 뒤에 그 날 연차·반차를 써도 교환 표시는 그대로 남긴다.
 function getSwapForCell(emp, dateStr) {
   const list = activeShiftSwaps();
   for (let i = list.length - 1; i >= 0; i--) {
-    const c = list[i].cells.find(x => x.empId === emp.id && x.date === dateStr);
-    if (c) return swapNorm(getShiftForDate(emp, dateStr)) === swapNorm(c.after) ? list[i] : null;
+    if (list[i].cells.some(x => x.empId === emp.id && x.date === dateStr)) return list[i];
   }
   return null;
+}
+// 근무 교환 내역 표시용 한 줄 요약. 예) "10/9 최하은 <> 10/11 김진성", 같은 날이면 "10/9 최하은 <> 김진성"
+// 다른 날 교환은 날짜마다 원래 그 날 근무하던 사람을 그 날짜 옆에 적는다.
+function swapSummaryText(swap) {
+  const nm = id => { const e = state.employees.find(x => x.id === id); return e ? e.name : '(삭제된 직원)'; };
+  const md = d => +d.slice(5, 7) + '/' + +d.slice(8, 10);
+  if (swap.dates.length < 2) return md(swap.dates[0]) + ' ' + nm(swap.empA) + ' <> ' + nm(swap.empB);
+  const [d1, d2] = swap.dates;
+  const workedOn = (d, fallback) => {
+    const c = swap.cells.find(x => x.date === d && swapNorm(x.before) !== 'off' && swapNorm(x.after) === 'off');
+    return c ? c.empId : fallback;
+  };
+  let p1 = workedOn(d1, swap.empA);
+  let p2 = workedOn(d2, p1 === swap.empA ? swap.empB : swap.empA);
+  if (p1 === p2) { p1 = swap.empA; p2 = swap.empB; }
+  return md(d1) + ' ' + nm(p1) + ' <> ' + md(d2) + ' ' + nm(p2);
 }
 function swapPartnerName(swap, empId) {
   const otherId = swap.empA === empId ? swap.empB : swap.empA;

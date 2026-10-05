@@ -114,7 +114,7 @@ function buildSchTable(el, off) {
         html += '<td' + (swap ? ' title="' + swapTitle + '"' : '') + '>'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative;cursor:default">'
           + noteDot
-          + (swap ? '<span title="' + swapTitle + '" style="position:absolute;top:1px;left:3px;font-size:10px;line-height:1">🔄</span>' : '')
+          + (swap ? '<span title="' + swapTitle + '" style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5"></span>' : '')
           + (lb ? '<div class="shift-pill ' + cl + '">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
           + extraLabel
           + '</div></td>';

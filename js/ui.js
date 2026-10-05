@@ -217,7 +217,7 @@ function buildSchTable(el, off) {
           : hasManualNote
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#f57f17;pointer-events:none"></span>' : '';
         const swap = getSwapForCell(emp, dateStr);
-        const swapMark = swap ? '<span title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '" style="position:absolute;top:1px;left:3px;font-size:10px;line-height:1">🔄</span>' : '';
+        const swapMark = swap ? '<span title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '" style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5;pointer-events:none"></span>' : '';
         html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')"' + (swap ? ' title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '"' : '') + '>'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">'
           + noteDot + swapMark
@@ -389,7 +389,8 @@ function applyShift() {
     if (existingIdx >= 0) { state.leaveRequests[existingIdx].type = sel; }
     else { state.leaveRequests.push({ id: nextId(state.leaveRequests), empId, type: sel, start: dateStr, end: dateStr, reason: '근무표에서 등록', status: 'approved', createdAt: toLocalDateStr(TODAY) }); }
     const k = weekKey(ui.weekOffset);
-    if (state.schedules[k]?.[empId]?.[di] !== undefined) delete state.schedules[k][empId][di];
+    // 근무 교환한 날은 교환된 근무를 남겨둔다 (반차 시간 표시가 교환 후 근무 기준이 되도록)
+    if (state.schedules[k]?.[empId]?.[di] !== undefined && !getSwapForCell(emp, dateStr)) delete state.schedules[k][empId][di];
     state.confirmed[k] = false;
   } else {
     if (existingIdx >= 0) state.leaveRequests.splice(existingIdx, 1);
@@ -494,11 +495,10 @@ function renderSwapHistory() {
     .filter(s => !empId || s.empA === empId || s.empB === empId)
     .sort((x, y) => y.dates[0].localeCompare(x.dates[0]) || y.id - x.id);
   const name = id => { const e = state.employees.find(x => x.id === id); return e ? swapEsc(e.name) : '(삭제된 직원)'; };
-  let html = '<thead><tr><th>교환 날짜</th><th>직원</th><th>바뀐 근무</th><th>메모</th><th>등록일</th><th>관리</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>교환 날짜</th><th>직원</th><th>근무교환</th><th>메모</th><th>등록일</th><th>관리</th></tr></thead><tbody>';
   if (!list.length) html += '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
   list.forEach(s => {
-    const changes = s.cells.filter(c => swapNorm(c.before) !== swapNorm(c.after))
-      .map(c => c.date.slice(5).replace('-', '/') + ' ' + name(c.empId) + ': ' + swapShiftLabel(c.before) + ' → ' + swapShiftLabel(c.after)).join('<br>');
+    const changes = swapEsc(swapSummaryText(s));
     const changedSince = !s.cancelled && swapChangedSince(s).length;
     const manage = s.cancelled
       ? '<span style="font-size:11px;color:#aaa">취소됨 (' + (s.cancelledAt || '') + ')</span>'
@@ -507,7 +507,7 @@ function renderSwapHistory() {
     html += '<tr' + (s.cancelled ? ' style="opacity:.5"' : '') + '>'
       + '<td>' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
       + '<td><strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong></td>'
-      + '<td style="font-size:12px">' + changes + '</td>'
+      + '<td style="white-space:nowrap">' + changes + '</td>'
       + '<td style="color:#888">' + (s.memo ? swapEsc(s.memo) : '-') + '</td>'
       + '<td style="font-size:11px;color:#888">' + (s.createdAt || '-') + '</td>'
       + '<td style="white-space:nowrap">' + manage + '</td></tr>';
