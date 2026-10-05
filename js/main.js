@@ -29,9 +29,14 @@
     // (예: 수정 직후 바로 새로고침) 여기서 그 변경사항부터 먼저 다시 보낸 뒤에 최신 데이터를
     // 불러온다 — 순서를 반대로 하면 방금 한 수정이 옛날 서버 값에 덮어써져 사라져 보인다.
     if (hasUnsyncedLocalChanges()) {
-      doSyncNow(serializeState(), () => autoLoadFromSheets());
+      doSyncNow(() => autoLoadFromSheets());
     } else {
       autoLoadFromSheets();
     }
+
+    // 수정 직후 1초 안에 탭을 닫거나 새로고침해도 변경사항이 바로 전송되도록 한다.
+    // (모바일은 앱 전환 시 pagehide 없이 종료되는 경우가 있어 visibilitychange도 함께 쓴다.)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSync(); });
+    window.addEventListener('pagehide', flushPendingSync);
   }
 })();

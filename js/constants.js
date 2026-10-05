@@ -59,7 +59,9 @@ const COLORS = [
 // GAS(Google Apps Script) 연동 — 기존 admin4_fixed.html과 완전히 동일한 프로토콜 유지
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzJNkdS9Y-429satbzJrXuUx3Em16dS2Y0cAFk_zxOBclub74kr_pZLiRCisMnAoPksaw/exec';
 
-// Apps Script에 붙여넣는 백엔드 코드 — 기존과 동일 (변경 금지)
+// Apps Script에 붙여넣는 백엔드 코드.
+// 저장 충돌 방지를 위해 버전 번호(C1 셀)를 추가했다. 이 코드로 다시 배포하기 전까지는 예전처럼 동작한다.
+// 예전 페이지(baseVersion을 안 보내는 클라이언트)의 저장도 그대로 받아준다.
 const GAS_CODE = `const SHEET_NAME = 'wms_data';
 
 function doGet(e) {
@@ -68,28 +70,40 @@ function doGet(e) {
     if (action === 'load') {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       const sh = ss.getSheetByName(SHEET_NAME);
-      if (!sh || sh.getLastRow() < 1) return jsonRes({ok:true, data:{}});
+      if (!sh || sh.getLastRow() < 1) return jsonRes({ok:true, data:{}, version:0});
       const raw = sh.getRange(1,1).getValue();
       const data = raw ? JSON.parse(raw) : {};
-      return jsonRes({ok:true, data});
+      return jsonRes({ok:true, data, version:Number(sh.getRange(1,3).getValue()) || 0});
     }
     return jsonRes({ok:false, error:'unknown action'});
   } catch(err) { return jsonRes({ok:false, error:err.toString()}); }
 }
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
   try {
     const body = JSON.parse(e.postData.contents);
     if (body.action === 'save') {
+      lock.waitLock(20000);
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       let sh = ss.getSheetByName(SHEET_NAME);
       if (!sh) sh = ss.insertSheet(SHEET_NAME);
-      sh.getRange(1,1).setValue(JSON.stringify(body.data));
+      const version = Number(sh.getRange(1,3).getValue()) || 0;
+      const json = JSON.stringify(body.data);
+      // 내용이 이미 똑같으면 저장할 필요 없음 (닫힐 때 보낸 저장을 다시 보내는 경우 등)
+      if (json === sh.getRange(1,1).getValue()) return jsonRes({ok:true, version});
+      // 다른 기기가 그 사이 저장했으면 덮어쓰지 않고 알려준다
+      if (body.baseVersion !== undefined && !body.force && Number(body.baseVersion) !== version) {
+        return jsonRes({ok:false, conflict:true, version});
+      }
+      sh.getRange(1,1).setValue(json);
       sh.getRange(1,2).setValue(new Date().toISOString());
-      return jsonRes({ok:true});
+      sh.getRange(1,3).setValue(version + 1);
+      return jsonRes({ok:true, version: version + 1});
     }
     return jsonRes({ok:false, error:'unknown action'});
   } catch(err) { return jsonRes({ok:false, error:err.toString()}); }
+  finally { lock.releaseLock(); }
 }
 
 function jsonRes(obj) {
