@@ -109,12 +109,12 @@ function buildSchTable(el, off) {
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#1565c0"></span>'
           : hasManualNote
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#f57f17"></span>' : '';
+        // 직원용 화면에는 교환 표시(파란 점)만 보여주고, 교환 상대·메모는 보여주지 않는다
         const swap = getSwapForCell(emp, dateStr);
-        const swapTitle = swap ? swapCellTitle(swap, emp, dateStr).replace(/"/g, '&quot;') : '';
-        html += '<td' + (swap ? ' title="' + swapTitle + '"' : '') + '>'
+        html += '<td>'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative;cursor:default">'
           + noteDot
-          + (swap ? '<span title="' + swapTitle + '" style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5"></span>' : '')
+          + (swap ? '<span style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5"></span>' : '')
           + (lb ? '<div class="shift-pill ' + cl + '">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
           + extraLabel
           + '</div></td>';
