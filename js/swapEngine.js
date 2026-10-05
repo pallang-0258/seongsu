@@ -5,7 +5,7 @@
 //    (A가 10/8을 B에게 넘기고, 대신 10/10의 B 근무를 A가 맡는 형태)
 // 교환 결과는 state.schedules(수동 변경)에 기록하고, 확정된 주라면 확정 스냅샷에도 함께 반영한다.
 // (schedules에도 남겨두기 때문에 나중에 확정을 해제해도 교환이 사라지지 않는다.)
-// 교환 내역은 state.shiftSwaps에 남고, 취소하면 교환 전 상태로 되돌린다.
+// 교환 내역은 state.shiftSwaps에 남고, 취소하면 교환 전 상태로 되돌린 뒤 내역에서도 삭제한다.
 
 const SWAP_LEAVE_KEYS = ['annual', 'half', 'half_pm'];
 const SWAP_ALLOW_CONFIRMED_WEEKS = true;
@@ -163,8 +163,8 @@ function cancelShiftSwap(id) {
       state.confirmed[wk] = false;
     }
   });
-  swap.cancelled = true;
-  swap.cancelledAt = toLocalDateStr(TODAY);
+  // 취소한 교환은 내역에 남기지 않고 삭제한다
+  state.shiftSwaps = state.shiftSwaps.filter(x => x.id !== id);
   save();
   return true;
 }

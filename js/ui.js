@@ -490,7 +490,7 @@ function renderSwapHistory() {
   const month = document.getElementById('swapMonthSel').value;
   const empId = +document.getElementById('swapEmpSel').value || null;
   const prefix = month ? year + '-' + month : year;
-  const list = (state.shiftSwaps || [])
+  const list = activeShiftSwaps()
     .filter(s => s.dates.some(d => d.startsWith(prefix)))
     .filter(s => !empId || s.empA === empId || s.empB === empId)
     .sort((x, y) => y.dates[0].localeCompare(x.dates[0]) || y.id - x.id);
@@ -499,12 +499,10 @@ function renderSwapHistory() {
   if (!list.length) html += '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
   list.forEach(s => {
     const changes = swapEsc(swapSummaryText(s));
-    const changedSince = !s.cancelled && swapChangedSince(s).length;
-    const manage = s.cancelled
-      ? '<span style="font-size:11px;color:#aaa">취소됨 (' + (s.cancelledAt || '') + ')</span>'
-      : (changedSince ? '<div style="font-size:10px;color:#f57f17;margin-bottom:2px" title="교환 후에 같은 칸이 다시 수정되었어요">⚠ 이후 수정됨</div>' : '')
+    const changedSince = swapChangedSince(s).length;
+    const manage = (changedSince ? '<div style="font-size:10px;color:#f57f17;margin-bottom:2px" title="교환 후에 같은 칸이 다시 수정되었어요">⚠ 이후 수정됨</div>' : '')
         + '<button class="btn sm danger" onclick="cancelSwapUI(' + s.id + ')">교환 취소</button>';
-    html += '<tr' + (s.cancelled ? ' style="opacity:.5"' : '') + '>'
+    html += '<tr>'
       + '<td>' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
       + '<td><strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong></td>'
       + '<td style="white-space:nowrap">' + changes + '</td>'
@@ -518,7 +516,7 @@ function cancelSwapUI(id) {
   const s = (state.shiftSwaps || []).find(x => x.id === id);
   if (!s) return;
   const changed = swapChangedSince(s);
-  let msg = '이 근무 교환을 취소하고 교환 전 근무로 되돌릴까요?';
+  let msg = '이 근무 교환을 취소하고 교환 전 근무로 되돌릴까요?\n취소한 교환은 내역에서도 삭제됩니다.';
   if (changed.length) msg += '\n\n주의: 교환한 뒤에 같은 칸이 다시 수정되었어요. 취소하면 그 수정도 교환 전 근무로 덮어써집니다.';
   if (!confirm(msg)) return;
   cancelShiftSwap(id);
