@@ -109,9 +109,12 @@ function buildSchTable(el, off) {
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#1565c0"></span>'
           : hasManualNote
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#f57f17"></span>' : '';
-        html += '<td>'
+        const swap = getSwapForCell(emp, dateStr);
+        const swapTitle = swap ? swapCellTitle(swap, emp, dateStr).replace(/"/g, '&quot;') : '';
+        html += '<td' + (swap ? ' title="' + swapTitle + '"' : '') + '>'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative;cursor:default">'
           + noteDot
+          + (swap ? '<span title="' + swapTitle + '" style="position:absolute;top:1px;left:3px;font-size:10px;line-height:1">🔄</span>' : '')
           + (lb ? '<div class="shift-pill ' + cl + '">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
           + extraLabel
           + '</div></td>';

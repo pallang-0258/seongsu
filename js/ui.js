@@ -216,9 +216,11 @@ function buildSchTable(el, off) {
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#1565c0;pointer-events:none"></span>'
           : hasManualNote
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#f57f17;pointer-events:none"></span>' : '';
-        html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')">'
+        const swap = getSwapForCell(emp, dateStr);
+        const swapMark = swap ? '<span title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '" style="position:absolute;top:1px;left:3px;font-size:10px;line-height:1">🔄</span>' : '';
+        html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')"' + (swap ? ' title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '"' : '') + '>'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">'
-          + noteDot
+          + noteDot + swapMark
           + (lb ? '<div class="shift-pill ' + cl + '" style="pointer-events:none">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
           + extraLabel
           + '</div></td>';
@@ -294,6 +296,8 @@ function renderSchedule() {
   updateStats();
   renderHolidayManager();
   renderHolidayReport();
+  initSwapHistoryFilters();
+  renderSwapHistory();
   setTimeout(fitTableToScreen, 50);
 }
 
@@ -402,6 +406,123 @@ function applyShift() {
   const combined = otLines.join('\n') + (otLines.length && manualNote.trim() ? '\n' : '') + manualNote;
   setNote(empId, di, combined, ui.weekOffset);
   save(); closeModal('shiftModal'); renderSchedule();
+}
+
+// ══════════════════════ 근무 교환 ══════════════════════
+function swapEsc(t) { return String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])); }
+function swapEmpOptions(selectedId) {
+  const emps = DEPTS.flatMap(d => state.employees.filter(e => e.dept === d && !isResigned(e)));
+  return '<option value="">선택</option>' + emps.map(e => '<option value="' + e.id + '"' + (e.id === selectedId ? ' selected' : '') + '>' + swapEsc(e.name) + ' (' + e.dept + ')</option>').join('');
+}
+function getSwapMode() { return document.querySelector('input[name="swapMode"]:checked').value; }
+function openSwapModal() {
+  document.getElementById('swapEmpA').innerHTML = swapEmpOptions(ui.selectedEmpId);
+  document.getElementById('swapEmpB').innerHTML = swapEmpOptions(null);
+  document.querySelector('input[name="swapMode"][value="same"]').checked = true;
+  const defDate = ui.weekOffset === 0 ? toLocalDateStr(TODAY) : weekKey(ui.weekOffset);
+  document.getElementById('swapDate1').value = defDate;
+  document.getElementById('swapDate2').value = '';
+  document.getElementById('swapMemo').value = '';
+  onSwapModeChange();
+  document.getElementById('swapModal').classList.add('open');
+}
+function onSwapModeChange() {
+  const cross = getSwapMode() === 'cross';
+  document.getElementById('swapDate2Wrap').style.display = cross ? '' : 'none';
+  document.getElementById('swapDate1Label').textContent = cross ? '첫 번째 날짜' : '날짜';
+  renderSwapPreview();
+}
+function readSwapForm() {
+  const a = +document.getElementById('swapEmpA').value || null;
+  const b = +document.getElementById('swapEmpB').value || null;
+  const dates = [document.getElementById('swapDate1').value];
+  if (getSwapMode() === 'cross') dates.push(document.getElementById('swapDate2').value);
+  return { a, b, dates };
+}
+function renderSwapPreview() {
+  const { a, b, dates } = readSwapForm();
+  const el = document.getElementById('swapPreview');
+  const btn = document.getElementById('swapSubmitBtn');
+  if (!a || !b || dates.some(d => !d)) { el.innerHTML = '<span style="color:#999">직원 두 명과 날짜를 고르면 바뀌는 내용을 미리 보여드려요.</span>'; btn.disabled = true; return; }
+  const plan = planShiftSwap(a, b, dates);
+  let html = '';
+  if (plan.errors.length) {
+    html = plan.errors.map(e => '<div style="color:#c0392b">⚠ ' + swapEsc(e) + '</div>').join('');
+  } else {
+    html = '<div style="font-weight:600;margin-bottom:2px">바뀌는 내용</div>' + plan.cells.map(c => {
+      const emp = state.employees.find(e => e.id === c.empId);
+      const changed = swapNorm(c.before) !== swapNorm(c.after);
+      return '<div' + (changed ? '' : ' style="color:#aaa"') + '>' + c.date.slice(5).replace('-', '/') + ' ' + swapEsc(emp.name) + ': '
+        + swapShiftLabel(c.before) + ' → <strong>' + swapShiftLabel(c.after) + '</strong>'
+        + (changed ? '' : ' (변화 없음)') + '</div>';
+    }).join('');
+    if (dates.some(d => isDateConfirmed(d))) html += '<div style="color:#f57f17;margin-top:4px">확정된 주가 포함되어 있어요. 확정된 근무표에 바로 반영됩니다.</div>';
+  }
+  el.innerHTML = html;
+  btn.disabled = !!plan.errors.length;
+}
+function submitSwap() {
+  const { a, b, dates } = readSwapForm();
+  const res = applyShiftSwap(a, b, dates, document.getElementById('swapMemo').value);
+  if (!res.ok) { alert(res.errors.join('\n')); return; }
+  closeModal('swapModal');
+  renderSchedule();
+}
+function initSwapHistoryFilters() {
+  const ySel = document.getElementById('swapYearSel');
+  if (!ySel) return;
+  const years = new Set([TODAY.getFullYear()]);
+  (state.shiftSwaps || []).forEach(s => s.dates.forEach(d => years.add(+d.slice(0, 4))));
+  const curY = ySel.value || String(TODAY.getFullYear());
+  ySel.innerHTML = [...years].sort().map(y => '<option value="' + y + '"' + (String(y) === curY ? ' selected' : '') + '>' + y + '년</option>').join('');
+  const mSel = document.getElementById('swapMonthSel');
+  if (!mSel.options.length) mSel.innerHTML = '<option value="">전체</option>' + Array.from({ length: 12 }, (_, i) => '<option value="' + String(i + 1).padStart(2, '0') + '">' + (i + 1) + '월</option>').join('');
+  const eSel = document.getElementById('swapEmpSel');
+  const curE = eSel.value;
+  eSel.innerHTML = '<option value="">전체 직원</option>' + DEPTS.flatMap(d => state.employees.filter(e => e.dept === d)).map(e => '<option value="' + e.id + '"' + (String(e.id) === curE ? ' selected' : '') + '>' + swapEsc(e.name) + '</option>').join('');
+}
+function renderSwapHistory() {
+  const table = document.getElementById('swapHistoryTable');
+  if (!table) return;
+  if (!document.getElementById('swapYearSel').options.length) initSwapHistoryFilters();
+  const year = document.getElementById('swapYearSel').value;
+  const month = document.getElementById('swapMonthSel').value;
+  const empId = +document.getElementById('swapEmpSel').value || null;
+  const prefix = month ? year + '-' + month : year;
+  const list = (state.shiftSwaps || [])
+    .filter(s => s.dates.some(d => d.startsWith(prefix)))
+    .filter(s => !empId || s.empA === empId || s.empB === empId)
+    .sort((x, y) => y.dates[0].localeCompare(x.dates[0]) || y.id - x.id);
+  const name = id => { const e = state.employees.find(x => x.id === id); return e ? swapEsc(e.name) : '(삭제된 직원)'; };
+  let html = '<thead><tr><th>교환 날짜</th><th>직원</th><th>바뀐 근무</th><th>메모</th><th>등록일</th><th>관리</th></tr></thead><tbody>';
+  if (!list.length) html += '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
+  list.forEach(s => {
+    const changes = s.cells.filter(c => swapNorm(c.before) !== swapNorm(c.after))
+      .map(c => c.date.slice(5).replace('-', '/') + ' ' + name(c.empId) + ': ' + swapShiftLabel(c.before) + ' → ' + swapShiftLabel(c.after)).join('<br>');
+    const changedSince = !s.cancelled && swapChangedSince(s).length;
+    const manage = s.cancelled
+      ? '<span style="font-size:11px;color:#aaa">취소됨 (' + (s.cancelledAt || '') + ')</span>'
+      : (changedSince ? '<div style="font-size:10px;color:#f57f17;margin-bottom:2px" title="교환 후에 같은 칸이 다시 수정되었어요">⚠ 이후 수정됨</div>' : '')
+        + '<button class="btn sm danger" onclick="cancelSwapUI(' + s.id + ')">교환 취소</button>';
+    html += '<tr' + (s.cancelled ? ' style="opacity:.5"' : '') + '>'
+      + '<td>' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
+      + '<td><strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong></td>'
+      + '<td style="font-size:12px">' + changes + '</td>'
+      + '<td style="color:#888">' + (s.memo ? swapEsc(s.memo) : '-') + '</td>'
+      + '<td style="font-size:11px;color:#888">' + (s.createdAt || '-') + '</td>'
+      + '<td style="white-space:nowrap">' + manage + '</td></tr>';
+  });
+  table.innerHTML = html + '</tbody>';
+}
+function cancelSwapUI(id) {
+  const s = (state.shiftSwaps || []).find(x => x.id === id);
+  if (!s) return;
+  const changed = swapChangedSince(s);
+  let msg = '이 근무 교환을 취소하고 교환 전 근무로 되돌릴까요?';
+  if (changed.length) msg += '\n\n주의: 교환한 뒤에 같은 칸이 다시 수정되었어요. 취소하면 그 수정도 교환 전 근무로 덮어써집니다.';
+  if (!confirm(msg)) return;
+  cancelShiftSwap(id);
+  renderSchedule();
 }
 
 // ══════════════════════ 공휴일 관리 (근무표 탭) ══════════════════════
