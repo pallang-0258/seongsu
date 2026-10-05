@@ -1187,5 +1187,5 @@ function pullFromSheets() {
   loadFromSheets(ok => {
     if (ok) { res.textContent = '✓ 데이터 가져오기 성공!'; res.style.color = '#2e7d32'; renderAll(); }
     else { res.textContent = '✗ 데이터 없음 또는 실패'; res.style.color = '#c0392b'; GAS_URL = prevUrl; }
-  });
+  }, { overwriteUnsynced: true });
 }
