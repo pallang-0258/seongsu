@@ -158,6 +158,21 @@ function showManualOverrideWarning(empName, overrides) {
   document.getElementById('shiftHistoryModal').classList.add('open');
 }
 
+// 새 직원 ID는 "지금 있는 직원 중 최대값+1"이 아니라 "기록에 한 번이라도 쓰인 ID 중 최대값+1"로 정한다.
+// 가장 최근 직원을 삭제한 뒤 새로 추가하면 같은 ID를 받아서, 삭제된 사람의 연차·추가근무·메모·
+// 근무패턴·확정 스냅샷이 새 직원에게 붙어버리는 문제가 있었다.
+function nextEmployeeId() {
+  const ids = [0];
+  const addKeys = obj => Object.keys(obj || {}).forEach(k => { if (/^\d+$/.test(k)) ids.push(+k); });
+  state.employees.forEach(e => ids.push(+e.id || 0));
+  [state.leaveRequests, state.overtimeRecords, state.empMemos].forEach(arr => (arr || []).forEach(r => ids.push(+r.empId || 0)));
+  addKeys(state.shiftHistory);
+  addKeys(state.defaultShift);
+  Object.values(state.schedules || {}).forEach(wk => { addKeys(wk); addKeys(wk && wk._notes); });
+  Object.values(state.confirmedSnapshots || {}).forEach(addKeys);
+  return Math.max(...ids) + 1;
+}
+
 function saveEmp() {
   const name = document.getElementById('nName').value.trim(); if (!name) return;
   const workType = document.getElementById('nWorkType').value;
@@ -223,7 +238,7 @@ function saveEmp() {
       state.defaultShift[e.id] = newShift;
     }
   } else {
-    const id = (state.employees.length > 0 ? Math.max(...state.employees.map(e => e.id)) : 0) + 1;
+    const id = nextEmployeeId();
     state.employees.push({ id, name, dept: document.getElementById('nDept').value, joinDate, leaveDate, annual: 0, used: 0, color: id % COLORS.length, workType, workDays, employmentType, phone, trueJoinDate });
     state.defaultShift[id] = dayShifts;
   }
