@@ -115,9 +115,12 @@ function doPost(e) {
       let sh = ss.getSheetByName(SHEET_NAME);
       if (!sh) sh = ss.insertSheet(SHEET_NAME);
       const version = Number(sh.getRange(1,3).getValue()) || 0;
+      // 예전 페이지(admin.html 등)는 baseVersion을 보내지 않고, 확정 스냅샷·공휴일 지정 같은 새 데이터를
+      // 빼고 저장한다. 그런 저장을 받으면 그 데이터가 지워지므로 거부한다.
+      if (body.baseVersion === undefined) return jsonRes({ok:false, error:'outdated page: open admin4_fixed.html'});
       const json = JSON.stringify(body.data);
       if (json === readJson(sh)) return jsonRes({ok:true, version});
-      if (body.baseVersion !== undefined && !body.force && Number(body.baseVersion) !== version) {
+      if (!body.force && Number(body.baseVersion) !== version) {
         return jsonRes({ok:false, conflict:true, version});
       }
       writeJson(sh, json);

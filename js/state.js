@@ -59,8 +59,6 @@ function seedEmployees() {
   ];
 }
 
-state.employees = seedEmployees();
-
 // ── GAS URL ──
 let GAS_URL = '';
 try { GAS_URL = localStorage.getItem('wms_gas_url') || DEFAULT_GAS_URL; } catch (e) { GAS_URL = DEFAULT_GAS_URL; }
@@ -152,11 +150,21 @@ function save() {
   syncToSheets();
 }
 
+// 버그수정 4: 처음 여는 브라우저(로컬 캐시 없음)가 예시 직원 25명으로 시작하면, 구글시트에서
+// 불러오기가 끝나기 전에(또는 실패한 채로) 수정했을 때 예시 데이터가 실제 데이터를 통째로 덮어쓸
+// 수 있었다. 그래서 예시 데이터는 구글시트를 안 쓰거나 시트가 완전히 비어 있을 때만 채우고,
+// 로컬 캐시 없이 시작한 기기는 서버 데이터를 한 번 받기 전까지 "덮어쓰기"를 고를 수 없게 한다.
+let _startedWithoutLocalData = false;
+function seedIfEmpty() {
+  if (!state.employees.length) state.employees = seedEmployees();
+}
+
 function load() {
-  try {
-    const r = localStorage.getItem('wms_v6');
-    if (r) applyLoadedData(JSON.parse(r));
-  } catch (e) {}
+  let r = null;
+  try { r = localStorage.getItem('wms_v6'); } catch (e) {}
+  if (r) { try { applyLoadedData(JSON.parse(r)); return; } catch (e) {} }
+  _startedWithoutLocalData = true;
+  if (!GAS_URL) seedIfEmpty();
 }
 
 let _syncTimer = null;
@@ -240,7 +248,9 @@ function doSyncNow(callback, opts) {
 // 서버에 이 페이지가 모르는 더 최신 저장이 있을 때: 최신 데이터를 받을지, 이 기기 내용으로 덮어쓸지 묻는다.
 // 고르는 동안과 불러오는 동안에는 _syncInFlight가 true로 유지되어 다른 전송은 큐에서 기다린다.
 function resolveSyncConflict(done) {
-  const takeServer = confirm(
+  const takeServer = _startedWithoutLocalData
+    ? (alert('구글시트에 더 최신 데이터가 있어서 이 기기의 변경사항은 저장하지 않았어요. 최신 데이터를 불러옵니다.'), true)
+    : confirm(
     '다른 기기(또는 다른 탭)에서 더 최근에 저장한 내용이 있어서, 이 화면의 변경사항을 구글시트에 저장하지 않았어요.\n\n'
     + '[확인] 최신 데이터를 불러옵니다. 이 화면에서 저장되지 않은 변경은 사라집니다.\n'
     + '[취소] 이 화면의 내용으로 덮어씁니다. 다른 기기에서 한 변경이 사라집니다.'
@@ -279,11 +289,14 @@ function loadFromSheets(callback, opts) {
         }
         applyLoadedData(res.data);
         setServerVersion(res.version);
+        _startedWithoutLocalData = false;
         try { localStorage.setItem('wms_v6', JSON.stringify(res.data)); } catch (e) {}
         if (opts.overwriteUnsynced) clearDirty();
         if (callback) callback(true);
       } else {
         if (res.ok) setServerVersion(res.version);
+        // 시트가 완전히 비어 있으면(처음 연동) 예시 데이터로 시작한다 — 덮어쓸 실제 데이터가 없다.
+        if (res.ok && _startedWithoutLocalData) { seedIfEmpty(); _startedWithoutLocalData = false; }
         if (callback) callback(false);
       }
     })
