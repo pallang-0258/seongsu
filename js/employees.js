@@ -99,7 +99,7 @@ function openEditEmp(id) {
   document.getElementById('empModalTitle').textContent = '직원 수정 – ' + e.name;
   document.getElementById('nName').value = e.name; document.getElementById('nDept').value = e.dept;
   document.getElementById('nJoinDate').value = e.joinDate || ''; document.getElementById('nLeaveDate').value = e.leaveDate || '';
-  document.getElementById('nWorkType').value = e.workType || 'full';
+  document.getElementById('nWorkType').value = getCurrentWorkType(e);
   document.getElementById('nEmploymentType').value = e.employmentType || 'fulltime';
   document.getElementById('nPhone').value = e.phone || '';
   document.getElementById('nTrueJoinDate').value = e.trueJoinDate || '';
@@ -196,10 +196,19 @@ function saveEmp() {
     }
     const newShift = dayShifts;
     const oldShift = getCurrentPattern(e.id);
-    const shiftChanged = newShift.some((v, i) => !dayShiftEqual(v, oldShift[i]));
+    const oldWorkType = getCurrentWorkType(e);
+    const shiftChanged = newShift.some((v, i) => !dayShiftEqual(v, oldShift[i])) || workType !== oldWorkType;
+    // 근무유형을 적용일과 함께 기록하기 전에 만들어진 이력 항목에는 workType이 없다. 지금까지 쓰던
+    // 근무유형을 채워 넣어서, 직원 정보의 값이 바뀌어도 지난 날짜는 원래 근무유형으로 계산되게 한다.
+    (state.shiftHistory[e.id] || []).forEach(h => {
+      if (!h.workType) h.workType = e.workType || 'full';
+      if (!h.oldWorkType) h.oldWorkType = e.workType || 'full';
+    });
 
     e.name = name; e.dept = document.getElementById('nDept').value; e.joinDate = joinDate; e.leaveDate = leaveDate;
     e.workType = workType; e.workDays = workDays; e.employmentType = employmentType; e.phone = phone; e.trueJoinDate = trueJoinDate;
+    const wtFields = { workType, oldWorkType };
+    const baseWt = { workType: oldWorkType, oldWorkType };
 
     if (shiftChanged && applyFrom) {
       const applyDate = new Date(applyFrom); applyDate.setHours(0, 0, 0, 0);
@@ -208,16 +217,16 @@ function saveEmp() {
       state.shiftHistory[e.id] = state.shiftHistory[e.id].filter(h => h.applyFrom !== applyDateStr);
       if (!state.shiftHistory[e.id].length) {
         const baseFrom = e.joinDate || '2000-01-01';
-        state.shiftHistory[e.id].push({ applyFrom: baseFrom, newShift: [...oldShift], oldShift: [...oldShift], registeredAt: toLocalDateStr(TODAY) });
+        state.shiftHistory[e.id].push({ applyFrom: baseFrom, newShift: [...oldShift], oldShift: [...oldShift], ...baseWt, registeredAt: toLocalDateStr(TODAY) });
       } else {
         const sorted = state.shiftHistory[e.id].slice().sort((a, b) => a.applyFrom.localeCompare(b.applyFrom));
         const prevEntry = sorted.filter(h => h.applyFrom < applyDateStr).pop();
         if (!prevEntry) {
           const baseFrom = e.joinDate || '2000-01-01';
-          state.shiftHistory[e.id].push({ applyFrom: baseFrom, newShift: [...oldShift], oldShift: [...oldShift], registeredAt: toLocalDateStr(TODAY) });
+          state.shiftHistory[e.id].push({ applyFrom: baseFrom, newShift: [...oldShift], oldShift: [...oldShift], ...baseWt, registeredAt: toLocalDateStr(TODAY) });
         }
       }
-      state.shiftHistory[e.id].push({ applyFrom: applyDateStr, newShift: [...newShift], oldShift: [...oldShift], registeredAt: toLocalDateStr(TODAY) });
+      state.shiftHistory[e.id].push({ applyFrom: applyDateStr, newShift: [...newShift], oldShift: [...oldShift], ...wtFields, registeredAt: toLocalDateStr(TODAY) });
       state.shiftHistory[e.id] = state.shiftHistory[e.id].slice(-20);
       const affected1 = collectFutureManualOverrides(e.id, applyDateStr);
       if (affected1.length) pendingOverrideWarning = { empName: e.name, overrides: affected1 };
@@ -227,10 +236,10 @@ function saveEmp() {
       const todayStr = toLocalDateStr(TODAY);
       if (!state.shiftHistory[e.id].length) {
         const baseFrom = e.joinDate || '2000-01-01';
-        state.shiftHistory[e.id].push({ applyFrom: baseFrom, newShift: [...oldShift], oldShift: [...oldShift], registeredAt: todayStr });
+        state.shiftHistory[e.id].push({ applyFrom: baseFrom, newShift: [...oldShift], oldShift: [...oldShift], ...baseWt, registeredAt: todayStr });
       }
       state.shiftHistory[e.id] = state.shiftHistory[e.id].filter(h => h.applyFrom !== todayStr);
-      state.shiftHistory[e.id].push({ applyFrom: todayStr, newShift: [...newShift], oldShift: [...oldShift], registeredAt: todayStr });
+      state.shiftHistory[e.id].push({ applyFrom: todayStr, newShift: [...newShift], oldShift: [...oldShift], ...wtFields, registeredAt: todayStr });
       state.shiftHistory[e.id] = state.shiftHistory[e.id].slice(-20);
       const todayMonStr = toLocalDateStr(getWeekStart(0));
       const affected2 = collectFutureManualOverrides(e.id, todayMonStr);
@@ -275,6 +284,8 @@ function showShiftHistory(empId) {
         const o = h.oldShift[di], n = h.newShift[di];
         if (!dayShiftEqual(o, n)) changes.push(DAY_KO[di] + ': ' + dayShiftLabel(o) + ' → ' + dayShiftLabel(n));
       }
+      const wtLabel = { full: '매주', biweek_odd: '격주(홀수)', biweek_even: '격주(짝수)' };
+      if (h.workType && h.oldWorkType && h.workType !== h.oldWorkType) changes.push('근무유형: ' + (wtLabel[h.oldWorkType] || h.oldWorkType) + ' → ' + (wtLabel[h.workType] || h.workType));
       html += '<div style="border:1px solid #dde4ee;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:' + (isPast ? '#fafafa' : '#fffbf5') + '">'
         + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
         + '<strong style="font-size:13px">' + h.applyFrom + ' 부터 적용</strong>' + statusBadge

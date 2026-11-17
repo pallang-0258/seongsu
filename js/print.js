@@ -4,7 +4,7 @@
 // 연차/반차/수동변경 모두 무시하고 "고정 기본 패턴"만 반환 (고정근무표 출력용)
 function getFixedShift(emp, di, off) {
   if (!shouldWork(emp, di, off)) return '__off__';
-  const pat = getCurrentPattern(emp.id);
+  const pat = getPatternAt(emp.id, toLocalDateStr(getWeekDays(off)[di])) || getCurrentPattern(emp.id);
   const resolved = pat ? resolveDayPattern(pat[di], off) : null;
   return resolved || 'off';
 }

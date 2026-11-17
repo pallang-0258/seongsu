@@ -4,12 +4,38 @@
 // (2) 확정 스냅샷(confirmedSnapshots)을 "단일 진실 소스"로 우선 적용하는 로직을 추가했다.
 
 // 직원이 해당 요일에 "출근 대상"인지 (격주 근무유형 포함, 실제 배정 근무유형과 무관)
+// 버그수정: 예전에는 emp.workDays(직원 정보에 저장된 "지금" 근무 요일)만 봐서, 고정시간표를
+// "12월부터 적용"으로 바꿔도 근무 요일이 빠진 날은 저장 즉시 모든 날짜(12월 이전 포함)에서
+// 사라져 보였다. 이제는 변경 이력(shiftHistory)이 있으면 "그 날짜에 적용되는 패턴"에서
+// 근무 요일을 판단한다. (workDays는 원래 패턴에서 휴무(null)가 아닌 요일로 만들어지는 값이다.)
 function shouldWork(emp, di, off) {
-  const wd = emp.workDays ? emp.workDays[di] : 1;
+  let wd = emp.workDays ? emp.workDays[di] : 1;
+  if ((state.shiftHistory[emp.id] || []).length) {
+    const pat = getPatternAt(emp.id, toLocalDateStr(getWeekDays(off)[di]));
+    if (pat && pat.some(v => v != null)) wd = pat[di] != null ? 1 : 0;
+  }
   if (!wd) return false;
-  if (emp.workType === 'biweek_odd') return isOddWeek(off);
-  if (emp.workType === 'biweek_even') return !isOddWeek(off);
+  const wt = getWorkTypeAt(emp, toLocalDateStr(getWeekDays(off)[di]));
+  if (wt === 'biweek_odd') return isOddWeek(off);
+  if (wt === 'biweek_even') return !isOddWeek(off);
   return true;
+}
+
+// 근무유형(매주/격주 홀수/격주 짝수)도 고정시간표처럼 적용일이 있다. 변경 이력 항목에 저장된
+// workType(그 날부터) / oldWorkType(첫 이력 이전)을 보고, 기록이 없으면 직원 정보의 값을 쓴다.
+function getWorkTypeAt(emp, dateStr) {
+  const hist = (state.shiftHistory[emp.id] || []).slice().sort((a, b) => a.applyFrom.localeCompare(b.applyFrom));
+  if (!hist.length) return emp.workType;
+  if (dateStr < hist[0].applyFrom) return hist[0].oldWorkType || hist[0].workType || emp.workType;
+  let wt = hist[0].workType;
+  for (let i = 1; i < hist.length; i++) {
+    if (dateStr >= hist[i].applyFrom) wt = hist[i].workType || wt;
+    else break;
+  }
+  return wt || emp.workType;
+}
+function getCurrentWorkType(emp) {
+  return getWorkTypeAt(emp, toLocalDateStr(TODAY)) || 'full';
 }
 
 // shiftHistory 타임라인에서 dateStr에 해당하는 패턴(7칸 배열) 반환
