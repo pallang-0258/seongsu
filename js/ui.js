@@ -143,7 +143,8 @@ function renderSidebar() {
     html += '<div class="sidebar-label">' + dept + '</div>';
     emps.forEach(e => {
       const [bg, fg] = COLORS[e.color % COLORS.length];
-      const tag = e.workType === 'biweek_odd' ? '<span style="font-size:9px;color:#999"> 홀수</span>' : e.workType === 'biweek_even' ? '<span style="font-size:9px;color:#999"> 짝수</span>' : '';
+      const wtNow = getCurrentWorkType(e);
+      const tag = wtNow === 'biweek_odd' ? '<span style="font-size:9px;color:#999"> 홀수</span>' : wtNow === 'biweek_even' ? '<span style="font-size:9px;color:#999"> 짝수</span>' : '';
       const ptTag = e.employmentType === 'parttime' ? '<span style="font-size:9px;color:#e65100"> PT</span>' : '';
       html += '<div class="emp-item' + (ui.selectedEmpId === e.id ? ' selected' : '') + '" onclick="selectEmp(' + e.id + ')">'
         + '<div class="avatar" style="background:' + bg + ';color:' + fg + '">' + e.name[0] + '</div>'
@@ -1083,7 +1084,7 @@ function renderEmpTable() {
       + '<td>' + (isPT ? '<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:10px">파트타임</span>' : '<span style="font-size:11px;color:#888">정규직</span>') + '</td>'
       + '<td style="font-size:11px;color:#888">' + (e.joinDate || '-') + '</td>'
       + '<td style="font-size:11px;color:' + (resigned ? '#c0392b' : '#888') + '">' + (e.leaveDate || '-') + '</td>'
-      + '<td style="font-size:11px">' + (resigned ? '<span style="color:#bbb">퇴사</span>' : (tm[e.workType] || e.workType)) + '</td>';
+      + '<td style="font-size:11px">' + (resigned ? '<span style="color:#bbb">퇴사</span>' : (tm[getCurrentWorkType(e)] || getCurrentWorkType(e))) + '</td>';
     pat.forEach((sh, di) => {
       const isWknd = di >= 5;
       html += '<td style="text-align:center;' + (isWknd ? 'background:#fafafa' : '') + '">'
@@ -1135,7 +1136,7 @@ function renderEmpTableMobile() {
       + '<div style="min-width:0"><div style="font-size:14px"><strong>' + e.name + '</strong>'
       + (isFuture ? ' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px">입사예정</span>' : '')
       + (resigned ? ' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>' : '')
-      + '</div><div style="font-size:11px;color:#888;margin-top:2px">' + e.dept + ' · ' + (isPT ? '파트타임' : '정규직') + ' · ' + (resigned ? '퇴사' : (tm[e.workType] || e.workType)) + pendingBadge + '</div>'
+      + '</div><div style="font-size:11px;color:#888;margin-top:2px">' + e.dept + ' · ' + (isPT ? '파트타임' : '정규직') + ' · ' + (resigned ? '퇴사' : (tm[getCurrentWorkType(e)] || getCurrentWorkType(e))) + pendingBadge + '</div>'
       + (e.phone ? '<div style="font-size:11px;margin-top:2px"><a href="tel:' + e.phone + '" style="color:#1565c0;text-decoration:none">📞 ' + e.phone + '</a></div>' : '') + '</div>'
       + '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
       + '<button class="btn sm" onclick="openEditEmp(' + e.id + ')">수정</button>'
