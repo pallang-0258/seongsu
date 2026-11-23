@@ -701,16 +701,15 @@ function renderPartTimeReport() {
   if (!rep.employees.length) { wrap.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">이 달에 근무한 파트타임 직원이 없습니다. (직원 관리 탭에서 고용형태를 파트타임으로 지정한 직원만 나와요)</div>'; return; }
   const md = d => +d.slice(5, 7) + '/' + +d.slice(8, 10);
   const weekTh = rep.weeks.map(w => '<th style="font-weight:500;font-size:11px;text-align:center">' + (w.start === w.end ? md(w.start) : md(w.start) + '~' + md(w.end)) + '</th>').join('');
-  // 주별 칸: 실제 근무한 날을 "11일(10h)"로 한 줄씩, 두 날 이상이면 맨 아래에 그 주 합계
-  const weekCell = (list, sum) => !list.length ? '<span style="color:#ccc">-</span>'
-    : list.map(x => '<div>' + +x.date.slice(8, 10) + '일<span style="color:#888">(' + x.hours + 'h)</span></div>').join('')
-      + (list.length > 1 ? '<div style="margin-top:2px;padding-top:2px;border-top:1px dashed #ddd;font-weight:600;color:#555">' + sum + 'h</div>' : '');
+  // 주별 칸: 실제 근무한 날을 "11일(10h)"로 한 줄씩
+  const weekCell = list => !list.length ? '<span style="color:#ccc">-</span>'
+    : list.map(x => '<div>' + +x.date.slice(8, 10) + '일<span style="color:#888">(' + x.hours + 'h)</span></div>').join('');
   wrap.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:8px">' + (month + 1) + '월 파트 근무시간 합계 <strong style="color:#1565c0">' + rep.totalHours + '시간</strong> · 근무 교환·추가근무·반차 반영</div>'
     + '<div style="overflow-x:auto"><table class="lv-table" style="font-size:12px;white-space:nowrap;width:100%"><thead><tr><th>이름</th><th>부서</th><th style="text-align:center">근무일수</th><th style="text-align:center">월 근무시간</th>' + weekTh + '</tr></thead><tbody>'
     + rep.employees.map(e => '<tr><td><strong>' + swapEsc(e.name) + '</strong></td><td style="color:#888">' + e.dept + '</td>'
       + '<td style="text-align:center">' + e.days + '일</td>'
       + '<td style="text-align:center;font-weight:600;color:#1565c0">' + e.totalHours + '시간</td>'
-      + e.weekDays.map((list, i) => '<td style="text-align:center;color:#333;vertical-align:top;line-height:1.6">' + weekCell(list, e.weekHours[i]) + '</td>').join('') + '</tr>').join('')
+      + e.weekDays.map(list => '<td style="text-align:center;color:#333;vertical-align:top;line-height:1.6">' + weekCell(list) + '</td>').join('') + '</tr>').join('')
     + '</tbody></table></div>';
 }
 
