@@ -16,7 +16,7 @@ function renderAll() {
 }
 
 function switchTab(tab) {
-  ['schedule', 'leave', 'overtime', 'employees'].forEach((t, i) => {
+  ['schedule', 'leave', 'overtime', 'memos', 'employees'].forEach((t, i) => {
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
     const tabBtns = document.querySelectorAll('.header-tabs .tab');
     if (tabBtns[i]) tabBtns[i].className = 'tab' + (t === tab ? ' active' : '');
@@ -27,6 +27,7 @@ function switchTab(tab) {
   closeMobileSidebar();
   if (tab === 'leave') { initLeaveFilters(); initLeaveTableFilters(); renderLeaveTable(); renderLeaveHistory(); initCalendar(); renderLeaveBalanceSimple(); setTimeout(fitTableToScreen, 100); }
   if (tab === 'overtime') { initOvertimeTab(); }
+  if (tab === 'memos') { initShiftMemoTab(); }
   if (tab === 'employees') { renderEmpTable(); initEmpMemoFilters(); renderEmpMemos(); }
 }
 

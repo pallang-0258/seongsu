@@ -230,3 +230,25 @@ textarea { font-family: inherit; }
 @media (min-width: 769px) {
   #empTable th, #empTable td { white-space: nowrap; }
 }
+
+/* 근무 변경 메모 모아보기 */
+.sm-empty { color: #aaa; font-size: 12px; padding: 24px 0; text-align: center; }
+.sm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+.sm-group { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+.sm-group-hd { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; background: var(--primary-light); font-size: 13px; }
+.sm-dept { font-size: 11px; color: var(--faint); font-weight: 400; margin-left: 2px; }
+.sm-cnt { font-size: 11px; color: var(--faint); font-weight: 400; }
+.sm-row { padding: 8px 12px; border-top: 1px solid var(--border-soft); }
+.sm-group-hd + .sm-row { border-top: none; }
+.sm-row-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+.sm-date { font-weight: 600; font-size: 12px; min-width: 62px; }
+.sm-name { font-weight: 600; font-size: 12px; min-width: 90px; }
+.sm-shift { font-size: 11px; color: #555; background: #f4f6fa; border-radius: 4px; padding: 1px 6px; }
+.sm-base { color: var(--faint); text-decoration: line-through; }
+.sm-note { font-size: 12px; color: #333; white-space: pre-line; line-height: 1.5; }
+.sm-day { margin-bottom: 14px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.sm-day-hd { padding: 8px 12px; background: var(--primary-light); font-weight: 700; font-size: 13px; }
+.sm-day-hd + .sm-row { border-top: none; }
+@media (max-width: 768px) {
+  .sm-grid { grid-template-columns: 1fr; }
+}

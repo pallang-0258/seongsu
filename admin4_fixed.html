@@ -17,6 +17,7 @@
     <button class="tab active" onclick="switchTab('schedule')">근무표</button>
     <button class="tab" onclick="switchTab('leave')">연차/반차</button>
     <button class="tab" onclick="switchTab('overtime')">추가근무</button>
+    <button class="tab" onclick="switchTab('memos')">근무 메모</button>
     <button class="tab" onclick="switchTab('employees')">직원 관리</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
@@ -31,6 +32,7 @@
   <button class="mobile-tab active" id="mtab-schedule" onclick="switchTab('schedule')"><span class="mt-icon">📋</span>근무표</button>
   <button class="mobile-tab" id="mtab-leave" onclick="switchTab('leave')"><span class="mt-icon">📅</span>연차/반차</button>
   <button class="mobile-tab" id="mtab-overtime" onclick="switchTab('overtime')"><span class="mt-icon">⏰</span>추가근무</button>
+  <button class="mobile-tab" id="mtab-memos" onclick="switchTab('memos')"><span class="mt-icon">📝</span>근무메모</button>
   <button class="mobile-tab" id="mtab-employees" onclick="switchTab('employees')"><span class="mt-icon">👥</span>직원관리</button>
 </div>
 
@@ -241,6 +243,33 @@
           </div>
         </div>
         <table class="lv-table" id="overtimeSummaryTable"></table>
+      </div>
+    </div>
+
+    <!-- 근무 메모 탭 -->
+    <div id="tabMemos" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">근무 변경 메모 <span id="smCount" style="font-size:12px;font-weight:400;color:#999;margin-left:4px"></span></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="display:flex;gap:0">
+              <button class="btn sm primary" id="smViewEmp" onclick="setShiftMemoView('emp')" style="border-radius:6px 0 0 6px">직원별</button>
+              <button class="btn sm" id="smViewDate" onclick="setShiftMemoView('date')" style="border-radius:0 6px 6px 0;margin-left:-1px">날짜별</button>
+            </div>
+            <select id="smYear" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:90px"></select>
+            <select id="smMonth" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <select id="smEmpFilter" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
+            <input id="smSearch" type="search" placeholder="메모 검색" oninput="renderShiftMemos()" style="height:32px;font-size:12px;width:130px">
+          </div>
+        </div>
+        <div style="font-size:11px;color:#999;margin-bottom:10px">근무표에서 근무를 바꿀 때 남긴 메모를 모아 보여줍니다. 메모 수정은 근무표에서 해당 칸을 눌러 할 수 있어요.</div>
+        <div id="shiftMemoList"></div>
       </div>
     </div>
 
@@ -590,6 +619,7 @@
 <script src="js/holidayReport.js"></script>
 <script src="js/employees.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/shiftMemos.js"></script>
 <script src="js/print.js"></script>
 <script src="js/main.js"></script>
 </body>
