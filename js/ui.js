@@ -487,23 +487,28 @@ function openSwapModal() {
   document.getElementById('swapModal').classList.add('open');
 }
 function onSwapModeChange() {
-  const cross = getSwapMode() === 'cross';
-  document.getElementById('swapDate2Wrap').style.display = cross ? '' : 'none';
-  document.getElementById('swapDate1Label').textContent = cross ? '첫 번째 날짜' : '날짜';
+  const mode = getSwapMode(), self = mode === 'self', twoDates = mode !== 'same';
+  document.getElementById('swapDate2Wrap').style.display = twoDates ? '' : 'none';
+  document.getElementById('swapDate1Label').textContent = self ? '원래 근무일 (쉬는 날)' : twoDates ? '첫 번째 날짜' : '날짜';
+  document.getElementById('swapDate2Label').textContent = self ? '대체 근무일' : '두 번째 날짜';
+  document.getElementById('swapEmpBWrap').style.display = self ? 'none' : '';
+  document.getElementById('swapEmpALabel').textContent = self ? '직원' : '직원 1';
   renderSwapPreview();
 }
 function readSwapForm() {
   const a = +document.getElementById('swapEmpA').value || null;
-  const b = +document.getElementById('swapEmpB').value || null;
+  const mode = getSwapMode();
+  // 혼자 날짜 바꾸기는 직원 1·2를 같은 사람으로 넘긴다 (swapEngine이 type:'self'로 기록)
+  const b = mode === 'self' ? a : (+document.getElementById('swapEmpB').value || null);
   const dates = [document.getElementById('swapDate1').value];
-  if (getSwapMode() === 'cross') dates.push(document.getElementById('swapDate2').value);
+  if (mode !== 'same') dates.push(document.getElementById('swapDate2').value);
   return { a, b, dates };
 }
 function renderSwapPreview() {
   const { a, b, dates } = readSwapForm();
   const el = document.getElementById('swapPreview');
   const btn = document.getElementById('swapSubmitBtn');
-  if (!a || !b || dates.some(d => !d)) { el.innerHTML = '<span style="color:#999">직원 두 명과 날짜를 고르면 바뀌는 내용을 미리 보여드려요.</span>'; btn.disabled = true; return; }
+  if (!a || !b || dates.some(d => !d)) { el.innerHTML = '<span style="color:#999">' + (getSwapMode() === 'self' ? '직원과 두 날짜를 고르면 바뀌는 내용을 미리 보여드려요.' : '직원 두 명과 날짜를 고르면 바뀌는 내용을 미리 보여드려요.') + '</span>'; btn.disabled = true; return; }
   const plan = planShiftSwap(a, b, dates);
   let html = '';
   if (plan.errors.length) {
@@ -576,7 +581,7 @@ function renderSwapHistory() {
         + '<button class="btn sm danger" onclick="cancelSwapUI(' + s.id + ')">교환 취소</button>';
     html += '<tr>'
       + '<td>' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
-      + '<td><strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong></td>'
+      + '<td>' + (isSelfSwap(s) ? '<strong>' + name(s.empA) + '</strong> <span style="font-size:11px;color:#888">날짜 변경</span>' : '<strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong>') + '</td>'
       + '<td style="white-space:nowrap">' + changes + '</td>'
       + '<td style="color:#888">' + (s.memo ? swapEsc(s.memo) : '-') + '</td>'
       + '<td style="font-size:11px;color:#888">' + (s.createdAt || '-') + '</td>'
