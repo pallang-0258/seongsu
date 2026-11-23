@@ -356,8 +356,10 @@ function onWeekPick() { ui.weekOffset = +document.getElementById('weekPickSel').
 function goToThisWeek() { ui.weekOffset = 0; renderSchedule(); }
 function changeWeek(dir) { ui.weekOffset += dir; renderSchedule(); }
 function updateStats() {
-  document.getElementById('statTotal').textContent = state.employees.length;
-  DEPTS.forEach((dept, i) => { const el = document.getElementById('statDept' + i); if (el) el.textContent = state.employees.filter(e => e.dept === dept).length; });
+  // 퇴사한 직원(퇴사일이 오늘보다 이전)은 인원수에서 뺀다
+  const working = state.employees.filter(e => !isResigned(e));
+  document.getElementById('statTotal').textContent = working.length;
+  DEPTS.forEach((dept, i) => { const el = document.getElementById('statDept' + i); if (el) el.textContent = working.filter(e => e.dept === dept).length; });
 }
 
 // ── 확정/해제/초기화 UI 래퍼 ──
