@@ -242,7 +242,8 @@ function buildSummaryTable(el, off) {
   const isMobile = window.innerWidth <= 768;
   const shiftW = isMobile ? '20px' : '44px';
   const deptW = isMobile ? '28px' : '72px';
-  let html = '<colgroup><col style="width:' + shiftW + '"><col style="width:' + deptW + '">' + days.map(() => '<col>').join('') + '</colgroup>'
+  // 요일 칸은 같은 너비(각 1/7)로 — 이름(시간)이 안 들어갈 때만 그 칸이 넓어진다
+  let html = '<colgroup><col style="width:' + shiftW + '"><col style="width:' + deptW + '">' + days.map(() => '<col style="width:' + (100 / 7).toFixed(2) + '%">').join('') + '</colgroup>'
     + '<thead><tr><th colspan="2"></th>'
     + days.map((d, i) => {
         const hol = isHoliday(toLocalDateStr(d));
@@ -261,10 +262,10 @@ function buildSummaryTable(el, off) {
       days.forEach((_, di2) => {
         const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => shiftInSummaryRow(sd.keys === AM_KEYS, x.shiftKey, dept));
         const cell = entries.map(x => {
-          // 이름과 (시간)은 각각 중간에 끊기지 않게. 칸이 좁으면 (시간)만 통째로 다음 줄로 넘어간다
+          // 이름(시간)은 항상 한 줄로 이름 옆에
           const nw = t => '<span style="white-space:nowrap">' + t + '</span>';
-          if (x.isHalf) { const timeLabel = getHalfLabel(x.shiftKey, x.halfType); return nw(x.name) + '<wbr>' + nw('<span style="font-size:9px;color:#c0392b">(' + timeLabel + ')</span>'); }
-          if (isCustomShiftKey(x.shiftKey)) return nw(x.name) + '<wbr>' + nw('<span style="font-size:9px;color:#666">(' + shiftLabel(x.shiftKey) + ')</span>');
+          if (x.isHalf) { const timeLabel = getHalfLabel(x.shiftKey, x.halfType); return nw(x.name + '<span style="font-size:9px;color:#c0392b">(' + timeLabel + ')</span>'); }
+          if (isCustomShiftKey(x.shiftKey)) return nw(x.name + '<span style="font-size:9px;color:#666">(' + shiftLabel(x.shiftKey) + ')</span>');
           return nw(x.name);
         }).join('<br>');
         html += '<td class="sum-name-cell">' + (cell || '<span style="color:#ddd">-</span>') + '</td>';

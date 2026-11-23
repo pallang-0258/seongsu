@@ -85,7 +85,7 @@ body {
   .dept-cell { font-size: 11px !important; padding: 2px 3px !important; }
   .shift-cell { height: 32px !important; }
   .shift-pill { font-size: 11px !important; padding: 2px 5px !important; border-radius: 5px !important; white-space: nowrap !important; }
-  .sum-table { min-width: 0 !important; font-size: 11px !important; table-layout: auto !important; }
+  .sum-table { min-width: 0 !important; font-size: 11px !important; }
   .sum-table th { font-size: 11px !important; padding: 3px 2px !important; white-space: nowrap !important; }
   .sum-dept-cell { font-size: 10px !important; padding: 2px 3px !important; width: 30px !important; }
   .sum-name-cell { font-size: 12px !important; padding: 2px 4px !important; line-height: 1.8 !important; white-space: nowrap !important; }
@@ -163,14 +163,14 @@ body {
 .s-custom { outline: 1.5px dashed currentColor; outline-offset: -2px; }
 
 .sum-wrap { overflow-x: auto; border-radius: var(--radius-md); }
-.sum-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; table-layout: fixed; } /* 요일 칸 너비를 똑같이. 칸이 좁으면 (시간)만 통째로 다음 줄로 */
+.sum-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; } /* 요일 칸은 colgroup에서 같은 너비로. 이름(시간)은 한 줄로 두고, 넘치는 날만 그 칸이 조금 넓어진다 */
 .sum-table th, .sum-table td { border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); }
 .sum-table th { background: var(--bg); font-weight: 700; text-align: center; padding: 7px 10px; font-size: 11px; color: var(--muted); }
 .sum-table th.wknd { color: #d64545; }
 .sum-shift-cell { background: #eef1f8; text-align: center; padding: 0; vertical-align: middle; width: 44px; }
 .sum-shift-inner { display: flex; align-items: center; justify-content: center; height: 100%; padding: 4px 6px; }
 .sum-dept-cell { background: #f7f9fc; font-size: 10px; font-weight: 700; color: var(--muted); text-align: center; padding: 4px 8px; white-space: nowrap; width: 72px; }
-.sum-name-cell { padding: 5px 10px; font-size: 11px; line-height: 1.75; color: var(--ink); vertical-align: top; }
+.sum-name-cell { padding: 5px 8px; font-size: 11px; line-height: 1.75; color: var(--ink); vertical-align: top; }
 
 .lv-table { width: 100%; border-collapse: collapse; }
 .lv-table th, .lv-table td { border-bottom: 1px solid var(--border-soft); padding: 10px 11px; text-align: left; font-size: 12px; }
