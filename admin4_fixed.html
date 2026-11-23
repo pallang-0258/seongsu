@@ -131,6 +131,16 @@
         </div>
         <div id="holidayReportWrap"></div>
       </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">월별 파트 근무 리포트</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select id="ptYearSel" onchange="renderPartTimeReport()" style="height:32px;font-size:12px;width:88px"></select>
+            <select id="ptMonthSel" onchange="renderPartTimeReport()" style="height:32px;font-size:12px;width:70px"></select>
+          </div>
+        </div>
+        <div id="partTimeReportWrap"></div>
+      </div>
     </div>
 
     <!-- 연차/반차 탭 -->
@@ -609,6 +619,7 @@
 <script src="js/leaveEngine.js"></script>
 <script src="js/overtimeEngine.js"></script>
 <script src="js/holidayReport.js"></script>
+<script src="js/partTimeReport.js"></script>
 <script src="js/employees.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/shiftMemos.js"></script>

@@ -303,6 +303,8 @@ function renderSchedule() {
   initSwapHistoryFilters();
   syncSwapHistoryMonth();
   renderSwapHistory();
+  syncPartTimeReportMonth();
+  renderPartTimeReport();
   setTimeout(fitTableToScreen, 50);
 }
 
@@ -674,6 +676,40 @@ function renderHolidayReport() {
     + '</div>';
 }
 function onHolidayReportSelChange() { renderHolidayReport(); }
+
+// ══════════════════════ 월별 파트 근무 리포트 ══════════════════════
+// 근무 교환 내역처럼 근무표에서 보고 있는 달을 따라가고, 같은 달 안에서는 직접 고른 달을 유지한다.
+function syncPartTimeReportMonth() {
+  const yEl = document.getElementById('ptYearSel'), mEl = document.getElementById('ptMonthSel');
+  if (!yEl || !mEl) return;
+  const d = getWeekDays(ui.weekOffset)[0];
+  const y = d.getFullYear(), m = d.getMonth();
+  if (!mEl.options.length) mEl.innerHTML = Array.from({ length: 12 }, (_, i) => '<option value="' + i + '">' + (i + 1) + '월</option>').join('');
+  if (ui.ptReportMonth === y + '-' + m && yEl.options.length) return;
+  ui.ptReportMonth = y + '-' + m;
+  const cur = TODAY.getFullYear();
+  const years = [...new Set([cur - 1, cur, cur + 1, y])].sort();
+  yEl.innerHTML = years.map(v => '<option value="' + v + '">' + v + '년</option>').join('');
+  yEl.value = y; mEl.value = m;
+}
+function renderPartTimeReport() {
+  const wrap = document.getElementById('partTimeReportWrap'); if (!wrap) return;
+  const yEl = document.getElementById('ptYearSel'), mEl = document.getElementById('ptMonthSel');
+  if (!yEl.value) syncPartTimeReportMonth();
+  const year = +yEl.value, month = +mEl.value;
+  const rep = calcPartTimeMonthlyReport(year, month);
+  if (!rep.employees.length) { wrap.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">이 달에 근무한 파트타임 직원이 없습니다. (직원 관리 탭에서 고용형태를 파트타임으로 지정한 직원만 나와요)</div>'; return; }
+  const md = d => +d.slice(5, 7) + '/' + +d.slice(8, 10);
+  const weekTh = rep.weeks.map(w => '<th style="font-weight:500;font-size:11px;white-space:nowrap">' + (w.start === w.end ? md(w.start) : md(w.start) + '~' + md(w.end)) + '</th>').join('');
+  const h = v => v ? v + 'h' : '<span style="color:#ccc">-</span>';
+  wrap.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:8px">' + (month + 1) + '월 파트 근무시간 합계 <strong style="color:#1565c0">' + rep.totalHours + '시간</strong> · 근무 교환·추가근무·반차 반영</div>'
+    + '<div style="overflow-x:auto"><table class="lv-table" style="font-size:12px"><thead><tr><th>이름</th><th>부서</th><th>근무일수</th><th>월 근무시간</th>' + weekTh + '</tr></thead><tbody>'
+    + rep.employees.map(e => '<tr><td><strong>' + swapEsc(e.name) + '</strong></td><td style="color:#888">' + e.dept + '</td>'
+      + '<td style="text-align:center">' + e.days + '일</td>'
+      + '<td style="text-align:center;font-weight:600;color:#1565c0">' + e.totalHours + '시간</td>'
+      + e.weekHours.map(v => '<td style="text-align:center;color:#555">' + h(v) + '</td>').join('') + '</tr>').join('')
+    + '</tbody></table></div>';
+}
 
 // ══════════════════════ 근무 명단 요약 모달 ══════════════════════
 function openSummaryModal() {
