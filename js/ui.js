@@ -148,8 +148,8 @@ function buildSchTable(el, off) {
   const emps = ui.selectedDept ? state.employees.filter(e => e.dept === ui.selectedDept) : state.employees;
   const depts = DEPTS.filter(d => emps.some(e => e.dept === d));
   const isMobile = window.innerWidth <= 768;
-  const deptW = isMobile ? '22px' : '44px';
-  const nameW = isMobile ? '40px' : '80px';
+  const deptW = isMobile ? '22px' : '40px';
+  const nameW = isMobile ? '40px' : '60px';
   let html = '<colgroup><col style="width:' + deptW + '"><col style="width:' + nameW + '">' + days.map(() => '<col>').join('') + '</colgroup>'
     + '<thead><tr><th>부서</th><th style="text-align:left;padding-left:7px">직원</th>'
     + days.map((d, i) => {
@@ -168,7 +168,7 @@ function buildSchTable(el, off) {
     de.forEach((emp, ri) => {
       html += '<tr>';
       if (ri === 0) html += '<td class="dept-cell" rowspan="' + de.length + '">' + dept + '</td>';
-      html += '<td class="emp-cell"><span style="font-size:12px;font-weight:600">' + emp.name + '</span></td>';
+      html += '<td class="emp-cell"><span style="font-size:11px;font-weight:600">' + emp.name + '</span></td>';
       days.forEach((dayDate, di) => {
         const dateStr = toLocalDateStr(dayDate);
         const sh = getShift(emp, di, off);
