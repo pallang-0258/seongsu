@@ -234,6 +234,15 @@ function resetWeekSchedule(off) {
 function getDisplayInfo(emp, di2, off) {
   const sh = getShift(emp, di2, off);
   if (sh === 'half' || sh === 'half_pm') return { shiftKey: getBaseShift(emp, di2, off), isHalf: true, halfType: sh };
+  // 원래 쉬는 날에 추가근무를 했으면 그 시간을 직접 입력 근무처럼 보고 요약표에 넣는다
+  // (시작이 13시 전이면 오전조, 13시부터면 오후조 — 예: 12-18 추가근무 → 오전)
+  if (sh === 'off' || sh === '__off__') {
+    const r = getWorkedRangeForDate(emp, toLocalDateStr(getWeekDays(off)[di2]));
+    if (r && r.endMin > r.startMin) {
+      const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + String(m % 60).padStart(2, '0');
+      return { shiftKey: 'c' + hhmm(r.startMin) + '-' + hhmm(r.endMin), isHalf: false, halfType: null, isOvertime: true };
+    }
+  }
   return { shiftKey: sh, isHalf: false, halfType: null };
 }
 

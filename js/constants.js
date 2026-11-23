@@ -64,8 +64,8 @@ function shiftLabel(v) {
   if (isCustomShiftKey(v)) { const r = shiftRangeMin(v); return formatMinutesLabel(r[0]) + '-' + formatMinutesLabel(r[1]); }
   return SHIFT_LABEL[v] || '';
 }
-// 직접 입력 근무는 12시 전에 시작하면 오전, 그 뒤면 오후로 본다
-const CUSTOM_PM_START_MIN = 12 * 60;
+// 직접 입력 근무·쉬는 날 추가근무는 13시 전에 시작하면 오전, 13시부터면 오후로 본다
+const CUSTOM_PM_START_MIN = 13 * 60; // 오후조 출근(13시)보다 이르면 오전조
 function isAmShift(v) { return AM_KEYS.includes(v) || (isCustomShiftKey(v) && shiftRangeMin(v)[0] < CUSTOM_PM_START_MIN); }
 function isPmShift(v) { return PM_KEYS.includes(v) || (isCustomShiftKey(v) && shiftRangeMin(v)[0] >= CUSTOM_PM_START_MIN); }
 // 요약표 오전/오후 줄 배정. 물류처럼 오후 줄이 없는 부서는 직접 입력한 오후 근무도 오전 줄에 넣어
