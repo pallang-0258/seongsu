@@ -85,7 +85,7 @@ body {
   .dept-cell { font-size: 11px !important; padding: 2px 3px !important; }
   .shift-cell { height: 32px !important; }
   .shift-pill { font-size: 11px !important; padding: 2px 5px !important; border-radius: 5px !important; white-space: nowrap !important; }
-  .sum-table { min-width: 0 !important; font-size: 11px !important; }
+  .sum-table { min-width: 0 !important; font-size: 11px !important; table-layout: auto !important; }
   .sum-table th { font-size: 11px !important; padding: 3px 2px !important; white-space: nowrap !important; }
   .sum-dept-cell { font-size: 10px !important; padding: 2px 3px !important; width: 30px !important; }
   .sum-name-cell { font-size: 12px !important; padding: 2px 4px !important; line-height: 1.8 !important; white-space: nowrap !important; }
@@ -163,7 +163,7 @@ body {
 .s-custom { outline: 1.5px dashed currentColor; outline-offset: -2px; }
 
 .sum-wrap { overflow-x: auto; border-radius: var(--radius-md); }
-.sum-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+.sum-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; table-layout: fixed; } /* 요일 칸 너비를 똑같이 (이름이 긴 날만 넓어지지 않게) */
 .sum-table th, .sum-table td { border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); }
 .sum-table th { background: var(--bg); font-weight: 700; text-align: center; padding: 7px 10px; font-size: 11px; color: var(--muted); }
 .sum-table th.wknd { color: #d64545; }
