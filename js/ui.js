@@ -367,7 +367,9 @@ function shiftSwapInfoText(emp, dateStr) {
   const swap = getSwapForCell(emp, dateStr);
   if (!swap) return '';
   const c = swap.cells.find(x => x.empId === emp.id && x.date === dateStr);
-  return (isSelfSwap(swap) ? '근무일 옮김: ' : '근무 교환: ') + swapSummaryText(swap)
+  // 근무일 옮김은 창 제목에 이미 이름이 있으니 날짜만 적는다
+  const summary = isSelfSwap(swap) ? swapSummaryText(swap).replace(/ \S+ \(대체근무\)$/, '') : swapSummaryText(swap);
+  return (isSelfSwap(swap) ? '근무일 옮김: ' : '근무 교환: ') + summary
     + '\n이 날 근무: ' + swapShiftLabel(c.before) + ' → ' + swapShiftLabel(c.after)
     + (swap.memo ? '\n사유: ' + swap.memo : '');
 }
