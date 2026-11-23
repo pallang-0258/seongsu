@@ -700,10 +700,10 @@ function renderPartTimeReport() {
   const rep = calcPartTimeMonthlyReport(year, month);
   if (!rep.employees.length) { wrap.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">이 달에 근무한 파트타임 직원이 없습니다. (직원 관리 탭에서 고용형태를 파트타임으로 지정한 직원만 나와요)</div>'; return; }
   const md = d => +d.slice(5, 7) + '/' + +d.slice(8, 10);
-  const weekTh = rep.weeks.map(w => '<th style="font-weight:500;font-size:11px;white-space:nowrap">' + (w.start === w.end ? md(w.start) : md(w.start) + '~' + md(w.end)) + '</th>').join('');
+  const weekTh = rep.weeks.map(w => '<th style="font-weight:500;font-size:11px;text-align:center">' + (w.start === w.end ? md(w.start) : md(w.start) + '~' + md(w.end)) + '</th>').join('');
   const h = v => v ? v + 'h' : '<span style="color:#ccc">-</span>';
   wrap.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:8px">' + (month + 1) + '월 파트 근무시간 합계 <strong style="color:#1565c0">' + rep.totalHours + '시간</strong> · 근무 교환·추가근무·반차 반영</div>'
-    + '<div style="overflow-x:auto"><table class="lv-table" style="font-size:12px"><thead><tr><th>이름</th><th>부서</th><th>근무일수</th><th>월 근무시간</th>' + weekTh + '</tr></thead><tbody>'
+    + '<div style="overflow-x:auto"><table class="lv-table" style="font-size:12px;white-space:nowrap;width:100%"><thead><tr><th>이름</th><th>부서</th><th style="text-align:center">근무일수</th><th style="text-align:center">월 근무시간</th>' + weekTh + '</tr></thead><tbody>'
     + rep.employees.map(e => '<tr><td><strong>' + swapEsc(e.name) + '</strong></td><td style="color:#888">' + e.dept + '</td>'
       + '<td style="text-align:center">' + e.days + '일</td>'
       + '<td style="text-align:center;font-weight:600;color:#1565c0">' + e.totalHours + '시간</td>'
