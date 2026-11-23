@@ -278,3 +278,7 @@ textarea { font-family: inherit; }
   #smEmpPickWrap, #smMonthPickWrap { position: static !important; }
   .sm-pick-panel, .sm-month-panel { left: 0; right: 0; top: calc(100% + 4px); width: auto; max-width: none; }
 }
+.sm-pick-dept { display: flex; align-items: center; gap: 8px; }
+.sm-dept-all { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 20px; font-size: 10px; font-weight: 600; padding: 1px 8px; cursor: pointer; font-family: inherit; }
+.sm-dept-all:hover { border-color: #a9c3e8; color: var(--primary); }
+.sm-dept-all.on { background: var(--primary-light); border-color: #a9c3e8; color: var(--primary); }

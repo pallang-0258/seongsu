@@ -351,11 +351,16 @@ function _smRenderEmpPicker() {
   const sel = shiftMemoUi.emps;
   const depts = [...new Set(state.employees.map(e => e.dept))];
   panel.innerHTML = '<div class="sm-pick-top"><button class="btn sm" onclick="smPickAll()">전체 보기</button>'
-    + depts.map(d => '<button class="btn sm" onclick="smPickDept(\'' + _smEsc(d) + '\')">' + _smEsc(d) + '</button>').join('')
     + '<button class="btn sm primary" style="margin-left:auto" onclick="smToggleEmpPanel(false)">닫기</button></div>'
-    + depts.map(d => '<div class="sm-pick-dept">' + _smEsc(d) + '</div><div class="sm-pick-list">'
+    + depts.map(d => {
+      const ids = state.employees.filter(e => e.dept === d).map(e => e.id);
+      const n = ids.filter(id => sel.has(id)).length;
+      const all = n === ids.length;
+      return '<div class="sm-pick-dept"><span>' + _smEsc(d) + '</span>'
+        + '<button class="sm-dept-all' + (all ? ' on' : '') + '" onclick="smPickDept(\'' + _smEsc(d) + '\')">' + (all ? '✓ ' + _smEsc(d) + ' 전체 선택됨' : _smEsc(d) + ' 전체 선택') + '</button></div><div class="sm-pick-list">'
       + state.employees.filter(e => e.dept === d).map(e => '<label class="sm-pick' + (sel.has(e.id) ? ' on' : '') + '"><input type="checkbox"' + (sel.has(e.id) ? ' checked' : '') + ' onchange="smPickEmp(' + e.id + ', this.checked)">' + _smEsc(e.name) + '</label>').join('')
-      + '</div>').join('');
+      + '</div>';
+    }).join('');
 }
 function smToggleEmpPanel(open) {
   const panel = document.getElementById('smEmpPanel');
@@ -374,10 +379,11 @@ function smPickDept(dept) {
   ids.forEach(id => allOn ? shiftMemoUi.emps.delete(id) : shiftMemoUi.emps.add(id));
   _smRenderEmpPicker(); renderShiftMemos();
 }
+// 목록 밖을 누르면 닫는다 (목록 안 버튼이 목록을 다시 그려 눌린 요소가 사라진 경우는 제외)
 document.addEventListener('click', e => {
   const wrap = document.getElementById('smEmpPickWrap');
   const panel = document.getElementById('smEmpPanel');
-  if (wrap && panel && panel.style.display !== 'none' && !wrap.contains(e.target)) panel.style.display = 'none';
+  if (wrap && panel && panel.style.display !== 'none' && document.contains(e.target) && !wrap.contains(e.target)) panel.style.display = 'none';
 });
 
 // ── 월 여러 개 고르기 ──
@@ -414,5 +420,5 @@ function smPickAllMonths() { shiftMemoUi.months.clear(); _smRenderMonthPicker();
 document.addEventListener('click', e => {
   const wrap = document.getElementById('smMonthPickWrap');
   const panel = document.getElementById('smMonthPanel');
-  if (wrap && panel && panel.style.display !== 'none' && !wrap.contains(e.target)) panel.style.display = 'none';
+  if (wrap && panel && panel.style.display !== 'none' && document.contains(e.target) && !wrap.contains(e.target)) panel.style.display = 'none';
 });
