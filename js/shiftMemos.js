@@ -2,7 +2,7 @@
 // 근무표 칸 메모(schedules[wk]._notes, 확정된 주는 confirmedSnapshots[wk][empId].note)를
 // 직원별 / 날짜별로 모아서 보여준다. 자동으로 붙는 [추가근무] 줄은 빼고 직접 쓴 메모만 보여준다.
 
-const shiftMemoUi = { view: 'emp', emps: new Set() }; // view: 'emp' | 'date', emps: 고른 직원 id (비어 있으면 전체)
+const shiftMemoUi = { view: 'emp', emps: new Set(), months: new Set([String(TODAY.getMonth() + 1).padStart(2, '0')]) }; // view: 'emp' | 'date', emps: 고른 직원 id (비어 있으면 전체)
 
 // 선 아이콘 (이모지 대신)
 const SM_ICON = {
@@ -101,8 +101,7 @@ function initShiftMemoTab() {
   const prevYear = yrEl.value;
   yrEl.innerHTML = [...years].sort().reverse().map(y => '<option value="' + y + '">' + y + '년</option>').join('');
   yrEl.value = prevYear && years.has(prevYear) ? prevYear : cur;
-  const mEl = document.getElementById('smMonth');
-  if (!mEl._init) { mEl.value = String(TODAY.getMonth() + 1).padStart(2, '0'); mEl._init = true; }
+  _smRenderMonthPicker();
   // 없어진 직원은 선택에서 뺀다
   shiftMemoUi.emps.forEach(id => { if (!state.employees.some(e => e.id === id)) shiftMemoUi.emps.delete(id); });
   _smRenderEmpPicker();
@@ -118,12 +117,12 @@ function setShiftMemoView(v) {
 
 function _smFiltered() {
   const year = document.getElementById('smYear').value;
-  const month = document.getElementById('smMonth').value;
+  const months = shiftMemoUi.months;
   const sel = shiftMemoUi.emps;
   const q = (document.getElementById('smSearch').value || '').trim().toLowerCase();
   return collectShiftMemos().filter(m =>
     (!year || m.date.startsWith(year)) &&
-    (!month || !year || m.date.startsWith(year + '-' + month)) &&
+    (!months.size || months.has(m.date.slice(5, 7))) &&
     (!sel.size || sel.has(m.empId)) &&
     (!q || m.note.toLowerCase().includes(q) || m.swapText.toLowerCase().includes(q) || m.otText.toLowerCase().includes(q) || m.emp.name.toLowerCase().includes(q)));
 }
@@ -378,5 +377,42 @@ function smPickDept(dept) {
 document.addEventListener('click', e => {
   const wrap = document.getElementById('smEmpPickWrap');
   const panel = document.getElementById('smEmpPanel');
+  if (wrap && panel && panel.style.display !== 'none' && !wrap.contains(e.target)) panel.style.display = 'none';
+});
+
+// ── 월 여러 개 고르기 ──
+function _smMonthPickerLabel() {
+  const ms = [...shiftMemoUi.months].sort().map(m => +m);
+  if (!ms.length) return '전체 월';
+  // 이어지는 달은 "9~11월"처럼 묶는다
+  const parts = [];
+  for (let i = 0; i < ms.length; i++) {
+    let j = i; while (j + 1 < ms.length && ms[j + 1] === ms[j] + 1) j++;
+    parts.push(j > i ? ms[i] + '~' + ms[j] : String(ms[i]));
+    i = j;
+  }
+  return parts.join(', ') + '월';
+}
+function _smRenderMonthPicker() {
+  document.getElementById('smMonthBtnLabel').textContent = _smMonthPickerLabel();
+  const sel = shiftMemoUi.months;
+  document.getElementById('smMonthPanel').innerHTML = '<div class="sm-pick-top"><button class="btn sm" onclick="smPickAllMonths()">전체 보기</button>'
+    + '<button class="btn sm primary" style="margin-left:auto" onclick="smToggleMonthPanel(false)">닫기</button></div>'
+    + '<div class="sm-pick-list sm-month-grid">' + Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(m =>
+      '<label class="sm-pick' + (sel.has(m) ? ' on' : '') + '"><input type="checkbox"' + (sel.has(m) ? ' checked' : '') + ' onchange="smPickMonth(\'' + m + '\', this.checked)">' + (+m) + '월</label>').join('') + '</div>';
+}
+function smToggleMonthPanel(open) {
+  const panel = document.getElementById('smMonthPanel');
+  const show = open === undefined ? panel.style.display === 'none' : open;
+  panel.style.display = show ? '' : 'none';
+}
+function smPickMonth(m, on) {
+  if (on) shiftMemoUi.months.add(m); else shiftMemoUi.months.delete(m);
+  _smRenderMonthPicker(); renderShiftMemos();
+}
+function smPickAllMonths() { shiftMemoUi.months.clear(); _smRenderMonthPicker(); renderShiftMemos(); }
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('smMonthPickWrap');
+  const panel = document.getElementById('smMonthPanel');
   if (wrap && panel && panel.style.display !== 'none' && !wrap.contains(e.target)) panel.style.display = 'none';
 });

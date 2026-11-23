@@ -269,4 +269,12 @@ textarea { font-family: inherit; }
 .sm-pick { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; cursor: pointer; user-select: none; }
 .sm-pick input { width: auto; height: auto; margin: 0; }
 .sm-pick.on { background: var(--primary-light); border-color: #a9c3e8; color: var(--primary); font-weight: 600; }
-@media (max-width: 768px) { .sm-pick-panel { left: 0; right: auto; } }
+.sm-month-panel { width: 290px; left: 0; right: auto; }
+.sm-month-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.sm-month-grid .sm-pick { justify-content: center; white-space: nowrap; padding: 3px 6px; }
+#tabMemos .card-header { position: relative; }
+@media (max-width: 768px) {
+  /* 휴대폰: 목록을 카드 폭에 맞춰 버튼 줄 바로 아래에 연다 */
+  #smEmpPickWrap, #smMonthPickWrap { position: static !important; }
+  .sm-pick-panel, .sm-month-panel { left: 0; right: 0; top: calc(100% + 4px); width: auto; max-width: none; }
+}

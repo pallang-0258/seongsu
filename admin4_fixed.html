@@ -257,13 +257,10 @@
               <button class="btn sm" id="smViewDate" onclick="setShiftMemoView('date')" style="border-radius:0 6px 6px 0;margin-left:-1px">날짜별</button>
             </div>
             <select id="smYear" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:90px"></select>
-            <select id="smMonth" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:70px">
-              <option value="">전체</option>
-              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
-              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
-              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
-              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
-            </select>
+            <div id="smMonthPickWrap" style="position:relative">
+              <button class="btn sm" onclick="smToggleMonthPanel()" style="height:32px;min-width:80px;display:flex;align-items:center;justify-content:space-between;gap:6px"><span id="smMonthBtnLabel">11월</span><span style="color:#999;font-size:10px">▼</span></button>
+              <div id="smMonthPanel" class="sm-pick-panel sm-month-panel" style="display:none"></div>
+            </div>
             <div id="smEmpPickWrap" style="position:relative">
               <button class="btn sm" onclick="smToggleEmpPanel()" style="height:32px;min-width:120px;display:flex;align-items:center;justify-content:space-between;gap:6px"><span id="smEmpBtnLabel">전체 직원</span><span style="color:#999;font-size:10px">▼</span></button>
               <div id="smEmpPanel" class="sm-pick-panel" style="display:none"></div>
