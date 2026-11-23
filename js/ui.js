@@ -29,6 +29,7 @@ function switchTab(tab) {
   if (tab === 'overtime') { initOvertimeTab(); }
   if (tab === 'memos') { initShiftMemoTab(); }
   if (tab === 'employees') { renderEmpTable(); }
+  if (tab === 'schedule') setTimeout(fitPartTimeReport, 50); // 숨겨져 있던 동안엔 폭을 잴 수 없어서 다시 맞춤
 }
 
 let _wasMobileWidth = window.innerWidth <= 768;
@@ -706,13 +707,27 @@ function renderPartTimeReport() {
   const weekCell = list => !list.length ? '<span style="color:#ccc">-</span>'
     : list.map(x => '<div>' + +x.date.slice(8, 10) + '일<span style="color:#888">(' + x.hours + 'h)</span></div>').join('');
   wrap.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:8px">' + (month + 1) + '월 파트 근무시간 합계 <strong style="color:#1565c0">' + rep.totalHours + '시간</strong> · 근무 교환·추가근무·반차 반영</div>'
-    + '<div style="overflow-x:auto"><table class="lv-table" style="font-size:12px;white-space:nowrap;width:100%"><thead><tr><th>이름</th><th>부서</th><th style="text-align:center">근무일수</th><th style="text-align:center">월 근무시간</th>' + weekTh + '</tr></thead><tbody>'
+    + '<div id="ptReportFit"><table class="lv-table pt-report" id="ptReportTable" style="font-size:12px;white-space:nowrap;width:100%"><thead><tr><th>이름</th><th>부서</th><th style="text-align:center">근무일수</th><th style="text-align:center">월 근무시간</th>' + weekTh + '</tr></thead><tbody>'
     + rep.employees.map(e => '<tr><td><strong>' + swapEsc(e.name) + '</strong></td><td style="color:#888">' + e.dept + '</td>'
       + '<td style="text-align:center">' + e.days + '일</td>'
       + '<td style="text-align:center;font-weight:600;color:#1565c0">' + e.totalHours + '시간</td>'
       + e.weekDays.map(list => '<td style="text-align:center;color:#333;vertical-align:top;line-height:1.6">' + weekCell(list) + '</td>').join('') + '</tr>').join('')
     + '</tbody></table></div>';
+  fitPartTimeReport();
 }
+// 가로 스크롤 없이 한눈에: 표가 카드보다 넓으면 카드 폭에 맞게 통째로 줄인다
+function fitPartTimeReport() {
+  const wrap = document.getElementById('ptReportFit'), tbl = document.getElementById('ptReportTable');
+  if (!wrap || !tbl) return;
+  tbl.style.transform = ''; wrap.style.height = '';
+  const tblW = tbl.scrollWidth, wrapW = wrap.clientWidth;
+  if (tblW > wrapW && wrapW > 0) {
+    const scale = wrapW / tblW;
+    tbl.style.transform = 'scale(' + scale + ')'; tbl.style.transformOrigin = 'top left';
+    wrap.style.height = (tbl.offsetHeight * scale) + 'px';
+  }
+}
+window.addEventListener('resize', fitPartTimeReport);
 
 // ══════════════════════ 근무 명단 요약 모달 ══════════════════════
 function openSummaryModal() {

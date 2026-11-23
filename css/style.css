@@ -282,3 +282,6 @@ textarea { font-family: inherit; }
 .sm-dept-all { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 20px; font-size: 10px; font-weight: 600; padding: 1px 8px; cursor: pointer; font-family: inherit; }
 .sm-dept-all:hover { border-color: #a9c3e8; color: var(--primary); }
 .sm-dept-all.on { background: var(--primary-light); border-color: #a9c3e8; color: var(--primary); }
+
+/* 월별 파트 근무 리포트: 칸 여백을 줄여 가로 스크롤 없이 한 화면에 */
+.lv-table.pt-report th, .lv-table.pt-report td { padding: 8px 6px; }
