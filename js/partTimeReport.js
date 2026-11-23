@@ -39,13 +39,16 @@ function calcPartTimeMonthlyReport(year, month) {
     .map(emp => {
       let total = 0, days = 0;
       const weekHours = weeks.map(() => 0);
+      const weekDays = weeks.map(() => []); // 주마다 실제 근무한 날: [{date, hours}]
       dates.forEach(d => {
         const h = partTimeHoursForDate(emp, d);
         if (!h) return;
         total += h; days++;
-        weekHours[weeks.findIndex(w => d >= w.start && d <= w.end)] += h;
+        const wi = weeks.findIndex(w => d >= w.start && d <= w.end);
+        weekHours[wi] += h;
+        weekDays[wi].push({ date: d, hours: r1(h) });
       });
-      return { empId: emp.id, name: emp.name, dept: emp.dept, days, totalHours: r1(total), weekHours: weekHours.map(r1) };
+      return { empId: emp.id, name: emp.name, dept: emp.dept, days, totalHours: r1(total), weekHours: weekHours.map(r1), weekDays };
     });
   return { weeks, employees, totalHours: r1(employees.reduce((s, e) => s + e.totalHours, 0)) };
 }
