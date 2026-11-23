@@ -135,7 +135,31 @@ function _smShiftBadge(m) {
   return '<span class="sm-shift">' + _smEsc(_smShiftText(m.cur)) + '</span>';
 }
 function _smEditBtn(m) {
-  return '<button class="btn sm sm-edit" onclick="openEditShiftMemo(' + m.empId + ',\'' + m.date + '\')">' + (m.note ? '수정' : '메모 쓰기') + '</button>';
+  return _smPinBtn(m) + '<button class="btn sm sm-edit"' + (m.note ? ' style="margin-left:0"' : '') + ' onclick="openEditShiftMemo(' + m.empId + ',\'' + m.date + '\')">' + (m.note ? '수정' : '메모 쓰기') + '</button>';
+}
+// 날짜 메모를 그 직원의 고정 메모로 올리는 버튼 (이미 고정 메모에 들어 있으면 "고정됨")
+function _smPinBtn(m) {
+  if (!m.note) return '';
+  if (isMemoPinned(m.empId, m.note)) return '<span class="sm-pinned-tag">' + SM_ICON.pin + ' 고정됨</span>';
+  return '<button class="btn sm sm-edit sm-topin" title="이 메모를 고정 메모로" onclick="pinShiftMemo(' + m.empId + ',\'' + m.date + '\')">' + SM_ICON.pin + ' 고정</button>';
+}
+// 고정 메모에 이 내용이 이미 들어 있는지
+function isMemoPinned(empId, text) {
+  const t = (text || '').trim();
+  return !!t && _smPinned(empId).includes(t);
+}
+// 날짜 메모를 고정 메모에 붙인다. 고정 메모가 이미 있으면 빈 줄을 두고 아래에 이어 붙인다. 날짜 메모는 그대로 둔다.
+function addToPinnedMemo(empId, text) {
+  const t = (text || '').trim();
+  if (!t || isMemoPinned(empId, t)) return false;
+  const cur = _smPinned(empId);
+  if (!state.pinnedMemos) state.pinnedMemos = {};
+  state.pinnedMemos[empId] = cur ? cur + '\n\n' + t : t;
+  return true;
+}
+function pinShiftMemo(empId, date) {
+  if (addToPinnedMemo(empId, _smManualNote(empId, date))) save();
+  renderShiftMemos();
 }
 function _smNote(m) {
   return (m.otText ? '<div class="sm-ot">' + _smEsc(m.otText).split("\n").map(l => SM_ICON.clock + ' ' + l).join("\n") + '</div>' : '')

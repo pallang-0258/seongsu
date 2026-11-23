@@ -335,6 +335,8 @@
       <div id="shiftOtNote" style="display:none;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:7px 10px;font-size:12px;color:#1565c0;margin-bottom:6px;white-space:pre-line;line-height:1.6"></div>
       <textarea id="shiftNote" rows="2" placeholder="메모를 입력하세요 (선택 사항)"
         style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+      <label id="shiftPinRow" style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:#555;margin-top:6px"><input type="checkbox" id="shiftPin" style="width:auto;height:auto"> <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg> 이 메모를 고정 메모로도 남기기</label>
+      <div id="shiftPinnedHint" style="display:none;font-size:11px;color:#b7791f;margin-top:4px"></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('shiftModal')">취소</button>

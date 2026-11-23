@@ -256,6 +256,9 @@ textarea { font-family: inherit; }
 .sm-edit { margin-left: auto; font-size: 10px !important; padding: 2px 8px !important; }
 .sm-pinned { padding: 8px 12px; background: #fff8e1; border-bottom: 1px solid #f3e2b3; }
 .sm-pin-label { font-size: 11px; font-weight: 700; color: #b06a00; }
+.sm-topin { margin-left: auto; }
+.sm-pinned-tag { margin-left: auto; font-size: 10px; color: #b7791f; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.sm-pinned-tag + .sm-edit { margin-left: 6px; }
 .sm-pin-btn { font-size: 10px !important; padding: 2px 7px !important; }
 .sm-none { font-size: 11px; color: #aaa; }
 /* 선 아이콘 */
