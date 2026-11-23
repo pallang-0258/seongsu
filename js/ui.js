@@ -171,6 +171,19 @@ function buildSchTable(el, off) {
       days.forEach((dayDate, di) => {
         const dateStr = toLocalDateStr(dayDate);
         const sh = getShift(emp, di, off);
+        // 추가근무 기록 (추가근무 탭에서 등록) — 근무일·휴무일·반차·확정된 주 모두 칸에 "+추가 Nh"로 표시
+        const otRecs = (state.overtimeRecords || []).filter(r => r.empId === emp.id && r.date === dateStr);
+        const otHours = Math.round(otRecs.reduce((t, r) => t + calcOtHours(r.startTime, r.endTime), 0) * 10) / 10;
+        const otTag = otHours ? '<div style="font-size:9px;color:#1565c0;font-weight:700;margin-top:1px;pointer-events:none;white-space:nowrap">+추가 ' + otHours + 'h</div>' : '';
+        const otOnlyPill = () => {
+          const t = otRecs.filter(r => r.startTime && r.endTime).map(r => r.startTime.replace(/:00$/, '').replace(/^0/, '') + '-' + r.endTime.replace(/:00$/, '').replace(/^0/, '')).join(', ');
+          return '<div class="shift-pill" style="pointer-events:none;background:#e3f2fd;color:#1565c0">' + (t || '추가근무') + '</div>';
+        };
+        if (sh === '__off__' && otHours) {
+          html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')" style="cursor:pointer">'
+            + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">' + otOnlyPill() + otTag + '</div></td>';
+          return;
+        }
         if (sh === '__off__') {
           html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')" style="cursor:pointer">'
             + '<div style="width:100%;height:40px;display:flex;align-items:center;justify-content:center;background:#f7f7f7"><span style="font-size:10px;color:#ccc">—</span></div></td>';
@@ -187,9 +200,12 @@ function buildSchTable(el, off) {
           extraLabel = '<div style="font-size:9px;color:#880e4f;margin-top:1px;pointer-events:none">' + (sh === 'half' ? '오전반차' : '오후반차') + '</div>';
         } else if (sh === 'off' && isManuallySet) {
           lb = ''; cl = '';
+          if (otHours) { lb = null; extraLabel = otOnlyPill(); }
         } else if (isFullShiftKey(sh) && otRange) {
           // 기능5: 추가근무가 있으면 실제 근무 구간을 표시 (예: 10-20 + 3h → 10-23)
           lb = otRange.text; cl = shiftCls(sh);
+        } else if (sh === 'off' && otHours) {
+          lb = null; extraLabel = otOnlyPill();
         } else {
           cl = shiftCls(sh); lb = shiftLabel(sh);
         }
@@ -209,8 +225,8 @@ function buildSchTable(el, off) {
         html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')">'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">'
           + noteDot + swapMark
-          + (lb ? '<div class="shift-pill ' + cl + '" style="pointer-events:none">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
-          + extraLabel
+          + (lb ? '<div class="shift-pill ' + cl + '" style="pointer-events:none">' + lb + '</div>' : lb === null ? '' : '<span style="font-size:10px;color:#ccc">-</span>')
+          + extraLabel + otTag
           + '</div></td>';
       });
       html += '</tr>';
