@@ -35,7 +35,8 @@ function _smPatternShift(emp, dateStr) {
 }
 
 // 근무 교환 내역과 같은 짧은 형식. 예) "11/19 김진성 ↔ 11/20 김현성", 같은 날이면 "11/10 박혜빈 ↔ 송새희"
-function _smSwapShort(sw) { return swapSummaryText(sw).replace(' <> ', ' ↔ '); }
+// 근무일 옮김은 그 직원 메모 안에서 보이므로 이름 없이 "근무일 옮김 11/24 → 11/27"
+function _smSwapShort(sw) { return isSelfSwap(sw) ? '근무일 옮김 ' + swapSummaryNoName(sw) : swapSummaryText(sw).replace(' <> ', ' ↔ '); }
 
 // 메모가 있는 모든 (직원, 날짜)를 모은다.
 function collectShiftMemos() {

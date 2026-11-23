@@ -53,6 +53,10 @@ function swapSummaryText(swap) {
   if (p1 === p2) { p1 = swap.empA; p2 = swap.empB; }
   return md(d1) + ' ' + nm(p1) + ' <> ' + md(d2) + ' ' + nm(p2);
 }
+// 그 직원 칸에서 볼 때 쓰는 요약: 근무일 옮김은 이름이 이미 보이므로 날짜만 ("11/24 → 11/27")
+function swapSummaryNoName(swap) {
+  return isSelfSwap(swap) ? swapSummaryText(swap).replace(/ \S+ \(대체근무\)$/, '') : swapSummaryText(swap);
+}
 function swapPartnerName(swap, empId) {
   const otherId = swap.empA === empId ? swap.empB : swap.empA;
   const o = state.employees.find(e => e.id === otherId);
