@@ -219,8 +219,9 @@ function buildSchTable(el, off) {
           : hasManualNote
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#f57f17;pointer-events:none"></span>' : '';
         const swap = getSwapForCell(emp, dateStr);
-        const swapMark = swap ? '<span title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '" style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5;pointer-events:none"></span>' : '';
-        html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')"' + (swap ? ' title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '"' : '') + '>'
+        // 교환 내용은 칸을 눌렀을 때 뜨는 근무 변경 창에 보여준다 (마우스를 올려야만 보이던 말풍선은 없앰)
+        const swapMark = swap ? '<span style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5;pointer-events:none"></span>' : '';
+        html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')">'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">'
           + noteDot + swapMark
           + (lb ? '<div class="shift-pill ' + cl + '" style="pointer-events:none">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
@@ -361,11 +362,24 @@ function unconfirmScheduleUI() { unconfirmSchedule(ui.weekOffset); }
 function resetWeekScheduleUI() { resetWeekSchedule(ui.weekOffset); }
 
 // ── 근무 변경 모달 ──
+// 근무 변경 창에 보여줄 이 칸의 근무 교환 내용 (없으면 '')
+function shiftSwapInfoText(emp, dateStr) {
+  const swap = getSwapForCell(emp, dateStr);
+  if (!swap) return '';
+  const c = swap.cells.find(x => x.empId === emp.id && x.date === dateStr);
+  return (isSelfSwap(swap) ? '근무일 옮김: ' : '근무 교환: ') + swapSummaryText(swap)
+    + '\n이 날 근무: ' + swapShiftLabel(c.before) + ' → ' + swapShiftLabel(c.after)
+    + (swap.memo ? '\n사유: ' + swap.memo : '');
+}
 function openShiftEdit(empId, di) {
-  if (isWeekConfirmed(ui.weekOffset)) { alert('이 주는 확정되어 있습니다. 수정하려면 먼저 확정을 해제하세요.'); return; }
-  ui.editingCell = { empId, di };
   const emp = state.employees.find(e => e.id === empId);
   const d = getWeekDays(ui.weekOffset)[di];
+  const swapInfo = emp ? shiftSwapInfoText(emp, toLocalDateStr(d)) : '';
+  if (isWeekConfirmed(ui.weekOffset)) { alert((swapInfo ? swapInfo + '\n\n' : '') + '이 주는 확정되어 있습니다. 수정하려면 먼저 확정을 해제하세요.'); return; }
+  ui.editingCell = { empId, di };
+  const swapEl = document.getElementById('shiftSwapInfo');
+  swapEl.style.display = swapInfo ? '' : 'none';
+  swapEl.textContent = swapInfo;
   const isOrigOff = !shouldWork(emp, di, ui.weekOffset);
   document.getElementById('shiftModalTitle').innerHTML = emp.name + ' — ' + (d.getMonth() + 1) + '/' + d.getDate() + ' 근무 변경'
     + (isOrigOff ? ' <span style="font-size:11px;font-weight:400;color:#f57f17">(원래 비근무일)</span>' : '');
