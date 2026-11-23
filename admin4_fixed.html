@@ -17,6 +17,7 @@
     <button class="tab active" onclick="switchTab('schedule')">근무표</button>
     <button class="tab" onclick="switchTab('leave')">연차/반차</button>
     <button class="tab" onclick="switchTab('overtime')">추가근무</button>
+    <button class="tab" onclick="switchTab('memos')">근무 메모</button>
     <button class="tab" onclick="switchTab('employees')">직원 관리</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px">
@@ -31,6 +32,7 @@
   <button class="mobile-tab active" id="mtab-schedule" onclick="switchTab('schedule')"><span class="mt-icon">📋</span>근무표</button>
   <button class="mobile-tab" id="mtab-leave" onclick="switchTab('leave')"><span class="mt-icon">📅</span>연차/반차</button>
   <button class="mobile-tab" id="mtab-overtime" onclick="switchTab('overtime')"><span class="mt-icon">⏰</span>추가근무</button>
+  <button class="mobile-tab" id="mtab-memos" onclick="switchTab('memos')"><span class="mt-icon">📝</span>근무메모</button>
   <button class="mobile-tab" id="mtab-employees" onclick="switchTab('employees')"><span class="mt-icon">👥</span>직원관리</button>
 </div>
 
@@ -85,7 +87,7 @@
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn sm" id="confirmScheduleBtn" onclick="confirmScheduleUI()">근무표 확정</button>
             <button class="btn sm danger" id="unconfirmScheduleBtn" onclick="unconfirmScheduleUI()" style="display:none">🔓 확정 해제</button>
-            <button class="btn sm" onclick="openSwapModal()" title="두 직원의 근무를 서로 맞바꿉니다">🔄 근무 교환</button>
+            <button class="btn sm" onclick="openSwapModal()" title="두 직원의 근무를 서로 맞바꿉니다"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg> 근무 교환</button>
             <button class="btn sm danger" id="resetWeekBtn" onclick="resetWeekScheduleUI()" title="이 주의 수동 변경을 모두 취소하고 기본 근무표로 되돌립니다">↩ 이 주 초기화</button>
             <button class="btn sm" onclick="doPrint(false)">🖨 요약표만</button>
             <button class="btn primary sm" onclick="doPrint(true)">🖨 전체출력</button>
@@ -244,6 +246,34 @@
       </div>
     </div>
 
+    <!-- 근무 메모 탭 -->
+    <div id="tabMemos" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">근무 변경 메모 <span id="smCount" style="font-size:12px;font-weight:400;color:#999;margin-left:4px"></span></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="display:flex;gap:0">
+              <button class="btn sm primary" id="smViewEmp" onclick="setShiftMemoView('emp')" style="border-radius:6px 0 0 6px">직원별</button>
+              <button class="btn sm" id="smViewDate" onclick="setShiftMemoView('date')" style="border-radius:0 6px 6px 0;margin-left:-1px">날짜별</button>
+            </div>
+            <select id="smYear" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:90px"></select>
+            <div id="smMonthPickWrap" style="position:relative">
+              <button class="btn sm" onclick="smToggleMonthPanel()" style="height:32px;min-width:80px;display:flex;align-items:center;justify-content:space-between;gap:6px"><span id="smMonthBtnLabel">11월</span><span style="color:#999;font-size:10px">▼</span></button>
+              <div id="smMonthPanel" class="sm-pick-panel sm-month-panel" style="display:none"></div>
+            </div>
+            <div id="smEmpPickWrap" style="position:relative">
+              <button class="btn sm" onclick="smToggleEmpPanel()" style="height:32px;min-width:120px;display:flex;align-items:center;justify-content:space-between;gap:6px"><span id="smEmpBtnLabel">전체 직원</span><span style="color:#999;font-size:10px">▼</span></button>
+              <div id="smEmpPanel" class="sm-pick-panel" style="display:none"></div>
+            </div>
+            <input id="smSearch" type="search" placeholder="메모 검색" oninput="renderShiftMemos()" style="height:32px;font-size:12px;width:130px">
+            <button class="btn primary sm" onclick="openShiftMemoModal()">+ 메모 추가</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#999;margin-bottom:10px">근무표에서 근무를 바꿀 때 남긴 메모와 근무 교환·추가근무 내역을 모아 보여줍니다. 메모는 여기서 바로 추가·수정할 수 있고, 근무표 칸에서 써도 같은 메모예요. 고정 메모는 직원별 보기에서 카드 맨 위에 항상 보이고 근무표에는 나오지 않아요.</div>
+        <div id="shiftMemoList"></div>
+      </div>
+    </div>
+
     <!-- 직원 관리 탭 -->
     <div id="tabEmployees" style="display:none">
       <div style="display:flex;gap:14px;align-items:flex-start">
@@ -264,26 +294,6 @@
               <button class="btn sm" onclick="openSummaryModal()">📋 근무 명단 요약</button>
             </div>
             <div style="overflow-x:auto"><table class="lv-table" id="empTable"></table></div>
-          </div>
-        </div>
-        <div style="width:320px;flex-shrink:0">
-          <div class="card" style="margin-bottom:0">
-            <div class="card-header" style="margin-bottom:10px">
-              <div class="card-title">직원 메모</div>
-              <button class="btn primary sm" onclick="openEmpMemoModal()">+ 추가</button>
-            </div>
-            <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-              <select id="memoYear" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:78px"></select>
-              <select id="memoMonth" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:66px">
-                <option value="">전체</option>
-                <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
-                <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
-                <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
-                <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
-              </select>
-              <select id="memoEmpFilter" onchange="renderEmpMemos()" style="height:30px;font-size:12px;flex:1;min-width:80px"><option value="">전체 직원</option></select>
-            </div>
-            <div id="empMemoList" style="max-height:calc(100vh - 220px);overflow-y:auto"></div>
           </div>
         </div>
       </div>
@@ -332,7 +342,7 @@
 <!-- 근무 교환 모달 -->
 <div class="modal-bg" id="swapModal">
   <div class="modal" style="width:440px">
-    <div class="modal-title">🔄 근무 교환</div>
+    <div class="modal-title"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg> 근무 교환</div>
     <div class="form-row" style="display:flex;gap:8px">
       <div style="flex:1"><label class="form-label">직원 1</label><select id="swapEmpA" onchange="renderSwapPreview()"></select></div>
       <div style="flex:1"><label class="form-label">직원 2</label><select id="swapEmpB" onchange="renderSwapPreview()"></select></div>
@@ -532,6 +542,33 @@
   </div>
 </div>
 
+<!-- 근무 메모 추가/수정 모달 -->
+<div class="modal-bg" id="shiftMemoModal">
+  <div class="modal" style="width:440px">
+    <div class="modal-title" id="smmTitle">근무 메모 추가</div>
+    <div class="form-row" style="display:flex;gap:8px">
+      <div style="flex:1"><label class="form-label">직원</label><select id="smmEmp" onchange="_smFillModalInfo()"></select></div>
+      <div style="flex:1" id="smmDateWrap"><label class="form-label">날짜</label><input type="date" id="smmDate" onchange="_smFillModalInfo()"></div>
+    </div>
+    <div class="form-row" id="smmPinRow" style="margin-top:-4px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:#555"><input type="checkbox" id="smmPinned" onchange="onSmmPinnedToggle()" style="width:auto;height:auto"> <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg> 날짜 없이 고정 메모로 쓰기</label>
+    </div>
+    <div id="smmPinHint" style="display:none;font-size:12px;color:#555;background:#fff8e1;border-radius:8px;padding:7px 10px;margin-bottom:12px">근무 메모 탭의 직원별 보기에서 이 직원 카드 맨 위에 항상 보여요. 근무표에는 보이지 않아요.</div>
+    <div id="smmInfo" style="font-size:12px;color:#555;background:#f4f6fa;border-radius:8px;padding:7px 10px;margin-bottom:12px"></div>
+    <div class="form-row">
+      <label class="form-label">메모 <span id="smmExisting" style="display:none;font-size:11px;color:#f57f17">（이 날 이미 쓴 메모를 불러왔어요）</span></label>
+      <div id="smmOt" style="display:none;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:7px 10px;font-size:12px;color:#1565c0;margin-bottom:6px;white-space:pre-line;line-height:1.6"></div>
+      <textarea id="smmText" rows="4" placeholder="예: 본인 요청으로 오후 근무로 변경"
+        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn danger" id="smmDelete" onclick="deleteShiftMemo()" style="margin-right:auto;display:none">삭제</button>
+      <button class="btn" onclick="closeModal('shiftMemoModal')">취소</button>
+      <button class="btn primary" onclick="submitShiftMemo()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- 근무 명단 요약 모달 -->
 <div class="modal-bg" id="summaryModal">
   <div class="modal" style="width:min(96vw,900px);max-height:90vh;display:flex;flex-direction:column">
@@ -561,24 +598,6 @@
   </div>
 </div>
 
-<!-- 직원 메모 모달 -->
-<div class="modal-bg" id="empMemoModal">
-  <div class="modal" style="width:440px">
-    <div class="modal-title" id="empMemoModalTitle">메모 추가</div>
-    <div class="form-row"><label class="form-label">직원</label><select id="memoEmpSel"></select></div>
-    <div class="form-row"><label class="form-label">날짜</label><input type="date" id="memoDate"></div>
-    <div class="form-row">
-      <label class="form-label">메모 내용</label>
-      <textarea id="memoContent" rows="4" placeholder="메모를 입력하세요"
-        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('empMemoModal')">취소</button>
-      <button class="btn primary" onclick="submitEmpMemo()">저장</button>
-    </div>
-  </div>
-</div>
-
 <script src="js/constants.js"></script>
 <script src="js/dateUtils.js"></script>
 <script src="js/holidays.js"></script>
@@ -590,6 +609,7 @@
 <script src="js/holidayReport.js"></script>
 <script src="js/employees.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/shiftMemos.js"></script>
 <script src="js/print.js"></script>
 <script src="js/main.js"></script>
 </body>

@@ -16,7 +16,7 @@ function renderAll() {
 }
 
 function switchTab(tab) {
-  ['schedule', 'leave', 'overtime', 'employees'].forEach((t, i) => {
+  ['schedule', 'leave', 'overtime', 'memos', 'employees'].forEach((t, i) => {
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
     const tabBtns = document.querySelectorAll('.header-tabs .tab');
     if (tabBtns[i]) tabBtns[i].className = 'tab' + (t === tab ? ' active' : '');
@@ -27,7 +27,8 @@ function switchTab(tab) {
   closeMobileSidebar();
   if (tab === 'leave') { initLeaveFilters(); initLeaveTableFilters(); renderLeaveTable(); renderLeaveHistory(); initCalendar(); renderLeaveBalanceSimple(); setTimeout(fitTableToScreen, 100); }
   if (tab === 'overtime') { initOvertimeTab(); }
-  if (tab === 'employees') { renderEmpTable(); initEmpMemoFilters(); renderEmpMemos(); }
+  if (tab === 'memos') { initShiftMemoTab(); }
+  if (tab === 'employees') { renderEmpTable(); }
 }
 
 let _wasMobileWidth = window.innerWidth <= 768;
@@ -1246,65 +1247,6 @@ function initEmpDragDrop() {
       document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
     });
   });
-}
-
-// ── 직원 메모 ──
-function initEmpMemoFilters() {
-  const yr = document.getElementById('memoYear'); const cur = String(TODAY.getFullYear());
-  const years = new Set(state.empMemos.map(m => m.date.slice(0, 4)));
-  years.add(cur);
-  yr.innerHTML = [...years].sort().reverse().map(y => '<option value="' + y + '"' + (y === cur ? ' selected' : '') + '>' + y + '년</option>').join('');
-  document.getElementById('memoMonth').value = String(TODAY.getMonth() + 1).padStart(2, '0');
-  document.getElementById('memoEmpFilter').innerHTML = '<option value="">전체 직원</option>' + state.employees.map(e => '<option value="' + e.id + '">' + e.name + ' (' + e.dept + ')</option>').join('');
-}
-function renderEmpMemos() {
-  const year = document.getElementById('memoYear')?.value || '';
-  const month = document.getElementById('memoMonth')?.value || '';
-  const empId = +document.getElementById('memoEmpFilter')?.value || 0;
-  let filtered = [...state.empMemos];
-  if (year) filtered = filtered.filter(m => m.date.startsWith(year));
-  if (month && year) filtered = filtered.filter(m => m.date.startsWith(year + '-' + month));
-  if (empId) filtered = filtered.filter(m => m.empId === empId);
-  filtered.sort((a, b) => b.date.localeCompare(a.date));
-  const container = document.getElementById('empMemoList');
-  if (!filtered.length) { container.innerHTML = '<div style="color:#aaa;font-size:12px;padding:12px 0;text-align:center">메모가 없습니다</div>'; return; }
-  container.innerHTML = filtered.map(m => {
-    const emp = state.employees.find(e => e.id === m.empId);
-    return '<div style="border:1px solid #eee;border-radius:8px;padding:8px 10px;margin-bottom:8px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-      + '<span style="font-weight:600;font-size:12px">' + (emp ? emp.name : '알 수 없음') + '</span>'
-      + '<span style="font-size:11px;color:#aaa">' + m.date + '</span></div>'
-      + '<div style="font-size:12px;color:#444;white-space:pre-line">' + m.content.replace(/</g, '&lt;') + '</div>'
-      + '<div style="text-align:right;margin-top:4px"><button class="btn sm" onclick="openEditEmpMemo(' + m.id + ')" style="font-size:10px;padding:2px 7px;margin-right:3px">수정</button><button class="btn sm danger" onclick="deleteEmpMemo(' + m.id + ')" style="font-size:10px;padding:2px 7px">삭제</button></div>'
-      + '</div>';
-  }).join('');
-}
-function openEmpMemoModal() {
-  document.getElementById('empMemoModalTitle').textContent = '메모 추가';
-  document.getElementById('memoEmpSel').innerHTML = state.employees.map(e => '<option value="' + e.id + '">' + e.name + ' (' + e.dept + ')</option>').join('');
-  document.getElementById('memoDate').value = toLocalDateStr(TODAY);
-  document.getElementById('memoContent').value = '';
-  document.getElementById('empMemoModal')._editId = null;
-  document.getElementById('empMemoModal').classList.add('open');
-}
-function openEditEmpMemo(id) {
-  const m = state.empMemos.find(x => x.id === id); if (!m) return;
-  document.getElementById('empMemoModalTitle').textContent = '메모 수정';
-  document.getElementById('memoEmpSel').innerHTML = state.employees.map(e => '<option value="' + e.id + '"' + (e.id === m.empId ? ' selected' : '') + '>' + e.name + ' (' + e.dept + ')</option>').join('');
-  document.getElementById('memoDate').value = m.date;
-  document.getElementById('memoContent').value = m.content;
-  document.getElementById('empMemoModal')._editId = id;
-  document.getElementById('empMemoModal').classList.add('open');
-}
-function submitEmpMemo() {
-  const empId = +document.getElementById('memoEmpSel').value;
-  const date = document.getElementById('memoDate').value;
-  const content = document.getElementById('memoContent').value.trim();
-  if (!date || !content) { alert('날짜와 메모 내용을 입력해주세요.'); return; }
-  const editId = document.getElementById('empMemoModal')._editId;
-  if (editId) updateEmpMemo(editId, { empId, date, content });
-  else createEmpMemo({ empId, date, content });
-  closeModal('empMemoModal'); renderEmpMemos();
 }
 
 // ══════════════════════ Google Sheets 연동 설정 ══════════════════════

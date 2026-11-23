@@ -230,3 +230,55 @@ textarea { font-family: inherit; }
 @media (min-width: 769px) {
   #empTable th, #empTable td { white-space: nowrap; }
 }
+
+/* 근무 변경 메모 모아보기 */
+.sm-empty { color: #aaa; font-size: 12px; padding: 24px 0; text-align: center; }
+.sm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+.sm-group { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+.sm-group-hd { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; background: var(--primary-light); font-size: 13px; }
+.sm-dept { font-size: 11px; color: var(--faint); font-weight: 400; margin-left: 2px; }
+.sm-cnt { font-size: 11px; color: var(--faint); font-weight: 400; }
+.sm-row { padding: 8px 12px; border-top: 1px solid var(--border-soft); }
+.sm-group-hd + .sm-row { border-top: none; }
+.sm-row-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+.sm-date { font-weight: 600; font-size: 12px; min-width: 62px; }
+.sm-name { font-weight: 600; font-size: 12px; min-width: 90px; }
+.sm-shift { font-size: 11px; color: #555; background: #f4f6fa; border-radius: 4px; padding: 1px 6px; }
+.sm-base { color: var(--faint); text-decoration: line-through; }
+.sm-note { font-size: 12px; color: #333; white-space: pre-line; line-height: 1.5; }
+.sm-day { margin-bottom: 14px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.sm-day-hd { padding: 8px 12px; background: var(--primary-light); font-weight: 700; font-size: 13px; }
+.sm-day-hd + .sm-row { border-top: none; }
+@media (max-width: 768px) {
+  .sm-grid { grid-template-columns: 1fr; }
+}
+.sm-swap { font-size: 12px; color: #5931b8; white-space: pre-line; line-height: 1.5; }
+.sm-edit { margin-left: auto; font-size: 10px !important; padding: 2px 8px !important; }
+.sm-pinned { padding: 8px 12px; background: #fff8e1; border-bottom: 1px solid #f3e2b3; }
+.sm-pin-label { font-size: 11px; font-weight: 700; color: #b06a00; }
+.sm-pin-btn { font-size: 10px !important; padding: 2px 7px !important; }
+.sm-none { font-size: 11px; color: #aaa; }
+/* 선 아이콘 */
+.ic { width: 1.1em; height: 1.1em; vertical-align: -0.2em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.sm-ot { font-size: 12px; color: #1565c0; white-space: pre-line; line-height: 1.5; }
+/* 근무 메모: 직원 여러 명 고르기 */
+.sm-pick-panel { position: absolute; right: 0; top: 36px; z-index: 50; width: 340px; max-width: calc(100vw - 32px); max-height: 60vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 10px 12px; }
+.sm-pick-top { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.sm-pick-dept { font-size: 10px; font-weight: 700; color: var(--faint); margin: 8px 0 4px; }
+.sm-pick-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.sm-pick { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; cursor: pointer; user-select: none; }
+.sm-pick input { width: auto; height: auto; margin: 0; }
+.sm-pick.on { background: var(--primary-light); border-color: #a9c3e8; color: var(--primary); font-weight: 600; }
+.sm-month-panel { width: 290px; left: 0; right: auto; }
+.sm-month-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.sm-month-grid .sm-pick { justify-content: center; white-space: nowrap; padding: 3px 6px; }
+#tabMemos .card-header { position: relative; }
+@media (max-width: 768px) {
+  /* 휴대폰: 목록을 카드 폭에 맞춰 버튼 줄 바로 아래에 연다 */
+  #smEmpPickWrap, #smMonthPickWrap { position: static !important; }
+  .sm-pick-panel, .sm-month-panel { left: 0; right: 0; top: calc(100% + 4px); width: auto; max-width: none; }
+}
+.sm-pick-dept { display: flex; align-items: center; gap: 8px; }
+.sm-dept-all { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 20px; font-size: 10px; font-weight: 600; padding: 1px 8px; cursor: pointer; font-family: inherit; }
+.sm-dept-all:hover { border-color: #a9c3e8; color: var(--primary); }
+.sm-dept-all.on { background: var(--primary-light); border-color: #a9c3e8; color: var(--primary); }

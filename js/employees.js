@@ -305,18 +305,4 @@ function cancelShiftHistory(empId, applyFrom) {
   closeModal('shiftHistoryModal');
 }
 
-// ── 직원 메모 CRUD ──
-function createEmpMemo({ empId, date, content }) {
-  state.empMemos.push({ id: nextId(state.empMemos), empId, date, content, createdAt: toLocalDateStr(TODAY) });
-  save();
-}
-function updateEmpMemo(id, { empId, date, content }) {
-  const m = state.empMemos.find(x => x.id === id); if (!m) return;
-  m.empId = empId; m.date = date; m.content = content;
-  save();
-}
-function deleteEmpMemo(id) {
-  if (!confirm('메모를 삭제하시겠습니까?')) return;
-  state.empMemos = state.empMemos.filter(x => x.id !== id);
-  save(); renderEmpMemos();
-}
+// 직원 메모(empMemos)는 화면에서 뺐지만, 저장된 기록이 사라지지 않도록 데이터는 그대로 읽고 저장한다.
