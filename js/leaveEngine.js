@@ -18,7 +18,7 @@ function monthsElapsed(fromDate, toDate) {
 //  - 근속 1년 이상: 1년 미만 기간 동안 쌓인 최대 11일은 사라지지 않고 그대로 유지된 채,
 //    그 위에 15일(3년차부터 2년마다 +1, 최대 25일)이 "합산"된다 — 2012년 개정 전에는 서로 상쇄됐지만
 //    지금은 법적으로 상쇄 조항이 삭제되어 최대 11+15=26일부터 시작한다.
-// 파트타임 직원은 연차 발생 대상이 아니므로 항상 0.
+// 파트타임 직원은 연차 발생 대상이 아니므로 항상 0. 퇴사일이 지난 직원은 퇴사일 기준으로 계산한다.
 // 타지점 등에서 이동해온 경우 emp.trueJoinDate(연차 인정 시작일)가 "1년 경과 여부" 판단 기준이 되고,
 // 1년 미만 구간의 매달 가산은 이 지점 실제 근무 시작일(joinDate) 기준으로 계산한다
 // (타지점 재직 기간의 매달 가산은 그쪽에서 이미 별도로 관리했을 것이므로 중복 계산하지 않음).
@@ -28,7 +28,9 @@ function calcEarnedAnnual(joinDateStr, bonusAnnual, emp) {
   const effectiveJoinStr = (emp && emp.trueJoinDate) || joinDateStr;
   const trueJoin = parseLocalDate(effectiveJoinStr);
   const branchJoin = parseLocalDate(joinDateStr);
-  const now = TODAY;
+  // 퇴사한 직원은 퇴사일까지만 연차가 쌓인다 (퇴사일 이후로는 부여 멈춤)
+  const leave = emp && emp.leaveDate ? parseLocalDate(emp.leaveDate) : null;
+  const now = leave && leave < TODAY ? leave : TODAY;
   let base = 0;
   if (now >= trueJoin) {
     let years = now.getFullYear() - trueJoin.getFullYear();
