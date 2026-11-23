@@ -114,6 +114,9 @@ function _smShiftBadge(m) {
   }
   return '<span class="sm-shift">' + _smEsc(_smShiftText(m.cur)) + '</span>';
 }
+function _smEditBtn(m) {
+  return '<button class="btn sm sm-edit" onclick="openEditShiftMemo(' + m.empId + ',\'' + m.date + '\')">' + (m.note ? '수정' : '메모 쓰기') + '</button>';
+}
 function _smNote(m) {
   return (m.swapText ? '<div class="sm-swap">🔄 ' + _smEsc(m.swapText) + '</div>' : '')
     + (m.note ? '<div class="sm-note">' + _smEsc(m.note) + '</div>' : '');
@@ -138,7 +141,7 @@ function renderShiftMemos() {
       const emp = items[0].emp;
       return '<div class="sm-group">'
         + '<div class="sm-group-hd"><span><b>' + _smEsc(emp.name) + '</b>' + (emp.dept ? ' <span class="sm-dept">' + _smEsc(emp.dept) + '</span>' : '') + '</span><span class="sm-cnt">' + items.length + '건</span></div>'
-        + items.map(m => '<div class="sm-row"><div class="sm-row-hd"><span class="sm-date">' + _smDateLabel(m.date) + '</span>' + _smShiftBadge(m) + '</div>' + _smNote(m) + '</div>').join('')
+        + items.map(m => '<div class="sm-row"><div class="sm-row-hd"><span class="sm-date">' + _smDateLabel(m.date) + '</span>' + _smShiftBadge(m) + _smEditBtn(m) + '</div>' + _smNote(m) + '</div>').join('')
         + '</div>';
     }).join('') + '</div>';
   } else {
@@ -150,8 +153,104 @@ function renderShiftMemos() {
       const items = groups[d].sort((a, b) => order.indexOf(a.empId) - order.indexOf(b.empId));
       return '<div class="sm-day">'
         + '<div class="sm-day-hd">' + _smDateLabel(d) + ' <span class="sm-cnt">' + items.length + '건</span></div>'
-        + items.map(m => '<div class="sm-row sm-row-inline"><div class="sm-row-hd"><span class="sm-name">' + _smEsc(m.emp.name) + (m.emp.dept ? ' <span class="sm-dept">' + _smEsc(m.emp.dept) + '</span>' : '') + '</span>' + _smShiftBadge(m) + '</div>' + _smNote(m) + '</div>').join('')
+        + items.map(m => '<div class="sm-row sm-row-inline"><div class="sm-row-hd"><span class="sm-name">' + _smEsc(m.emp.name) + (m.emp.dept ? ' <span class="sm-dept">' + _smEsc(m.emp.dept) + '</span>' : '') + '</span>' + _smShiftBadge(m) + _smEditBtn(m) + '</div>' + _smNote(m) + '</div>').join('')
         + '</div>';
     }).join('');
   }
+}
+
+// ── 근무 메모 탭에서 메모 추가 / 수정 ──
+// 근무표 칸 메모와 같은 곳(schedules[wk]._notes)에 저장한다. [추가근무] 줄은 그대로 둔다.
+// 확정된 주는 확정 스냅샷의 메모도 같이 바꿔서 화면에 바로 보이게 한다 (근무 자체는 바꾸지 않음).
+function _smOtLines(empId, dateStr) {
+  const emp = state.employees.find(e => e.id === empId);
+  if (!emp) return [];
+  return (getNoteForDate(emp, dateStr) || '').split('\n').filter(l => l.startsWith('[추가근무]'));
+}
+function _smManualNote(empId, dateStr) {
+  const emp = state.employees.find(e => e.id === empId);
+  if (!emp) return '';
+  return (getNoteForDate(emp, dateStr) || '').split('\n').filter(l => !l.startsWith('[추가근무]')).join('\n').trim();
+}
+function saveShiftMemo(empId, dateStr, manualText) {
+  const otLines = _smOtLines(empId, dateStr);
+  const manual = (manualText || '').trim();
+  const combined = otLines.join('\n') + (otLines.length && manual ? '\n' : '') + manual;
+  const wk = weekKeyForDate(dateStr), di = dateToDayIndex(dateStr);
+  if (!state.schedules[wk]) state.schedules[wk] = {};
+  if (!state.schedules[wk]._notes) state.schedules[wk]._notes = {};
+  if (!state.schedules[wk]._notes[empId]) state.schedules[wk]._notes[empId] = {};
+  if (combined.trim()) state.schedules[wk]._notes[empId][di] = combined;
+  else delete state.schedules[wk]._notes[empId][di];
+  const snap = state.confirmedSnapshots[wk] && state.confirmedSnapshots[wk][empId];
+  if (snap && snap.note) snap.note[di] = combined;
+  save();
+}
+
+function _smFillModalInfo() {
+  const m = document.getElementById('shiftMemoModal');
+  const empId = +document.getElementById('smmEmp').value;
+  const date = document.getElementById('smmDate').value;
+  const info = document.getElementById('smmInfo');
+  const otEl = document.getElementById('smmOt');
+  const emp = state.employees.find(e => e.id === empId);
+  if (!emp || !date) { info.textContent = ''; otEl.style.display = 'none'; return; }
+  const cur = getShiftForDate(emp, date), base = _smPatternShift(emp, date);
+  let txt = '이 날 근무: ' + (_smShiftText(base) !== _smShiftText(cur) ? _smShiftText(base) + ' → ' + _smShiftText(cur) : _smShiftText(cur));
+  const sw = typeof getSwapForCell === 'function' ? getSwapForCell(emp, date) : null;
+  if (sw) txt += ' · 🔄 ' + swapPartnerName(sw, empId) + ' 님과 근무 교환';
+  if (isDateConfirmed(date)) txt += ' · 확정된 주';
+  info.textContent = txt;
+  const ot = _smOtLines(empId, date);
+  if (ot.length) { otEl.style.display = ''; otEl.textContent = ot.join('\n'); } else { otEl.style.display = 'none'; otEl.textContent = ''; }
+  // 추가 모드에서 이미 메모가 있는 날을 고르면 그 메모를 불러와서 덮어쓰지 않게 한다
+  if (!m._editing) {
+    const existing = _smManualNote(empId, date);
+    const ta = document.getElementById('smmText');
+    const typed = ta._loaded ? (ta.value.startsWith(ta._loaded) ? ta.value.slice(ta._loaded.length).trim() : ta.value.trim()) : ta.value.trim();
+    if (existing) { ta.value = existing + (typed ? '\n' + typed : ''); ta._loaded = existing; }
+    else { ta.value = typed; ta._loaded = false; }
+    document.getElementById('smmExisting').style.display = existing ? '' : 'none';
+  }
+}
+
+function openShiftMemoModal(empId, date) {
+  const m = document.getElementById('shiftMemoModal');
+  const editing = !!(empId && date);
+  m._editing = editing;
+  document.getElementById('smmTitle').textContent = editing ? '근무 메모 수정' : '근무 메모 추가';
+  const empSel = document.getElementById('smmEmp');
+  empSel.innerHTML = state.employees.map(e => '<option value="' + e.id + '">' + _smEsc(e.name) + ' (' + _smEsc(e.dept) + ')</option>').join('');
+  const filterEmp = document.getElementById('smEmpFilter').value;
+  empSel.value = editing ? empId : (filterEmp || (state.employees[0] && state.employees[0].id) || '');
+  empSel.disabled = editing;
+  const dateEl = document.getElementById('smmDate');
+  dateEl.value = editing ? date : toLocalDateStr(TODAY);
+  dateEl.disabled = editing;
+  const ta = document.getElementById('smmText');
+  ta.value = editing ? _smManualNote(empId, date) : ''; ta._loaded = false;
+  document.getElementById('smmExisting').style.display = 'none';
+  document.getElementById('smmDelete').style.display = editing && ta.value ? '' : 'none';
+  _smFillModalInfo();
+  m.classList.add('open');
+  setTimeout(() => ta.focus(), 50);
+}
+function openEditShiftMemo(empId, date) { openShiftMemoModal(empId, date); }
+
+function submitShiftMemo() {
+  const empId = +document.getElementById('smmEmp').value;
+  const date = document.getElementById('smmDate').value;
+  const text = document.getElementById('smmText').value;
+  if (!empId || !date) { alert('직원과 날짜를 골라주세요.'); return; }
+  const m = document.getElementById('shiftMemoModal');
+  if (!m._editing && !text.trim()) { alert('메모 내용을 입력해주세요.'); return; }
+  saveShiftMemo(empId, date, text);
+  closeModal('shiftMemoModal');
+  initShiftMemoTab();
+  if (typeof renderSchedule === 'function') renderSchedule();
+}
+function deleteShiftMemo() {
+  if (!confirm('이 메모를 삭제할까요? (근무와 근무 교환 기록은 그대로예요)')) return;
+  document.getElementById('smmText').value = '';
+  submitShiftMemo();
 }

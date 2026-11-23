@@ -253,3 +253,4 @@ textarea { font-family: inherit; }
   .sm-grid { grid-template-columns: 1fr; }
 }
 .sm-swap { font-size: 12px; color: #5931b8; white-space: pre-line; line-height: 1.5; }
+.sm-edit { margin-left: auto; font-size: 10px !important; padding: 2px 8px !important; }

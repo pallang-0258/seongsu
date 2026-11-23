@@ -266,9 +266,10 @@
             </select>
             <select id="smEmpFilter" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
             <input id="smSearch" type="search" placeholder="메모 검색" oninput="renderShiftMemos()" style="height:32px;font-size:12px;width:130px">
+            <button class="btn primary sm" onclick="openShiftMemoModal()">+ 메모 추가</button>
           </div>
         </div>
-        <div style="font-size:11px;color:#999;margin-bottom:10px">근무표에서 근무를 바꿀 때 남긴 메모와 근무 교환 내역(🔄)을 모아 보여줍니다. 메모 수정은 근무표에서 해당 칸을 눌러 할 수 있어요.</div>
+        <div style="font-size:11px;color:#999;margin-bottom:10px">근무표에서 근무를 바꿀 때 남긴 메모와 근무 교환 내역(🔄)을 모아 보여줍니다. 메모는 여기서 바로 추가·수정할 수 있고, 근무표 칸에서 써도 같은 메모예요.</div>
         <div id="shiftMemoList"></div>
       </div>
     </div>
@@ -537,6 +538,29 @@
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('bonusAnnualModal')">닫기</button>
       <button class="btn primary" onclick="saveBonusAnnualUI()">추가/차감 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 근무 메모 추가/수정 모달 -->
+<div class="modal-bg" id="shiftMemoModal">
+  <div class="modal" style="width:440px">
+    <div class="modal-title" id="smmTitle">근무 메모 추가</div>
+    <div class="form-row" style="display:flex;gap:8px">
+      <div style="flex:1"><label class="form-label">직원</label><select id="smmEmp" onchange="_smFillModalInfo()"></select></div>
+      <div style="flex:1"><label class="form-label">날짜</label><input type="date" id="smmDate" onchange="_smFillModalInfo()"></div>
+    </div>
+    <div id="smmInfo" style="font-size:12px;color:#555;background:#f4f6fa;border-radius:8px;padding:7px 10px;margin-bottom:12px"></div>
+    <div class="form-row">
+      <label class="form-label">메모 <span id="smmExisting" style="display:none;font-size:11px;color:#f57f17">（이 날 이미 쓴 메모를 불러왔어요）</span></label>
+      <div id="smmOt" style="display:none;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:7px 10px;font-size:12px;color:#1565c0;margin-bottom:6px;white-space:pre-line;line-height:1.6"></div>
+      <textarea id="smmText" rows="4" placeholder="예: 본인 요청으로 오후 근무로 변경"
+        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn danger" id="smmDelete" onclick="deleteShiftMemo()" style="margin-right:auto;display:none">삭제</button>
+      <button class="btn" onclick="closeModal('shiftMemoModal')">취소</button>
+      <button class="btn primary" onclick="submitShiftMemo()">저장</button>
     </div>
   </div>
 </div>
