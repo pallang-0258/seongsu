@@ -56,14 +56,6 @@ function closeMobileSidebar() {
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
-function toggleSearch() {
-  const wrap = document.getElementById('searchWrap');
-  const isOpen = wrap.classList.contains('open');
-  wrap.classList.toggle('open');
-  if (isOpen) { document.getElementById('searchEmp').value = ''; renderSidebar(); }
-  else { setTimeout(() => document.getElementById('searchEmp').focus(), 50); }
-}
-function clearSearch() { document.getElementById('searchEmp').value = ''; ui.selectedEmpId = null; renderSidebar(); renderSchedule(); }
 
 function startEditTitle() {
   const el = document.getElementById('siteTitle');
@@ -135,31 +127,24 @@ document.addEventListener('click', e => {
 });
 
 // ══════════════════════ 사이드바 ══════════════════════
+// 근무표 왼쪽 필터: 부서 단위로만 거른다 (전체 / 약사 / 일본어 / 중국어 / 물류)
 function renderSidebar() {
-  const q = (document.getElementById('searchEmp').value || '').trim().toLowerCase();
-  let html = '';
-  DEPTS.forEach(dept => {
-    const emps = state.employees.filter(e => e.dept === dept && (!q || e.name.toLowerCase().includes(q)));
-    if (!emps.length) return;
-    html += '<div class="sidebar-label">' + dept + '</div>';
-    emps.forEach(e => {
-      const [bg, fg] = COLORS[e.color % COLORS.length];
-      const wtNow = getCurrentWorkType(e);
-      const tag = wtNow === 'biweek_odd' ? '<span style="font-size:9px;color:#999"> 홀수</span>' : wtNow === 'biweek_even' ? '<span style="font-size:9px;color:#999"> 짝수</span>' : '';
-      const ptTag = e.employmentType === 'parttime' ? '<span style="font-size:9px;color:#e65100"> PT</span>' : '';
-      html += '<div class="emp-item' + (ui.selectedEmpId === e.id ? ' selected' : '') + '" onclick="selectEmp(' + e.id + ')">'
-        + '<div class="avatar" style="background:' + bg + ';color:' + fg + '">' + e.name[0] + '</div>'
-        + '<div class="emp-name-s">' + e.name + tag + ptTag + '</div></div>';
-    });
-  });
-  document.getElementById('empList').innerHTML = html;
+  const off = ui.weekOffset;
+  const count = dept => state.employees.filter(e => (!dept || e.dept === dept) && isActiveForWeek(e, off)).length;
+  const item = (dept, label) => '<div class="emp-item' + ((ui.selectedDept || null) === dept ? ' selected' : '') + '" onclick="selectDept(' + (dept ? "'" + dept + "'" : 'null') + ')">'
+    + '<div class="emp-name-s" style="flex:1">' + label + '</div><span style="font-size:11px;color:#999">' + count(dept) + '명</span></div>';
+  document.getElementById('empList').innerHTML = item(null, '전체') + DEPTS.map(d => item(d, d)).join('');
 }
-function selectEmp(id) { ui.selectedEmpId = ui.selectedEmpId === id ? null : id; renderSidebar(); renderSchedule(); }
+function selectDept(dept) {
+  ui.selectedDept = dept;
+  renderSchedule(); // renderSchedule이 사이드바도 다시 그림
+  if (window.innerWidth <= 768 && typeof closeMobileSidebar === 'function') closeMobileSidebar();
+}
 
 // ══════════════════════ 근무표 ══════════════════════
 function buildSchTable(el, off) {
   const days = getWeekDays(off);
-  const emps = ui.selectedEmpId ? state.employees.filter(e => e.id === ui.selectedEmpId) : state.employees;
+  const emps = ui.selectedDept ? state.employees.filter(e => e.dept === ui.selectedDept) : state.employees;
   const depts = DEPTS.filter(d => emps.some(e => e.dept === d));
   const isMobile = window.innerWidth <= 768;
   const deptW = isMobile ? '22px' : '44px';
@@ -295,6 +280,7 @@ function renderSchedule() {
   wb.style.background = odd ? '#e8f5e9' : '#e3f2fd';
   wb.style.color = odd ? '#2e7d32' : '#1565c0';
   renderConfirmBadgeAndButtons();
+  renderSidebar(); // 주를 옮기면 부서별 인원수도 그 주 기준으로
   buildSchTable(document.getElementById('screenSchTable'), ui.weekOffset);
   buildSummaryTable(document.getElementById('screenSummary'), ui.weekOffset);
   updateStats();
