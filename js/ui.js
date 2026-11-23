@@ -29,6 +29,7 @@ function switchTab(tab) {
   if (tab === 'overtime') { initOvertimeTab(); }
   if (tab === 'memos') { initShiftMemoTab(); }
   if (tab === 'employees') { renderEmpTable(); }
+  if (tab === 'schedule') setTimeout(fitPartTimeReport, 50); // 숨겨져 있던 동안엔 폭을 잴 수 없어서 다시 맞춤
 }
 
 let _wasMobileWidth = window.innerWidth <= 768;
@@ -56,14 +57,6 @@ function closeMobileSidebar() {
   document.getElementById('sidebar').classList.remove('mobile-open');
   document.getElementById('sidebarOverlay').classList.remove('open');
 }
-function toggleSearch() {
-  const wrap = document.getElementById('searchWrap');
-  const isOpen = wrap.classList.contains('open');
-  wrap.classList.toggle('open');
-  if (isOpen) { document.getElementById('searchEmp').value = ''; renderSidebar(); }
-  else { setTimeout(() => document.getElementById('searchEmp').focus(), 50); }
-}
-function clearSearch() { document.getElementById('searchEmp').value = ''; ui.selectedEmpId = null; renderSidebar(); renderSchedule(); }
 
 function startEditTitle() {
   const el = document.getElementById('siteTitle');
@@ -135,31 +128,24 @@ document.addEventListener('click', e => {
 });
 
 // ══════════════════════ 사이드바 ══════════════════════
+// 근무표 왼쪽 필터: 부서 단위로만 거른다 (전체 / 약사 / 일본어 / 중국어 / 물류)
 function renderSidebar() {
-  const q = (document.getElementById('searchEmp').value || '').trim().toLowerCase();
-  let html = '';
-  DEPTS.forEach(dept => {
-    const emps = state.employees.filter(e => e.dept === dept && (!q || e.name.toLowerCase().includes(q)));
-    if (!emps.length) return;
-    html += '<div class="sidebar-label">' + dept + '</div>';
-    emps.forEach(e => {
-      const [bg, fg] = COLORS[e.color % COLORS.length];
-      const wtNow = getCurrentWorkType(e);
-      const tag = wtNow === 'biweek_odd' ? '<span style="font-size:9px;color:#999"> 홀수</span>' : wtNow === 'biweek_even' ? '<span style="font-size:9px;color:#999"> 짝수</span>' : '';
-      const ptTag = e.employmentType === 'parttime' ? '<span style="font-size:9px;color:#e65100"> PT</span>' : '';
-      html += '<div class="emp-item' + (ui.selectedEmpId === e.id ? ' selected' : '') + '" onclick="selectEmp(' + e.id + ')">'
-        + '<div class="avatar" style="background:' + bg + ';color:' + fg + '">' + e.name[0] + '</div>'
-        + '<div class="emp-name-s">' + e.name + tag + ptTag + '</div></div>';
-    });
-  });
-  document.getElementById('empList').innerHTML = html;
+  const off = ui.weekOffset;
+  const count = dept => state.employees.filter(e => (!dept || e.dept === dept) && isActiveForWeek(e, off)).length;
+  const item = (dept, label) => '<div class="emp-item' + ((ui.selectedDept || null) === dept ? ' selected' : '') + '" onclick="selectDept(' + (dept ? "'" + dept + "'" : 'null') + ')">'
+    + '<div class="emp-name-s" style="flex:1">' + label + '</div><span style="font-size:11px;color:#999">' + count(dept) + '명</span></div>';
+  document.getElementById('empList').innerHTML = item(null, '전체') + DEPTS.map(d => item(d, d)).join('');
 }
-function selectEmp(id) { ui.selectedEmpId = ui.selectedEmpId === id ? null : id; renderSidebar(); renderSchedule(); }
+function selectDept(dept) {
+  ui.selectedDept = dept;
+  renderSchedule(); // renderSchedule이 사이드바도 다시 그림
+  if (window.innerWidth <= 768 && typeof closeMobileSidebar === 'function') closeMobileSidebar();
+}
 
 // ══════════════════════ 근무표 ══════════════════════
 function buildSchTable(el, off) {
   const days = getWeekDays(off);
-  const emps = ui.selectedEmpId ? state.employees.filter(e => e.id === ui.selectedEmpId) : state.employees;
+  const emps = ui.selectedDept ? state.employees.filter(e => e.dept === ui.selectedDept) : state.employees;
   const depts = DEPTS.filter(d => emps.some(e => e.dept === d));
   const isMobile = window.innerWidth <= 768;
   const deptW = isMobile ? '22px' : '44px';
@@ -186,6 +172,18 @@ function buildSchTable(el, off) {
       days.forEach((dayDate, di) => {
         const dateStr = toLocalDateStr(dayDate);
         const sh = getShift(emp, di, off);
+        // 추가근무 기록 (추가근무 탭에서 등록) — 원래 쉬는 날에 한 추가근무는 그 시간을 파란 칸으로 보여준다
+        const otRecs = (state.overtimeRecords || []).filter(r => r.empId === emp.id && r.date === dateStr);
+        const otHours = Math.round(otRecs.reduce((t, r) => t + calcOtHours(r.startTime, r.endTime), 0) * 10) / 10;
+        const otOnlyPill = () => {
+          const t = otRecs.filter(r => r.startTime && r.endTime).map(r => r.startTime.replace(/:00$/, '').replace(/^0/, '') + '-' + r.endTime.replace(/:00$/, '').replace(/^0/, '')).join(', ');
+          return '<div class="shift-pill" style="pointer-events:none;background:#e3f2fd;color:#1565c0">' + (t || '추가근무') + '</div>';
+        };
+        if (sh === '__off__' && otHours) {
+          html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')" style="cursor:pointer">'
+            + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">' + otOnlyPill() + '</div></td>';
+          return;
+        }
         if (sh === '__off__') {
           html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')" style="cursor:pointer">'
             + '<div style="width:100%;height:40px;display:flex;align-items:center;justify-content:center;background:#f7f7f7"><span style="font-size:10px;color:#ccc">—</span></div></td>';
@@ -202,9 +200,12 @@ function buildSchTable(el, off) {
           extraLabel = '<div style="font-size:9px;color:#880e4f;margin-top:1px;pointer-events:none">' + (sh === 'half' ? '오전반차' : '오후반차') + '</div>';
         } else if (sh === 'off' && isManuallySet) {
           lb = ''; cl = '';
+          if (otHours) { lb = null; extraLabel = otOnlyPill(); }
         } else if (isFullShiftKey(sh) && otRange) {
           // 기능5: 추가근무가 있으면 실제 근무 구간을 표시 (예: 10-20 + 3h → 10-23)
           lb = otRange.text; cl = shiftCls(sh);
+        } else if (sh === 'off' && otHours) {
+          lb = null; extraLabel = otOnlyPill();
         } else {
           cl = shiftCls(sh); lb = shiftLabel(sh);
         }
@@ -219,11 +220,12 @@ function buildSchTable(el, off) {
           : hasManualNote
           ? '<span title="' + noteText + '" style="position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:#f57f17;pointer-events:none"></span>' : '';
         const swap = getSwapForCell(emp, dateStr);
-        const swapMark = swap ? '<span title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '" style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5;pointer-events:none"></span>' : '';
-        html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')"' + (swap ? ' title="' + swapEsc(swapCellTitle(swap, emp, dateStr)) + '"' : '') + '>'
+        // 교환 내용은 칸을 눌렀을 때 뜨는 근무 변경 창에 보여준다 (마우스를 올려야만 보이던 말풍선은 없앰)
+        const swapMark = swap ? '<span style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5;pointer-events:none"></span>' : '';
+        html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')">'
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">'
           + noteDot + swapMark
-          + (lb ? '<div class="shift-pill ' + cl + '" style="pointer-events:none">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
+          + (lb ? '<div class="shift-pill ' + cl + '" style="pointer-events:none">' + lb + '</div>' : lb === null ? '' : '<span style="font-size:10px;color:#ccc">-</span>')
           + extraLabel
           + '</div></td>';
       });
@@ -294,13 +296,17 @@ function renderSchedule() {
   wb.style.background = odd ? '#e8f5e9' : '#e3f2fd';
   wb.style.color = odd ? '#2e7d32' : '#1565c0';
   renderConfirmBadgeAndButtons();
+  renderSidebar(); // 주를 옮기면 부서별 인원수도 그 주 기준으로
   buildSchTable(document.getElementById('screenSchTable'), ui.weekOffset);
   buildSummaryTable(document.getElementById('screenSummary'), ui.weekOffset);
   updateStats();
   renderHolidayManager();
   renderHolidayReport();
   initSwapHistoryFilters();
+  syncSwapHistoryMonth();
   renderSwapHistory();
+  syncPartTimeReportMonth();
+  renderPartTimeReport();
   setTimeout(fitTableToScreen, 50);
 }
 
@@ -360,11 +366,25 @@ function unconfirmScheduleUI() { unconfirmSchedule(ui.weekOffset); }
 function resetWeekScheduleUI() { resetWeekSchedule(ui.weekOffset); }
 
 // ── 근무 변경 모달 ──
+// 근무 변경 창에 보여줄 이 칸의 근무 교환 내용 (없으면 '')
+function shiftSwapInfoText(emp, dateStr) {
+  const swap = getSwapForCell(emp, dateStr);
+  if (!swap) return '';
+  const c = swap.cells.find(x => x.empId === emp.id && x.date === dateStr);
+  // 근무일 옮김은 창 제목에 이미 이름이 있으니 날짜만 적는다
+  return (isSelfSwap(swap) ? '근무일 옮김: ' : '근무 교환: ') + swapSummaryNoName(swap)
+    + '\n이 날 근무: ' + swapShiftLabel(c.before) + ' → ' + swapShiftLabel(c.after)
+    + (swap.memo ? '\n사유: ' + swap.memo : '');
+}
 function openShiftEdit(empId, di) {
-  if (isWeekConfirmed(ui.weekOffset)) { alert('이 주는 확정되어 있습니다. 수정하려면 먼저 확정을 해제하세요.'); return; }
-  ui.editingCell = { empId, di };
   const emp = state.employees.find(e => e.id === empId);
   const d = getWeekDays(ui.weekOffset)[di];
+  const swapInfo = emp ? shiftSwapInfoText(emp, toLocalDateStr(d)) : '';
+  if (isWeekConfirmed(ui.weekOffset)) { alert((swapInfo ? swapInfo + '\n\n' : '') + '이 주는 확정되어 있습니다. 수정하려면 먼저 확정을 해제하세요.'); return; }
+  ui.editingCell = { empId, di };
+  const swapEl = document.getElementById('shiftSwapInfo');
+  swapEl.style.display = swapInfo ? '' : 'none';
+  swapEl.textContent = swapInfo;
   const isOrigOff = !shouldWork(emp, di, ui.weekOffset);
   document.getElementById('shiftModalTitle').innerHTML = emp.name + ' — ' + (d.getMonth() + 1) + '/' + d.getDate() + ' 근무 변경'
     + (isOrigOff ? ' <span style="font-size:11px;font-weight:400;color:#f57f17">(원래 비근무일)</span>' : '');
@@ -451,14 +471,32 @@ function applyShift() {
 
 // ══════════════════════ 근무 교환 ══════════════════════
 function swapEsc(t) { return String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])); }
-function swapEmpOptions(selectedId) {
-  const emps = DEPTS.flatMap(d => state.employees.filter(e => e.dept === d && !isResigned(e)));
-  return '<option value="">선택</option>' + emps.map(e => '<option value="' + e.id + '"' + (e.id === selectedId ? ' selected' : '') + '>' + swapEsc(e.name) + ' (' + e.dept + ')</option>').join('');
+function swapEmpOptions(selectedId, query) {
+  const q = (query || '').replace(/\s+/g, '').toLowerCase();
+  const emps = DEPTS.flatMap(d => state.employees.filter(e => e.dept === d && !isResigned(e)))
+    .filter(e => !q || e.name.replace(/\s+/g, '').toLowerCase().includes(q));
+  return '<option value="">' + (q ? (emps.length ? '검색 결과 ' + emps.length + '명' : '검색 결과 없음') : '선택') + '</option>' + emps.map(e => '<option value="' + e.id + '"' + (e.id === selectedId ? ' selected' : '') + '>' + swapEsc(e.name) + ' (' + e.dept + ')</option>').join('');
+}
+// 교환 등록 창: 이름을 입력하면 아래 목록이 그 이름만 남도록 줄어든다. 한 명만 남으면 바로 선택된다.
+function filterSwapEmp(which) {
+  const sel = document.getElementById('swapEmp' + which);
+  const q = document.getElementById('swapEmp' + which + 'Q').value;
+  sel.innerHTML = swapEmpOptions(+sel.value || null, q);
+  const matches = [...sel.options].filter(o => o.value);
+  if (q.trim() && matches.length === 1) sel.value = matches[0].value;
+  renderSwapPreview();
+}
+function pickFirstSwapEmp(which) {
+  const sel = document.getElementById('swapEmp' + which);
+  const first = [...sel.options].find(o => o.value);
+  if (first) { sel.value = first.value; renderSwapPreview(); }
 }
 function getSwapMode() { return document.querySelector('input[name="swapMode"]:checked').value; }
 function openSwapModal() {
   document.getElementById('swapEmpA').innerHTML = swapEmpOptions(ui.selectedEmpId);
   document.getElementById('swapEmpB').innerHTML = swapEmpOptions(null);
+  document.getElementById('swapEmpAQ').value = '';
+  document.getElementById('swapEmpBQ').value = '';
   document.querySelector('input[name="swapMode"][value="same"]').checked = true;
   const defDate = ui.weekOffset === 0 ? toLocalDateStr(TODAY) : weekKey(ui.weekOffset);
   document.getElementById('swapDate1').value = defDate;
@@ -468,23 +506,28 @@ function openSwapModal() {
   document.getElementById('swapModal').classList.add('open');
 }
 function onSwapModeChange() {
-  const cross = getSwapMode() === 'cross';
-  document.getElementById('swapDate2Wrap').style.display = cross ? '' : 'none';
-  document.getElementById('swapDate1Label').textContent = cross ? '첫 번째 날짜' : '날짜';
+  const mode = getSwapMode(), self = mode === 'self', twoDates = mode !== 'same';
+  document.getElementById('swapDate2Wrap').style.display = twoDates ? '' : 'none';
+  document.getElementById('swapDate1Label').textContent = self ? '원래 근무일 (쉬는 날)' : twoDates ? '첫 번째 날짜' : '날짜';
+  document.getElementById('swapDate2Label').textContent = self ? '대체 근무일' : '두 번째 날짜';
+  document.getElementById('swapEmpBWrap').style.display = self ? 'none' : '';
+  document.getElementById('swapEmpALabel').textContent = self ? '직원' : '직원 1';
   renderSwapPreview();
 }
 function readSwapForm() {
   const a = +document.getElementById('swapEmpA').value || null;
-  const b = +document.getElementById('swapEmpB').value || null;
+  const mode = getSwapMode();
+  // 혼자 날짜 바꾸기는 직원 1·2를 같은 사람으로 넘긴다 (swapEngine이 type:'self'로 기록)
+  const b = mode === 'self' ? a : (+document.getElementById('swapEmpB').value || null);
   const dates = [document.getElementById('swapDate1').value];
-  if (getSwapMode() === 'cross') dates.push(document.getElementById('swapDate2').value);
+  if (mode !== 'same') dates.push(document.getElementById('swapDate2').value);
   return { a, b, dates };
 }
 function renderSwapPreview() {
   const { a, b, dates } = readSwapForm();
   const el = document.getElementById('swapPreview');
   const btn = document.getElementById('swapSubmitBtn');
-  if (!a || !b || dates.some(d => !d)) { el.innerHTML = '<span style="color:#999">직원 두 명과 날짜를 고르면 바뀌는 내용을 미리 보여드려요.</span>'; btn.disabled = true; return; }
+  if (!a || !b || dates.some(d => !d)) { el.innerHTML = '<span style="color:#999">' + (getSwapMode() === 'self' ? '직원과 두 날짜를 고르면 바뀌는 내용을 미리 보여드려요.' : '직원 두 명과 날짜를 고르면 바뀌는 내용을 미리 보여드려요.') + '</span>'; btn.disabled = true; return; }
   const plan = planShiftSwap(a, b, dates);
   let html = '';
   if (plan.errors.length) {
@@ -512,15 +555,28 @@ function submitSwap() {
 function initSwapHistoryFilters() {
   const ySel = document.getElementById('swapYearSel');
   if (!ySel) return;
-  const years = new Set([TODAY.getFullYear()]);
-  (state.shiftSwaps || []).forEach(s => s.dates.forEach(d => years.add(+d.slice(0, 4))));
   const curY = ySel.value || String(TODAY.getFullYear());
+  const years = new Set([TODAY.getFullYear(), +curY]);
+  (state.shiftSwaps || []).forEach(s => s.dates.forEach(d => years.add(+d.slice(0, 4))));
   ySel.innerHTML = [...years].sort().map(y => '<option value="' + y + '"' + (String(y) === curY ? ' selected' : '') + '>' + y + '년</option>').join('');
   const mSel = document.getElementById('swapMonthSel');
   if (!mSel.options.length) mSel.innerHTML = '<option value="">전체</option>' + Array.from({ length: 12 }, (_, i) => '<option value="' + String(i + 1).padStart(2, '0') + '">' + (i + 1) + '월</option>').join('');
   const eSel = document.getElementById('swapEmpSel');
   const curE = eSel.value;
   eSel.innerHTML = '<option value="">전체 직원</option>' + DEPTS.flatMap(d => state.employees.filter(e => e.dept === d)).map(e => '<option value="' + e.id + '"' + (String(e.id) === curE ? ' selected' : '') + '>' + swapEsc(e.name) + '</option>').join('');
+}
+// 근무 교환 내역은 근무표에서 보고 있는 달(주차 드롭다운과 같은 기준)을 따라간다.
+// 같은 달 안에서 주를 옮길 때는 직접 고른 연/월(전체 포함)을 그대로 둔다.
+function syncSwapHistoryMonth() {
+  const ySel = document.getElementById('swapYearSel'), mSel = document.getElementById('swapMonthSel');
+  if (!ySel || !mSel) return;
+  const d = getWeekDays(ui.weekOffset)[0];
+  const y = String(d.getFullYear()), m = String(d.getMonth() + 1).padStart(2, '0');
+  if (ui.swapHistoryMonth === y + '-' + m) return;
+  ui.swapHistoryMonth = y + '-' + m;
+  if (![...ySel.options].some(o => o.value === y)) ySel.innerHTML += '<option value="' + y + '">' + y + '년</option>';
+  ySel.value = y;
+  mSel.value = m;
 }
 function renderSwapHistory() {
   const table = document.getElementById('swapHistoryTable');
@@ -544,7 +600,7 @@ function renderSwapHistory() {
         + '<button class="btn sm danger" onclick="cancelSwapUI(' + s.id + ')">교환 취소</button>';
     html += '<tr>'
       + '<td>' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
-      + '<td><strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong></td>'
+      + '<td>' + (isSelfSwap(s) ? '<strong>' + name(s.empA) + '</strong> <span style="font-size:11px;color:#888">날짜 변경</span>' : '<strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong>') + '</td>'
       + '<td style="white-space:nowrap">' + changes + '</td>'
       + '<td style="color:#888">' + (s.memo ? swapEsc(s.memo) : '-') + '</td>'
       + '<td style="font-size:11px;color:#888">' + (s.createdAt || '-') + '</td>'
@@ -622,6 +678,56 @@ function renderHolidayReport() {
     + '</div>';
 }
 function onHolidayReportSelChange() { renderHolidayReport(); }
+
+// ══════════════════════ 월별 파트 근무 리포트 ══════════════════════
+// 근무 교환 내역처럼 근무표에서 보고 있는 달을 따라가고, 같은 달 안에서는 직접 고른 달을 유지한다.
+function syncPartTimeReportMonth() {
+  const yEl = document.getElementById('ptYearSel'), mEl = document.getElementById('ptMonthSel');
+  if (!yEl || !mEl) return;
+  const d = getWeekDays(ui.weekOffset)[0];
+  const y = d.getFullYear(), m = d.getMonth();
+  if (!mEl.options.length) mEl.innerHTML = Array.from({ length: 12 }, (_, i) => '<option value="' + i + '">' + (i + 1) + '월</option>').join('');
+  if (ui.ptReportMonth === y + '-' + m && yEl.options.length) return;
+  ui.ptReportMonth = y + '-' + m;
+  const cur = TODAY.getFullYear();
+  const years = [...new Set([cur - 1, cur, cur + 1, y])].sort();
+  yEl.innerHTML = years.map(v => '<option value="' + v + '">' + v + '년</option>').join('');
+  yEl.value = y; mEl.value = m;
+}
+function renderPartTimeReport() {
+  const wrap = document.getElementById('partTimeReportWrap'); if (!wrap) return;
+  const yEl = document.getElementById('ptYearSel'), mEl = document.getElementById('ptMonthSel');
+  if (!yEl.value) syncPartTimeReportMonth();
+  const year = +yEl.value, month = +mEl.value;
+  const rep = calcPartTimeMonthlyReport(year, month);
+  if (!rep.employees.length) { wrap.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0">이 달에 근무한 파트타임 직원이 없습니다. (직원 관리 탭에서 고용형태를 파트타임으로 지정한 직원만 나와요)</div>'; return; }
+  const md = d => +d.slice(5, 7) + '/' + +d.slice(8, 10);
+  const weekTh = rep.weeks.map(w => '<th style="font-weight:500;font-size:11px;text-align:center">' + (w.start === w.end ? md(w.start) : md(w.start) + '~' + md(w.end)) + '</th>').join('');
+  // 주별 칸: 실제 근무한 날을 "11일(10h)"로 한 줄씩
+  const weekCell = list => !list.length ? '<span style="color:#ccc">-</span>'
+    : list.map(x => '<div>' + +x.date.slice(8, 10) + '일<span style="color:#888">(' + x.hours + 'h)</span></div>').join('');
+  wrap.innerHTML = '<div style="font-size:12px;color:#888;margin-bottom:8px">' + (month + 1) + '월 파트 근무시간 합계 <strong style="color:#1565c0">' + rep.totalHours + '시간</strong> · 근무 교환·추가근무·반차 반영</div>'
+    + '<div id="ptReportFit"><table class="lv-table pt-report" id="ptReportTable" style="font-size:12px;white-space:nowrap;width:100%"><thead><tr><th>이름</th><th>부서</th><th style="text-align:center">근무일수</th><th style="text-align:center">월 근무시간</th>' + weekTh + '</tr></thead><tbody>'
+    + rep.employees.map(e => '<tr><td><strong>' + swapEsc(e.name) + '</strong></td><td style="color:#888">' + e.dept + '</td>'
+      + '<td style="text-align:center">' + e.days + '일</td>'
+      + '<td style="text-align:center;font-weight:600;color:#1565c0">' + e.totalHours + '시간</td>'
+      + e.weekDays.map(list => '<td style="text-align:center;color:#333;vertical-align:top;line-height:1.6">' + weekCell(list) + '</td>').join('') + '</tr>').join('')
+    + '</tbody></table></div>';
+  fitPartTimeReport();
+}
+// 가로 스크롤 없이 한눈에: 표가 카드보다 넓으면 카드 폭에 맞게 통째로 줄인다
+function fitPartTimeReport() {
+  const wrap = document.getElementById('ptReportFit'), tbl = document.getElementById('ptReportTable');
+  if (!wrap || !tbl) return;
+  tbl.style.transform = ''; wrap.style.height = '';
+  const tblW = tbl.scrollWidth, wrapW = wrap.clientWidth;
+  if (tblW > wrapW && wrapW > 0) {
+    const scale = wrapW / tblW;
+    tbl.style.transform = 'scale(' + scale + ')'; tbl.style.transformOrigin = 'top left';
+    wrap.style.height = (tbl.offsetHeight * scale) + 'px';
+  }
+}
+window.addEventListener('resize', fitPartTimeReport);
 
 // ══════════════════════ 근무 명단 요약 모달 ══════════════════════
 function openSummaryModal() {

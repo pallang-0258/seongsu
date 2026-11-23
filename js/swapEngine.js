@@ -3,6 +3,7 @@
 //  - 같은 날 교환: 10/8에 A(10-20) ↔ B(13-23)
 //  - 다른 날 교환: 10/8과 10/10 두 날짜에서 각각 A ↔ B를 맞바꾼다
 //    (A가 10/8을 B에게 넘기고, 대신 10/10의 B 근무를 A가 맡는 형태)
+//  - 혼자 날짜 바꾸기(type:'self'): 한 직원이 10/8 근무를 쉬고 10/10에 대체근무 (empA === empB)
 // 교환 결과는 state.schedules(수동 변경)에 기록하고, 확정된 주라면 확정 스냅샷에도 함께 반영한다.
 // (schedules에도 남겨두기 때문에 나중에 확정을 해제해도 교환이 사라지지 않는다.)
 // 교환 내역은 state.shiftSwaps에 남고, 취소하면 교환 전 상태로 되돌린 뒤 내역에서도 삭제한다.
@@ -30,9 +31,17 @@ function getSwapForCell(emp, dateStr) {
 }
 // 근무 교환 내역 표시용 한 줄 요약. 예) "10/9 최하은 <> 10/11 김진성", 같은 날이면 "10/9 최하은 <> 김진성"
 // 다른 날 교환은 날짜마다 원래 그 날 근무하던 사람을 그 날짜 옆에 적는다.
+function isSelfSwap(swap) { return swap.type === 'self' || swap.empA === swap.empB; }
 function swapSummaryText(swap) {
   const nm = id => { const e = state.employees.find(x => x.id === id); return e ? e.name : '(삭제된 직원)'; };
   const md = d => +d.slice(5, 7) + '/' + +d.slice(8, 10);
+  // 혼자 날짜 바꾸기: "11/24 → 11/25 김진성 (대체근무)" — 원래 근무하던 날 → 대신 근무하는 날
+  if (isSelfSwap(swap)) {
+    const [d1, d2] = swap.dates;
+    const c1 = swap.cells.find(x => x.date === d1);
+    const from = c1 && swapNorm(c1.before) === 'off' && swapNorm(c1.after) !== 'off' ? d2 : d1;
+    return md(from) + ' → ' + md(from === d1 ? d2 : d1) + ' ' + nm(swap.empA) + ' (대체근무)';
+  }
   if (swap.dates.length < 2) return md(swap.dates[0]) + ' ' + nm(swap.empA) + ' <> ' + nm(swap.empB);
   const [d1, d2] = swap.dates;
   const workedOn = (d, fallback) => {
@@ -44,6 +53,10 @@ function swapSummaryText(swap) {
   if (p1 === p2) { p1 = swap.empA; p2 = swap.empB; }
   return md(d1) + ' ' + nm(p1) + ' <> ' + md(d2) + ' ' + nm(p2);
 }
+// 그 직원 칸에서 볼 때 쓰는 요약: 근무일 옮김은 이름이 이미 보이므로 날짜만 ("11/24 → 11/27")
+function swapSummaryNoName(swap) {
+  return isSelfSwap(swap) ? swapSummaryText(swap).replace(/ \S+ \(대체근무\)$/, '') : swapSummaryText(swap);
+}
 function swapPartnerName(swap, empId) {
   const otherId = swap.empA === empId ? swap.empB : swap.empA;
   const o = state.employees.find(e => e.id === otherId);
@@ -51,6 +64,7 @@ function swapPartnerName(swap, empId) {
 }
 function swapCellTitle(swap, emp, dateStr) {
   const c = swap.cells.find(x => x.empId === emp.id && x.date === dateStr);
+  if (isSelfSwap(swap)) return '근무 날짜 변경: ' + swapSummaryText(swap) + ' (' + swapShiftLabel(c.before) + ' → ' + swapShiftLabel(c.after) + ')' + (swap.memo ? ' · ' + swap.memo : '');
   return '근무 교환: ' + swapPartnerName(swap, emp.id) + '와(과) 교환 (' + swapShiftLabel(c.before) + ' → ' + swapShiftLabel(c.after) + ')'
     + (swap.memo ? ' · ' + swap.memo : '');
 }
@@ -61,8 +75,44 @@ function isEmployedOn(emp, dateStr) {
   return true;
 }
 
+// 교환 날짜가 연차·확정 등으로 막히는지 확인 (혼자 날짜 바꾸기용)
+function swapDateErrors(emp, dateStr, sh) {
+  const md = dateStr.slice(5).replace('-', '/');
+  const errors = [];
+  if (!isEmployedOn(emp, dateStr)) errors.push(md + ': ' + emp.name + ' 님은 이 날짜에 재직 중이 아니에요.');
+  if (SWAP_LEAVE_KEYS.includes(sh)) errors.push(md + ': ' + emp.name + ' 님은 ' + swapShiftLabel(sh) + '가 있어서 바꿀 수 없어요. 연차를 먼저 정리해 주세요.');
+  if (isDateConfirmed(dateStr)) {
+    if (!SWAP_ALLOW_CONFIRMED_WEEKS) errors.push(md + ': 확정된 주예요. 먼저 확정을 해제해 주세요.');
+    const snap = state.confirmedSnapshots[weekKeyForDate(dateStr)];
+    if (!snap[emp.id]) errors.push(md + ': ' + emp.name + ' 님이 확정된 근무표에 없어서 바꿀 수 없어요.');
+  }
+  return errors;
+}
+
+// 혼자 날짜 바꾸기 미리보기: 한 직원의 두 날짜 근무를 맞바꾼다 (예: 24일 근무 → 쉬고, 25일 휴무 → 대체근무)
+function planSelfShiftMove(empId, dates) {
+  const emp = state.employees.find(e => e.id === empId);
+  if (!emp) return { cells: [], errors: ['직원을 골라주세요.'] };
+  dates = dates.filter(Boolean);
+  if (dates.length < 2) return { cells: [], errors: ['원래 근무일과 대체 근무일을 모두 골라주세요.'] };
+  if (dates[0] === dates[1]) return { cells: [], errors: ['서로 다른 날짜 두 개를 골라주세요.'] };
+  const [d1, d2] = dates;
+  const sh1 = getShiftForDate(emp, d1), sh2 = getShiftForDate(emp, d2);
+  const errors = [...swapDateErrors(emp, d1, sh1), ...swapDateErrors(emp, d2, sh2)];
+  if (!errors.length && swapNorm(sh1) === swapNorm(sh2)) errors.push('두 날짜의 근무가 같아서 바뀌는 내용이 없어요.');
+  return {
+    cells: [
+      { empId: emp.id, date: d1, before: sh1, after: sh2 },
+      { empId: emp.id, date: d2, before: sh2, after: sh1 },
+    ],
+    errors,
+  };
+}
+
 // 교환 미리보기: { cells: [{empId,date,before,after}], errors: [문자열] }
+// empAId === empBId 이면 혼자 날짜 바꾸기
 function planShiftSwap(empAId, empBId, dates) {
+  if (empAId && empAId === empBId) return planSelfShiftMove(empAId, dates);
   const errors = [];
   const empA = state.employees.find(e => e.id === empAId);
   const empB = state.employees.find(e => e.id === empBId);
@@ -91,6 +141,10 @@ function planShiftSwap(empAId, empBId, dates) {
         if (!snap[emp.id]) errors.push(md + ': ' + emp.name + ' 님이 확정된 근무표에 없어서 교환할 수 없어요.');
       });
     }
+    // 같은 날 교환은 그 날 둘 다 근무하는 경우에만 (휴무인 사람과는 바꿀 수 없음)
+    if (dates.length === 1) [[empA, shA], [empB, shB]].forEach(([emp, sh]) => {
+      if (swapNorm(sh) === 'off') errors.push(md + ': ' + emp.name + ' 님은 이 날 휴무라서 같은 날 교환을 할 수 없어요. 그 날 근무하는 사람끼리만 바꿀 수 있어요.');
+    });
     if (swapNorm(shA) !== swapNorm(shB)) anyChange = true;
     cells.push({ empId: empA.id, date: dateStr, before: shA, after: shB });
     cells.push({ empId: empB.id, date: dateStr, before: shB, after: shA });
@@ -127,6 +181,7 @@ function applyShiftSwap(empAId, empBId, dates, memo) {
   const rec = {
     id: nextId(state.shiftSwaps),
     empA: empAId, empB: empBId,
+    ...(empAId === empBId ? { type: 'self' } : {}),
     dates: dates.filter(Boolean),
     memo: (memo || '').trim(),
     createdAt: toLocalDateStr(TODAY),
