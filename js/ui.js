@@ -300,6 +300,7 @@ function renderSchedule() {
   renderHolidayManager();
   renderHolidayReport();
   initSwapHistoryFilters();
+  syncSwapHistoryMonth();
   renderSwapHistory();
   setTimeout(fitTableToScreen, 50);
 }
@@ -512,15 +513,28 @@ function submitSwap() {
 function initSwapHistoryFilters() {
   const ySel = document.getElementById('swapYearSel');
   if (!ySel) return;
-  const years = new Set([TODAY.getFullYear()]);
-  (state.shiftSwaps || []).forEach(s => s.dates.forEach(d => years.add(+d.slice(0, 4))));
   const curY = ySel.value || String(TODAY.getFullYear());
+  const years = new Set([TODAY.getFullYear(), +curY]);
+  (state.shiftSwaps || []).forEach(s => s.dates.forEach(d => years.add(+d.slice(0, 4))));
   ySel.innerHTML = [...years].sort().map(y => '<option value="' + y + '"' + (String(y) === curY ? ' selected' : '') + '>' + y + '년</option>').join('');
   const mSel = document.getElementById('swapMonthSel');
   if (!mSel.options.length) mSel.innerHTML = '<option value="">전체</option>' + Array.from({ length: 12 }, (_, i) => '<option value="' + String(i + 1).padStart(2, '0') + '">' + (i + 1) + '월</option>').join('');
   const eSel = document.getElementById('swapEmpSel');
   const curE = eSel.value;
   eSel.innerHTML = '<option value="">전체 직원</option>' + DEPTS.flatMap(d => state.employees.filter(e => e.dept === d)).map(e => '<option value="' + e.id + '"' + (String(e.id) === curE ? ' selected' : '') + '>' + swapEsc(e.name) + '</option>').join('');
+}
+// 근무 교환 내역은 근무표에서 보고 있는 달(주차 드롭다운과 같은 기준)을 따라간다.
+// 같은 달 안에서 주를 옮길 때는 직접 고른 연/월(전체 포함)을 그대로 둔다.
+function syncSwapHistoryMonth() {
+  const ySel = document.getElementById('swapYearSel'), mSel = document.getElementById('swapMonthSel');
+  if (!ySel || !mSel) return;
+  const d = getWeekDays(ui.weekOffset)[0];
+  const y = String(d.getFullYear()), m = String(d.getMonth() + 1).padStart(2, '0');
+  if (ui.swapHistoryMonth === y + '-' + m) return;
+  ui.swapHistoryMonth = y + '-' + m;
+  if (![...ySel.options].some(o => o.value === y)) ySel.innerHTML += '<option value="' + y + '">' + y + '년</option>';
+  ySel.value = y;
+  mSel.value = m;
 }
 function renderSwapHistory() {
   const table = document.getElementById('swapHistoryTable');
