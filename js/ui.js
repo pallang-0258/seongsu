@@ -1397,3 +1397,44 @@ function pullFromSheets() {
     else { res.textContent = '✗ 데이터 없음 또는 실패'; res.style.color = '#c0392b'; GAS_URL = prevUrl; }
   }, { overwriteUnsynced: true });
 }
+
+// ══════════════════════ 직원 선택칸 이름 검색 ══════════════════════
+// 직원 선택칸(<select>) 앞에 이름 입력칸을 붙인다. 입력한 글자가 들어간 직원만 목록에 남기고,
+// 한 명만 남으면 바로 선택한다. Enter는 첫 번째 결과를 고른다. 고르면 선택칸의 onchange가 그대로 실행된다.
+// 선택칸 목록을 코드가 새로 채우면(창을 다시 열 때 등) 검색어는 자동으로 지워진다.
+function attachEmpSearch(selectId, { inline = false } = {}) {
+  const sel = document.getElementById(selectId);
+  if (!sel || sel._empSearch) return;
+  const input = document.createElement('input');
+  input.type = 'text'; input.placeholder = '이름 검색'; input.autocomplete = 'off';
+  input.style.cssText = inline ? 'height:32px;font-size:12px;width:84px' : 'margin-bottom:6px;width:100%';
+  sel.parentNode.insertBefore(input, sel);
+  const st = sel._empSearch = { input, all: null, mine: false };
+  const norm = t => String(t).replace(/\s+/g, '').toLowerCase();
+  const fire = () => sel.dispatchEvent(new Event('change'));
+  new MutationObserver(() => { if (!st.mine) { st.all = null; input.value = ''; } }).observe(sel, { childList: true });
+  input.addEventListener('input', () => {
+    if (!st.all) st.all = [...sel.options].map(o => ({ value: o.value, text: o.text }));
+    const q = norm(input.value), prev = sel.value;
+    // 값이 빈 항목("전체 직원" 등)은 항상 남겨둔다
+    const list = st.all.filter(o => !o.value || !q || norm(o.text).includes(q));
+    st.mine = true;
+    sel.innerHTML = list.map(o => '<option value="' + swapEsc(o.value) + '">' + swapEsc(o.text) + '</option>').join('');
+    st.mine = false;
+    const hits = list.filter(o => o.value);
+    if (q && hits.length === 1) sel.value = hits[0].value;
+    else if (list.some(o => o.value === prev)) sel.value = prev;
+    if (!q) st.all = null;
+    if (sel.value !== prev) fire();
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const first = [...sel.options].find(o => o.value);
+    if (first && sel.value !== first.value) { sel.value = first.value; fire(); }
+  });
+}
+function initEmpSearchBoxes() {
+  ['leaveEmpSel', 'otEmpSel', 'smmEmp'].forEach(id => attachEmpSearch(id));
+  ['leaveEmpFilter', 'otEmpFilter', 'swapEmpSel'].forEach(id => attachEmpSearch(id, { inline: true }));
+}
