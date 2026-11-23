@@ -295,26 +295,6 @@
             <div style="overflow-x:auto"><table class="lv-table" id="empTable"></table></div>
           </div>
         </div>
-        <div style="width:320px;flex-shrink:0">
-          <div class="card" style="margin-bottom:0">
-            <div class="card-header" style="margin-bottom:10px">
-              <div class="card-title">직원 메모</div>
-              <button class="btn primary sm" onclick="openEmpMemoModal()">+ 추가</button>
-            </div>
-            <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-              <select id="memoYear" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:78px"></select>
-              <select id="memoMonth" onchange="renderEmpMemos()" style="height:30px;font-size:12px;width:66px">
-                <option value="">전체</option>
-                <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
-                <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
-                <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
-                <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
-              </select>
-              <select id="memoEmpFilter" onchange="renderEmpMemos()" style="height:30px;font-size:12px;flex:1;min-width:80px"><option value="">전체 직원</option></select>
-            </div>
-            <div id="empMemoList" style="max-height:calc(100vh - 220px);overflow-y:auto"></div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -587,24 +567,6 @@
     <div class="modal-title" id="shiftHistoryTitle">스케줄 변경 예정</div>
     <div id="shiftHistoryBody"></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('shiftHistoryModal')">닫기</button></div>
-  </div>
-</div>
-
-<!-- 직원 메모 모달 -->
-<div class="modal-bg" id="empMemoModal">
-  <div class="modal" style="width:440px">
-    <div class="modal-title" id="empMemoModalTitle">메모 추가</div>
-    <div class="form-row"><label class="form-label">직원</label><select id="memoEmpSel"></select></div>
-    <div class="form-row"><label class="form-label">날짜</label><input type="date" id="memoDate"></div>
-    <div class="form-row">
-      <label class="form-label">메모 내용</label>
-      <textarea id="memoContent" rows="4" placeholder="메모를 입력하세요"
-        style="width:100%;border-radius:8px;border:1px solid #d8d5cf;background:#fff;color:#1a1a1a;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('empMemoModal')">취소</button>
-      <button class="btn primary" onclick="submitEmpMemo()">저장</button>
-    </div>
   </div>
 </div>
 
