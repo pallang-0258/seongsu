@@ -171,17 +171,16 @@ function buildSchTable(el, off) {
       days.forEach((dayDate, di) => {
         const dateStr = toLocalDateStr(dayDate);
         const sh = getShift(emp, di, off);
-        // 추가근무 기록 (추가근무 탭에서 등록) — 근무일·휴무일·반차·확정된 주 모두 칸에 "+추가 Nh"로 표시
+        // 추가근무 기록 (추가근무 탭에서 등록) — 원래 쉬는 날에 한 추가근무는 그 시간을 파란 칸으로 보여준다
         const otRecs = (state.overtimeRecords || []).filter(r => r.empId === emp.id && r.date === dateStr);
         const otHours = Math.round(otRecs.reduce((t, r) => t + calcOtHours(r.startTime, r.endTime), 0) * 10) / 10;
-        const otTag = otHours ? '<div style="font-size:9px;color:#1565c0;font-weight:700;margin-top:1px;pointer-events:none;white-space:nowrap">+추가 ' + otHours + 'h</div>' : '';
         const otOnlyPill = () => {
           const t = otRecs.filter(r => r.startTime && r.endTime).map(r => r.startTime.replace(/:00$/, '').replace(/^0/, '') + '-' + r.endTime.replace(/:00$/, '').replace(/^0/, '')).join(', ');
           return '<div class="shift-pill" style="pointer-events:none;background:#e3f2fd;color:#1565c0">' + (t || '추가근무') + '</div>';
         };
         if (sh === '__off__' && otHours) {
           html += '<td onclick="openShiftEdit(' + emp.id + ',' + di + ')" style="cursor:pointer">'
-            + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">' + otOnlyPill() + otTag + '</div></td>';
+            + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">' + otOnlyPill() + '</div></td>';
           return;
         }
         if (sh === '__off__') {
@@ -226,7 +225,7 @@ function buildSchTable(el, off) {
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative">'
           + noteDot + swapMark
           + (lb ? '<div class="shift-pill ' + cl + '" style="pointer-events:none">' + lb + '</div>' : lb === null ? '' : '<span style="font-size:10px;color:#ccc">-</span>')
-          + extraLabel + otTag
+          + extraLabel
           + '</div></td>';
       });
       html += '</tr>';
