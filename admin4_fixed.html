@@ -344,8 +344,8 @@
   <div class="modal" style="width:440px">
     <div class="modal-title"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg> 근무 교환</div>
     <div class="form-row" style="display:flex;gap:8px">
-      <div style="flex:1"><label class="form-label">직원 1</label><select id="swapEmpA" onchange="renderSwapPreview()"></select></div>
-      <div style="flex:1"><label class="form-label">직원 2</label><select id="swapEmpB" onchange="renderSwapPreview()"></select></div>
+      <div style="flex:1"><label class="form-label">직원 1</label><input type="text" id="swapEmpAQ" placeholder="이름으로 검색" autocomplete="off" oninput="filterSwapEmp('A')" onkeydown="if(event.key==='Enter'){event.preventDefault();pickFirstSwapEmp('A')}" style="margin-bottom:6px"><select id="swapEmpA" onchange="renderSwapPreview()"></select></div>
+      <div style="flex:1"><label class="form-label">직원 2</label><input type="text" id="swapEmpBQ" placeholder="이름으로 검색" autocomplete="off" oninput="filterSwapEmp('B')" onkeydown="if(event.key==='Enter'){event.preventDefault();pickFirstSwapEmp('B')}" style="margin-bottom:6px"><select id="swapEmpB" onchange="renderSwapPreview()"></select></div>
     </div>
     <div class="form-row"><label class="form-label">교환 방식</label>
       <div style="display:flex;gap:14px;font-size:13px">

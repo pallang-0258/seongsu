@@ -452,14 +452,32 @@ function applyShift() {
 
 // ══════════════════════ 근무 교환 ══════════════════════
 function swapEsc(t) { return String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])); }
-function swapEmpOptions(selectedId) {
-  const emps = DEPTS.flatMap(d => state.employees.filter(e => e.dept === d && !isResigned(e)));
-  return '<option value="">선택</option>' + emps.map(e => '<option value="' + e.id + '"' + (e.id === selectedId ? ' selected' : '') + '>' + swapEsc(e.name) + ' (' + e.dept + ')</option>').join('');
+function swapEmpOptions(selectedId, query) {
+  const q = (query || '').replace(/\s+/g, '').toLowerCase();
+  const emps = DEPTS.flatMap(d => state.employees.filter(e => e.dept === d && !isResigned(e)))
+    .filter(e => !q || e.name.replace(/\s+/g, '').toLowerCase().includes(q));
+  return '<option value="">' + (q ? (emps.length ? '검색 결과 ' + emps.length + '명' : '검색 결과 없음') : '선택') + '</option>' + emps.map(e => '<option value="' + e.id + '"' + (e.id === selectedId ? ' selected' : '') + '>' + swapEsc(e.name) + ' (' + e.dept + ')</option>').join('');
+}
+// 교환 등록 창: 이름을 입력하면 아래 목록이 그 이름만 남도록 줄어든다. 한 명만 남으면 바로 선택된다.
+function filterSwapEmp(which) {
+  const sel = document.getElementById('swapEmp' + which);
+  const q = document.getElementById('swapEmp' + which + 'Q').value;
+  sel.innerHTML = swapEmpOptions(+sel.value || null, q);
+  const matches = [...sel.options].filter(o => o.value);
+  if (q.trim() && matches.length === 1) sel.value = matches[0].value;
+  renderSwapPreview();
+}
+function pickFirstSwapEmp(which) {
+  const sel = document.getElementById('swapEmp' + which);
+  const first = [...sel.options].find(o => o.value);
+  if (first) { sel.value = first.value; renderSwapPreview(); }
 }
 function getSwapMode() { return document.querySelector('input[name="swapMode"]:checked').value; }
 function openSwapModal() {
   document.getElementById('swapEmpA').innerHTML = swapEmpOptions(ui.selectedEmpId);
   document.getElementById('swapEmpB').innerHTML = swapEmpOptions(null);
+  document.getElementById('swapEmpAQ').value = '';
+  document.getElementById('swapEmpBQ').value = '';
   document.querySelector('input[name="swapMode"][value="same"]').checked = true;
   const defDate = ui.weekOffset === 0 ? toLocalDateStr(TODAY) : weekKey(ui.weekOffset);
   document.getElementById('swapDate1').value = defDate;
