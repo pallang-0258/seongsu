@@ -75,12 +75,47 @@ function isViewerMode() { return typeof VIEWER_MODE !== 'undefined' && VIEWER_MO
 function cacheKey() { return isViewerMode() ? 'wms_viewer_v1' : 'wms_v6'; }
 function getAdminKey() { try { return localStorage.getItem(ADMIN_KEY_STORAGE) || ''; } catch (e) { return ''; } }
 function setAdminKey(k) { try { if (k) localStorage.setItem(ADMIN_KEY_STORAGE, k); else localStorage.removeItem(ADMIN_KEY_STORAGE); } catch (e) {} }
-// 비밀번호가 틀렸거나 없을 때 묻는다. 입력하면 true.
-function askAdminKey(msg) {
-  const k = prompt((msg || '관리자 비밀번호를 입력해 주세요.') + '\n(구글시트 Apps Script의 스크립트 속성 ADMIN_KEY 값)');
-  if (k === null || !k.trim()) return false;
-  setAdminKey(k.trim());
-  return true;
+// 비밀번호가 틀렸거나 없을 때 묻는다. 입력은 ●●● 로 가려서 보인다. 입력하면 done(true), 취소하면 done(false).
+// 이미 창이 열려 있으면 새로 열지 않고 같은 답을 함께 받는다.
+let _adminKeyWaiters = null;
+function askAdminKey(msg, done) {
+  if (_adminKeyWaiters) { _adminKeyWaiters.push(done); return; }
+  _adminKeyWaiters = [done];
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  wrap.innerHTML = '<form style="background:#fff;border-radius:10px;padding:20px;width:100%;max-width:340px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-size:14px">'
+    + '<div style="font-weight:700;margin-bottom:6px">관리자 비밀번호</div>'
+    + '<div style="color:#555;margin-bottom:12px;line-height:1.5"></div>'
+    + '<div style="position:relative"><input type="password" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:9px 52px 9px 10px;border:1px solid #ccc;border-radius:6px;font-size:15px">'
+    + '<button type="button" data-act="show" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;color:#666;font-size:12px;cursor:pointer">보기</button></div>'
+    + '<div style="color:#999;font-size:11px;margin-top:6px">구글시트 Apps Script의 스크립트 속성 ADMIN_KEY 값</div>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'
+    + '<button type="button" data-act="cancel" style="padding:7px 14px;border:1px solid #ccc;background:#fff;border-radius:6px;cursor:pointer">취소</button>'
+    + '<button type="submit" style="padding:7px 14px;border:none;background:#2c3e50;color:#fff;border-radius:6px;cursor:pointer">확인</button></div></form>';
+  wrap.querySelector('form > div:nth-child(2)').textContent = msg || '관리자 비밀번호를 입력해 주세요.';
+  const input = wrap.querySelector('input');
+  const close = ok => {
+    wrap.remove();
+    const ws = _adminKeyWaiters; _adminKeyWaiters = null;
+    ws.forEach(cb => cb && cb(ok));
+  };
+  wrap.querySelector('[data-act="show"]').onclick = e => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    e.target.textContent = show ? '숨기기' : '보기';
+    input.focus();
+  };
+  wrap.querySelector('[data-act="cancel"]').onclick = () => close(false);
+  wrap.querySelector('form').onsubmit = e => {
+    e.preventDefault();
+    const k = input.value.trim();
+    if (!k) { input.focus(); return; }
+    setAdminKey(k);
+    close(true);
+  };
+  input.addEventListener('keydown', e => { if (e.key === 'Escape') close(false); });
+  document.body.appendChild(wrap);
+  setTimeout(() => input.focus(), 0);
 }
 
 function setGasUrl(url) {
@@ -258,8 +293,10 @@ function doSyncNow(callback, opts) {
       } else if (res.auth) {
         // 비밀번호가 없거나 틀림: 물어보고 다시 보낸다 (취소하면 변경사항은 이 기기에만 남아 있다가 다음에 다시 전송)
         setSyncIndicator('⚠ 관리자 비밀번호 필요', '#c0392b');
-        if (askAdminKey('구글시트에 저장하려면 관리자 비밀번호가 필요해요.')) { _syncInFlight = false; doSyncNow(callback, opts); }
-        else finish(false);
+        askAdminKey('구글시트에 저장하려면 관리자 비밀번호가 필요해요.', ok => {
+          if (ok) { _syncInFlight = false; doSyncNow(callback, opts); }
+          else finish(false);
+        });
       } else if (res.conflict) {
         setSyncIndicator('⚠ 다른 기기와 저장 충돌', '#c0392b');
         resolveSyncConflict(ok => finish(ok));
@@ -314,8 +351,10 @@ function loadFromSheets(callback, opts) {
   req
     .then(res => {
       if (res && res.auth) {
-        if (askAdminKey(getAdminKey() ? '관리자 비밀번호가 맞지 않아요. 다시 입력해 주세요.' : '구글시트에서 데이터를 불러오려면 관리자 비밀번호가 필요해요.')) { loadFromSheets(callback, opts); return; }
-        if (callback) callback(false);
+        askAdminKey(getAdminKey() ? '관리자 비밀번호가 맞지 않아요. 다시 입력해 주세요.' : '구글시트에서 데이터를 불러오려면 관리자 비밀번호가 필요해요.', ok => {
+          if (ok) loadFromSheets(callback, opts);
+          else if (callback) callback(false);
+        });
         return;
       }
       if (res.ok && res.data && Object.keys(res.data).length) {
