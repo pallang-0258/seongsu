@@ -78,7 +78,7 @@ body {
   body { overflow-x: hidden; }
   .sch-wrap { overflow-x: visible; }
   .sum-wrap { overflow-x: visible; }
-  .sch-table { min-width: 0 !important; font-size: 11px !important; }
+  .sch-table { min-width: 0 !important; font-size: 11px !important; table-layout: auto !important; }
   .sch-table th { font-size: 11px !important; padding: 6px 2px !important; white-space: nowrap !important; }
   .sch-table td { height: 36px !important; }
   .emp-cell { padding: 2px 6px !important; font-size: 13px !important; white-space: nowrap !important; }
@@ -144,16 +144,19 @@ body {
 .unconfirmed { background: #fef3d9; color: #b06a00; }
 
 .sch-wrap { overflow-x: auto; border-radius: var(--radius-md); }
-.sch-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.sch-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; table-layout: fixed; min-width: 520px; }
+/* PC: 부서·이름 칸은 고정 너비, 요일 칸은 남은 너비를 똑같이 나눈다 (화면이 아주 좁으면 가로 스크롤) */
 .sch-table th, .sch-table td { border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); padding: 0; text-align: center; }
-.sch-table th { background: var(--bg); font-weight: 700; padding: 8px 10px; color: var(--muted); font-size: 11px; letter-spacing: .01em; }
+.sch-table th { background: var(--bg); font-weight: 700; padding: 8px 10px; white-space: nowrap; color: var(--muted); font-size: 11px; letter-spacing: .01em; }
 .sch-table th.wknd { color: #d64545; }
 .sch-table td { height: 42px; position: relative; }
 .emp-cell { text-align: left; padding: 4px 12px; background: var(--surface); white-space: nowrap; font-weight: 500; }
 .dept-cell { text-align: center; padding: 4px 8px; background: #f7f9fc; font-size: 11px; color: var(--muted); white-space: nowrap; font-weight: 600; }
 .shift-cell { width: 100%; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .1s; }
 .shift-cell:hover { background: var(--bg); }
-.shift-pill { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; pointer-events: none; }
+.shift-pill { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; pointer-events: none; white-space: nowrap; }
+/* PC인데 화면이 좁을 때: 근무 시간(예: 10-18:40)이 두 줄로 나뉘지 않게 글씨·여백을 조금 줄인다 */
+@media (min-width: 769px) and (max-width: 1100px) { .sch-table .shift-pill { padding: 3px 4px; font-size: 10px; } }
 .s-1020 { background: #e5f4e8; color: #2a7a34; }
 .s-1019 { background: #e5f4e8; color: #2a7a34; }
 .s-1323 { background: #ece5fb; color: #5931b8; }

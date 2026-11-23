@@ -149,8 +149,8 @@ function buildSchTable(el, off) {
   const depts = DEPTS.filter(d => emps.some(e => e.dept === d));
   const isMobile = window.innerWidth <= 768;
   const deptW = isMobile ? '22px' : '44px';
-  const nameW = isMobile ? '40px' : '72px';
-  let html = '<colgroup><col style="width:' + deptW + '"><col style="width:' + nameW + '">' + days.map(() => '<col style="width:' + (100 / 7).toFixed(2) + '%">').join('') + '</colgroup>'
+  const nameW = isMobile ? '40px' : '80px';
+  let html = '<colgroup><col style="width:' + deptW + '"><col style="width:' + nameW + '">' + days.map(() => '<col>').join('') + '</colgroup>'
     + '<thead><tr><th>부서</th><th style="text-align:left;padding-left:7px">직원</th>'
     + days.map((d, i) => {
         const dateStr = toLocalDateStr(d);
