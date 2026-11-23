@@ -38,12 +38,59 @@ const HALF_HOURS = {
   '1323': { half: 5, half_pm: 5 },
 };
 
+// ── 시간 직접 입력 근무 ──
+// 정해진 근무(10-20 등) 말고 그날만 시간을 직접 정한 근무는 'c1000-1500'처럼
+// 'c' + 시작(HHMM) + '-' + 종료(HHMM) 문자열로 저장한다. 기존 근무 값과 같은 자리에
+// 문자열로 들어가므로 근무 교환·주 확정·구글시트 저장이 그대로 동작한다.
+const CUSTOM_SHIFT_RE = /^c(\d{2})(\d{2})-(\d{2})(\d{2})$/;
+function isCustomShiftKey(v) { return typeof v === 'string' && CUSTOM_SHIFT_RE.test(v); }
+function makeCustomShiftKey(startMin, endMin) {
+  const f = m => String(Math.floor(m / 60)).padStart(2, '0') + String(m % 60).padStart(2, '0');
+  return 'c' + f(startMin) + '-' + f(endMin);
+}
+// 근무 구간 [시작분, 종료분] (정해진 근무 + 직접 입력 근무). 근무가 아니면 null
+function shiftRangeMin(v) {
+  if (SHIFT_RANGE_MIN[v]) return SHIFT_RANGE_MIN[v].slice();
+  const m = typeof v === 'string' ? v.match(CUSTOM_SHIFT_RE) : null;
+  if (!m) return null;
+  return [(+m[1]) * 60 + (+m[2]), (+m[3]) * 60 + (+m[4])];
+}
+function shiftHours(v) {
+  if (SHIFT_HOURS[v] !== undefined) return SHIFT_HOURS[v];
+  const r = shiftRangeMin(v);
+  return r ? Math.round((r[1] - r[0]) / 60 * 100) / 100 : 0;
+}
+function shiftLabel(v) {
+  if (isCustomShiftKey(v)) { const r = shiftRangeMin(v); return formatMinutesLabel(r[0]) + '-' + formatMinutesLabel(r[1]); }
+  return SHIFT_LABEL[v] || '';
+}
+// 직접 입력 근무는 12시 전에 시작하면 오전, 그 뒤면 오후로 본다
+const CUSTOM_PM_START_MIN = 12 * 60;
+function isAmShift(v) { return AM_KEYS.includes(v) || (isCustomShiftKey(v) && shiftRangeMin(v)[0] < CUSTOM_PM_START_MIN); }
+function isPmShift(v) { return PM_KEYS.includes(v) || (isCustomShiftKey(v) && shiftRangeMin(v)[0] >= CUSTOM_PM_START_MIN); }
+// 요약표 오전/오후 줄 배정. 물류처럼 오후 줄이 없는 부서는 직접 입력한 오후 근무도 오전 줄에 넣어
+// 요약표에서 빠지지 않게 한다.
+function shiftInSummaryRow(isAmRow, v, dept) {
+  const noPmRow = PM_EXCLUDE_DEPTS.includes(dept);
+  if (isAmRow) return isAmShift(v) || (noPmRow && isCustomShiftKey(v));
+  return isPmShift(v) && !(noPmRow && isCustomShiftKey(v));
+}
+function shiftCls(v) {
+  if (isCustomShiftKey(v)) return (isAmShift(v) ? 's-1020' : 's-1323') + ' s-custom';
+  return SHIFT_CLS[v] || '';
+}
+
 function getHalfLabel(baseShift, halfType) {
+  if (isCustomShiftKey(baseShift)) {
+    const [s, e] = shiftRangeMin(baseShift), mid = Math.round((s + e) / 2);
+    return halfType === 'half' ? formatMinutesLabel(mid) + '-' + formatMinutesLabel(e) : formatMinutesLabel(s) + '-' + formatMinutesLabel(mid);
+  }
   const map = HALF_TIME[baseShift];
   if (!map) return halfType === 'half' ? '반차(오전)' : '반차(오후)';
   return map[halfType] || (halfType === 'half' ? '반차(오전)' : '반차(오후)');
 }
 function getHalfHours(baseShift, halfType) {
+  if (isCustomShiftKey(baseShift)) return Math.round(shiftHours(baseShift) / 2 * 100) / 100;
   const map = HALF_HOURS[baseShift];
   if (!map) return 0;
   return map[halfType] || 0;

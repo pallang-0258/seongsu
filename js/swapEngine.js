@@ -12,7 +12,7 @@ const SWAP_ALLOW_CONFIRMED_WEEKS = true;
 
 function swapShiftLabel(v) {
   if (v === '__off__' || v === 'off' || !v) return '휴무';
-  return SHIFT_LABEL[v] || v;
+  return shiftLabel(v) || v;
 }
 // 표시·비교용: '__off__'(비근무일)과 'off'(휴무)는 같은 "쉬는 날"로 본다
 function swapNorm(v) { return (v === '__off__' || !v) ? 'off' : v; }

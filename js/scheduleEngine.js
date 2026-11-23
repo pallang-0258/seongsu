@@ -60,7 +60,7 @@ function resolveDayPattern(patDay, off) {
   return patDay || null;
 }
 
-function isFullShiftKey(v) { return v === '1020' || v === '1019' || v === '1323'; }
+function isFullShiftKey(v) { return v === '1020' || v === '1019' || v === '1323' || isCustomShiftKey(v); }
 
 // 오늘 기준으로 적용되는 "현재" 패턴 (shiftHistory를 거쳐 해소된 값).
 // admin4_fixed.html은 promoteShiftHistory()로 DEFAULT_SHIFT를 주기적으로 이관했지만,
@@ -242,7 +242,7 @@ function getDisplayInfo(emp, di2, off) {
 function getWorkedRangeForDate(emp, dateStr) {
   const baseShift = getBaseShiftForDate(emp, dateStr);
   const otRecs = (state.overtimeRecords || []).filter(r => r.empId === emp.id && r.date === dateStr);
-  let range = isFullShiftKey(baseShift) ? SHIFT_RANGE_MIN[baseShift].slice() : null;
+  let range = isFullShiftKey(baseShift) ? shiftRangeMin(baseShift) : null;
   if (!otRecs.length) return null;
   otRecs.forEach(r => {
     if (!r.startTime || !r.endTime) return;

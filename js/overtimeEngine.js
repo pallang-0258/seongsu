@@ -61,7 +61,7 @@ function calcScheduledHoursForDate(emp, dateStr) {
     const base = getBaseShiftForDate(emp, dateStr);
     return getHalfHours(base, sh);
   }
-  if (isFullShiftKey(sh)) return SHIFT_HOURS[sh] || 0;
+  if (isFullShiftKey(sh)) return shiftHours(sh);
   return 0;
 }
 

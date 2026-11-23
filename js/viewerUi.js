@@ -95,9 +95,9 @@ function buildSchTable(el, off) {
         } else if (sh === 'off' && isManuallySet) {
           lb = ''; cl = '';
         } else if (isFullShiftKey(sh) && otRange) {
-          lb = otRange.text; cl = SHIFT_CLS[sh] || '';
+          lb = otRange.text; cl = shiftCls(sh);
         } else {
-          cl = SHIFT_CLS[sh] || ''; lb = SHIFT_LABEL[sh] || '';
+          cl = shiftCls(sh); lb = shiftLabel(sh);
         }
 
         const noteText = getNote(emp.id, di, off);
@@ -149,9 +149,10 @@ function buildSummaryTable(el, off) {
       if (di === 0) html += '<td class="sum-shift-cell" rowspan="' + rowDepts.length + '"><div class="sum-shift-inner"><div class="shift-pill ' + sd.cls + '" style="font-size:10px">' + sd.label + '</div></div></td>';
       html += '<td class="sum-dept-cell" style="width:80px">' + dept + '</td>';
       days.forEach((_, di2) => {
-        const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => sd.keys.includes(x.shiftKey));
+        const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => shiftInSummaryRow(sd.keys === AM_KEYS, x.shiftKey, dept));
         const cell = entries.map(x => {
           if (x.isHalf) { const timeLabel = getHalfLabel(x.shiftKey, x.halfType); return x.name + '<span style="font-size:9px;color:#c0392b">(' + timeLabel + ')</span>'; }
+          if (isCustomShiftKey(x.shiftKey)) return x.name + '<span style="font-size:9px;color:#666">(' + shiftLabel(x.shiftKey) + ')</span>';
           return x.name;
         }).join('<br>');
         html += '<td class="sum-name-cell">' + (cell || '<span style="color:#ddd">-</span>') + '</td>';
