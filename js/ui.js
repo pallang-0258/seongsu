@@ -261,9 +261,11 @@ function buildSummaryTable(el, off) {
       days.forEach((_, di2) => {
         const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => shiftInSummaryRow(sd.keys === AM_KEYS, x.shiftKey, dept));
         const cell = entries.map(x => {
-          if (x.isHalf) { const timeLabel = getHalfLabel(x.shiftKey, x.halfType); return x.name + '<span style="font-size:9px;color:#c0392b">(' + timeLabel + ')</span>'; }
-          if (isCustomShiftKey(x.shiftKey)) return x.name + '<span style="font-size:9px;color:#666">(' + shiftLabel(x.shiftKey) + ')</span>';
-          return x.name;
+          // 이름과 (시간)은 각각 중간에 끊기지 않게. 칸이 좁으면 (시간)만 통째로 다음 줄로 넘어간다
+          const nw = t => '<span style="white-space:nowrap">' + t + '</span>';
+          if (x.isHalf) { const timeLabel = getHalfLabel(x.shiftKey, x.halfType); return nw(x.name) + '<wbr>' + nw('<span style="font-size:9px;color:#c0392b">(' + timeLabel + ')</span>'); }
+          if (isCustomShiftKey(x.shiftKey)) return nw(x.name) + '<wbr>' + nw('<span style="font-size:9px;color:#666">(' + shiftLabel(x.shiftKey) + ')</span>');
+          return nw(x.name);
         }).join('<br>');
         html += '<td class="sum-name-cell">' + (cell || '<span style="color:#ddd">-</span>') + '</td>';
       });

@@ -163,7 +163,7 @@ body {
 .s-custom { outline: 1.5px dashed currentColor; outline-offset: -2px; }
 
 .sum-wrap { overflow-x: auto; border-radius: var(--radius-md); }
-.sum-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; table-layout: fixed; } /* 요일 칸 너비를 똑같이 (이름이 긴 날만 넓어지지 않게) */
+.sum-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; table-layout: fixed; } /* 요일 칸 너비를 똑같이. 칸이 좁으면 (시간)만 통째로 다음 줄로 */
 .sum-table th, .sum-table td { border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); }
 .sum-table th { background: var(--bg); font-weight: 700; text-align: center; padding: 7px 10px; font-size: 11px; color: var(--muted); }
 .sum-table th.wknd { color: #d64545; }
