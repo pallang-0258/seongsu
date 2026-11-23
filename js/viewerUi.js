@@ -350,7 +350,7 @@ function renderLeaveHistoryViewer() {
   if (!emp) { container.innerHTML = ''; return; }
 
   if (!unlockedEmpIds.has(empId)) {
-    const hasPhone = !!(emp.phone && emp.phone.replace(/\D/g, '').length >= 4);
+    const hasPhone = empPhoneLast4(emp).length === 4;
     if (!hasPhone) {
       container.innerHTML = '<div style="color:#c0392b;font-size:12px;padding:12px 0;text-align:center">이 직원은 전화번호가 등록되어 있지 않아 확인할 수 없습니다. 관리자에게 문의해주세요.</div>';
       return;
@@ -376,10 +376,12 @@ function renderLeaveHistoryViewer() {
     + '<button class="btn sm" onclick="lockLeaveHistory(' + empId + ')" style="font-size:10px">🔒 잠금</button></div>'
     + buildLeaveRows(filtered);
 }
+// 뷰어가 받는 데이터에는 전화번호 대신 뒷 4자리(phoneLast4)만 들어 있다 (예전 Apps Script면 phone 그대로)
+function empPhoneLast4(emp) { return emp.phoneLast4 || (emp.phone || '').replace(/\D/g, '').slice(-4); }
 function submitLeaveHistoryPassword(empId) {
   const emp = state.employees.find(e => e.id === empId); if (!emp) return;
   const input = (document.getElementById('lvHistPw').value || '').trim();
-  const last4 = (emp.phone || '').replace(/\D/g, '').slice(-4);
+  const last4 = empPhoneLast4(emp);
   if (input && input === last4) { unlockedEmpIds.add(empId); renderLeaveHistoryViewer(); }
   else { const err = document.getElementById('lvHistPwErr'); if (err) err.textContent = '번호가 일치하지 않습니다'; document.getElementById('lvHistPw').value = ''; document.getElementById('lvHistPw').focus(); }
 }

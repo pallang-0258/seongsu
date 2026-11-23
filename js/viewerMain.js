@@ -1,6 +1,10 @@
 // ── 직원용 뷰어 부트스트랩 ──
 // admin과 동일한 순서: 1) localStorage 캐시로 즉시 표시  2) GAS(구글시트)에서 최신 데이터 자동 로드
 // 뷰어는 절대 save()/syncToSheets()를 호출하지 않는다 (읽기 전용).
+// 뷰어는 민감한 칸(전화번호·주민번호·계좌번호·직원 메모)이 빠진 데이터만 받고, 관리자와 다른 캐시 키를 쓴다.
+var VIEWER_MODE = true;
+// 예전 뷰어가 이 기기에 남겨둔 전체 데이터 캐시는 지운다 (관리자로 쓰는 기기는 그대로 둠)
+try { if (!localStorage.getItem('wms_admin_key') && !localStorage.getItem('wms_v6_dirty')) localStorage.removeItem('wms_v6'); } catch (e) {}
 
 function renderAllViewer() {
   initWeekDropdowns();

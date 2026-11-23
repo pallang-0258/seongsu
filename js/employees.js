@@ -87,6 +87,7 @@ function openEmpModal() {
   document.getElementById('nLeaveDate').value = '';
   document.getElementById('nEmploymentType').value = 'fulltime';
   document.getElementById('nPhone').value = '';
+  document.getElementById('nRrn').value = ''; document.getElementById('nBankAccount').value = '';
   document.getElementById('nTrueJoinDate').value = '';
   document.getElementById('workTypeHint').textContent = '';
   document.getElementById('empApplyFromWrap').style.display = 'none';
@@ -102,6 +103,7 @@ function openEditEmp(id) {
   document.getElementById('nWorkType').value = getCurrentWorkType(e);
   document.getElementById('nEmploymentType').value = e.employmentType || 'fulltime';
   document.getElementById('nPhone').value = e.phone || '';
+  document.getElementById('nRrn').value = e.rrn || ''; document.getElementById('nBankAccount').value = e.bankAccount || '';
   document.getElementById('nTrueJoinDate').value = e.trueJoinDate || '';
   onWorkTypeChange();
   const pat = getCurrentPattern(e.id);
@@ -180,6 +182,8 @@ function saveEmp() {
   const leaveDate = document.getElementById('nLeaveDate').value || '';
   const employmentType = document.getElementById('nEmploymentType').value || 'fulltime';
   const phone = document.getElementById('nPhone').value.trim();
+  const rrn = document.getElementById('nRrn').value.trim();
+  const bankAccount = document.getElementById('nBankAccount').value.trim();
   const trueJoinDate = document.getElementById('nTrueJoinDate').value || '';
   const dayShifts = gatherDayShiftsFromForm();
   const workDays = dayShifts.map(v => v !== null ? 1 : 0);
@@ -206,7 +210,7 @@ function saveEmp() {
     });
 
     e.name = name; e.dept = document.getElementById('nDept').value; e.joinDate = joinDate; e.leaveDate = leaveDate;
-    e.workType = workType; e.workDays = workDays; e.employmentType = employmentType; e.phone = phone; e.trueJoinDate = trueJoinDate;
+    e.workType = workType; e.workDays = workDays; e.employmentType = employmentType; e.phone = phone; e.rrn = rrn; e.bankAccount = bankAccount; e.trueJoinDate = trueJoinDate;
     const wtFields = { workType, oldWorkType };
     const baseWt = { workType: oldWorkType, oldWorkType };
 
@@ -248,7 +252,7 @@ function saveEmp() {
     }
   } else {
     const id = nextEmployeeId();
-    state.employees.push({ id, name, dept: document.getElementById('nDept').value, joinDate, leaveDate, annual: 0, used: 0, color: id % COLORS.length, workType, workDays, employmentType, phone, trueJoinDate });
+    state.employees.push({ id, name, dept: document.getElementById('nDept').value, joinDate, leaveDate, annual: 0, used: 0, color: id % COLORS.length, workType, workDays, employmentType, phone, rrn, bankAccount, trueJoinDate });
     state.defaultShift[id] = dayShifts;
   }
   // 부서별 자동 정렬 (퇴사자는 맨 아래)

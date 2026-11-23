@@ -65,6 +65,24 @@ function seedEmployees() {
 let GAS_URL = '';
 try { GAS_URL = localStorage.getItem('wms_gas_url') || DEFAULT_GAS_URL; } catch (e) { GAS_URL = DEFAULT_GAS_URL; }
 
+// ── 관리자 비밀번호 / 직원용 뷰어 구분 ──
+// 구글시트(Apps Script)에 ADMIN_KEY가 설정되어 있으면, 관리자 페이지는 비밀번호를 함께 보내야
+// 전체 데이터(전화번호·주민번호·계좌번호 포함)를 받고 저장할 수 있다. 직원용 뷰어는 비밀번호 없이
+// 민감한 칸이 빠진 데이터만 받는다 (viewerMain.js에서 VIEWER_MODE = true).
+const ADMIN_KEY_STORAGE = 'wms_admin_key';
+function isViewerMode() { return typeof VIEWER_MODE !== 'undefined' && VIEWER_MODE; }
+// 뷰어는 관리자 캐시('wms_v6')와 따로 저장한다 — 같은 브라우저에서 관리자 캐시를 덮어쓰지 않도록
+function cacheKey() { return isViewerMode() ? 'wms_viewer_v1' : 'wms_v6'; }
+function getAdminKey() { try { return localStorage.getItem(ADMIN_KEY_STORAGE) || ''; } catch (e) { return ''; } }
+function setAdminKey(k) { try { if (k) localStorage.setItem(ADMIN_KEY_STORAGE, k); else localStorage.removeItem(ADMIN_KEY_STORAGE); } catch (e) {} }
+// 비밀번호가 틀렸거나 없을 때 묻는다. 입력하면 true.
+function askAdminKey(msg) {
+  const k = prompt((msg || '관리자 비밀번호를 입력해 주세요.') + '\n(구글시트 Apps Script의 스크립트 속성 ADMIN_KEY 값)');
+  if (k === null || !k.trim()) return false;
+  setAdminKey(k.trim());
+  return true;
+}
+
 function setGasUrl(url) {
   GAS_URL = (url || '').trim();
   try { localStorage.setItem('wms_gas_url', GAS_URL); } catch (e) {}
@@ -151,7 +169,7 @@ function save() {
   _lastLocalSaveAt = Date.now();
   _localRev++;
   const data = serializeState();
-  try { localStorage.setItem('wms_v6', JSON.stringify(data)); } catch (e) {}
+  try { localStorage.setItem(cacheKey(), JSON.stringify(data)); } catch (e) {}
   markDirty();
   syncToSheets();
 }
@@ -167,7 +185,7 @@ function seedIfEmpty() {
 
 function load() {
   let r = null;
-  try { r = localStorage.getItem('wms_v6'); } catch (e) {}
+  try { r = localStorage.getItem(cacheKey()); } catch (e) {}
   if (r) { try { applyLoadedData(JSON.parse(r)); return; } catch (e) {} }
   _startedWithoutLocalData = true;
   if (!GAS_URL) seedIfEmpty();
@@ -211,7 +229,7 @@ function doSyncNow(callback, opts) {
   }
   _syncInFlight = true;
   const sentRev = _localRev;
-  const body = JSON.stringify({ action: 'save', data: serializeState(), baseVersion: _serverVersion ?? 0, force: !!opts.force });
+  const body = JSON.stringify({ action: 'save', key: getAdminKey(), data: serializeState(), baseVersion: _serverVersion ?? 0, force: !!opts.force });
   setSyncIndicator('☁ 저장 중…', '#f57f17');
 
   const finish = ok => {
@@ -237,6 +255,11 @@ function doSyncNow(callback, opts) {
         if (_localRev === sentRev) clearDirty();
         setSyncIndicator('☁ 저장됨', '#2e7d32', true);
         finish(true);
+      } else if (res.auth) {
+        // 비밀번호가 없거나 틀림: 물어보고 다시 보낸다 (취소하면 변경사항은 이 기기에만 남아 있다가 다음에 다시 전송)
+        setSyncIndicator('⚠ 관리자 비밀번호 필요', '#c0392b');
+        if (askAdminKey('구글시트에 저장하려면 관리자 비밀번호가 필요해요.')) { _syncInFlight = false; doSyncNow(callback, opts); }
+        else finish(false);
       } else if (res.conflict) {
         setSyncIndicator('⚠ 다른 기기와 저장 충돌', '#c0392b');
         resolveSyncConflict(ok => finish(ok));
@@ -282,9 +305,19 @@ function loadFromSheets(callback, opts) {
   opts = opts || {};
   if (!GAS_URL) { if (callback) callback(false); return; }
   const requestStartedAt = Date.now();
-  fetch(GAS_URL + '?action=load')
-    .then(r => r.json())
+  // 관리자 페이지: 비밀번호와 함께 POST로 전체 데이터를 받는다.
+  // 예전 Apps Script(POST load 없음)면 'unknown action'이 오므로 예전처럼 GET으로 받는다.
+  const getLoad = () => fetch(GAS_URL + '?action=load').then(r => r.json());
+  const req = isViewerMode() ? getLoad()
+    : fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'load', key: getAdminKey() }) })
+      .then(r => r.json()).then(res => (res && res.error === 'unknown action') ? getLoad() : res);
+  req
     .then(res => {
+      if (res && res.auth) {
+        if (askAdminKey(getAdminKey() ? '관리자 비밀번호가 맞지 않아요. 다시 입력해 주세요.' : '구글시트에서 데이터를 불러오려면 관리자 비밀번호가 필요해요.')) { loadFromSheets(callback, opts); return; }
+        if (callback) callback(false);
+        return;
+      }
       if (res.ok && res.data && Object.keys(res.data).length) {
         if (!opts.overwriteUnsynced) {
           // 이 요청을 보낸 "이후"에 사용자가 로컬에서 저장을 했다면, 지금 받은 데이터는
@@ -296,7 +329,7 @@ function loadFromSheets(callback, opts) {
         applyLoadedData(res.data);
         setServerVersion(res.version);
         _startedWithoutLocalData = false;
-        try { localStorage.setItem('wms_v6', JSON.stringify(res.data)); } catch (e) {}
+        try { localStorage.setItem(cacheKey(), JSON.stringify(res.data)); } catch (e) {}
         if (opts.overwriteUnsynced) clearDirty();
         if (callback) callback(true);
       } else {
