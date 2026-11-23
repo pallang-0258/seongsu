@@ -34,6 +34,36 @@ function _smPatternShift(emp, dateStr) {
   return (pat ? resolveDayPattern(pat[di], off) : null) || 'off';
 }
 
+// 근무 교환을 그 직원 입장에서 한 문장으로. 예)
+//  같은 날: "송새희 님과 근무시간 맞바꿈 (송새희 님은 13-23 근무)"
+//  다른 날: "김현성 님에게 근무 넘김 · 대신 11/20 김현성 님 근무를 맡음"
+//           "김진성 님 대신 근무 · 대신 11/20 근무를 김진성 님에게 넘김"
+function _smSwapSentence(sw, cell) {
+  const partnerId = sw.empA === cell.empId ? sw.empB : sw.empA;
+  const partner = swapPartnerName(sw, cell.empId);
+  const working = v => { const n = swapNorm(v); return n !== 'off' && !SWAP_LEAVE_KEYS.includes(n); };
+  const md = d => +d.slice(5, 7) + '/' + +d.slice(8, 10);
+  const partnerCell = sw.cells.find(x => x.empId === partnerId && x.date === cell.date);
+  const otherDate = sw.dates.length > 1 ? sw.dates.find(d => d !== cell.date) : null;
+  const myOther = otherDate ? sw.cells.find(x => x.empId === cell.empId && x.date === otherDate) : null;
+  const partnerOther = otherDate ? sw.cells.find(x => x.empId === partnerId && x.date === otherDate) : null;
+  const wasWorking = working(cell.before), nowWorking = working(cell.after);
+  if (wasWorking && nowWorking) {
+    return partner + ' 님과 근무시간 맞바꿈' + (partnerCell ? ' (' + partner + ' 님은 ' + swapShiftLabel(partnerCell.after) + ' 근무)' : '');
+  }
+  if (wasWorking && !nowWorking) {
+    let t = partner + ' 님에게 근무 넘김';
+    if (myOther && working(myOther.after)) t += ' · 대신 ' + md(otherDate) + ' ' + partner + ' 님 근무를 맡음';
+    return t;
+  }
+  if (!wasWorking && nowWorking) {
+    let t = partner + ' 님 대신 근무';
+    if (partnerOther && working(partnerOther.after)) t += ' · 대신 ' + md(otherDate) + ' 근무를 ' + partner + ' 님에게 넘김';
+    return t;
+  }
+  return partner + ' 님과 근무 교환';
+}
+
 // 메모가 있는 모든 (직원, 날짜)를 모은다.
 function collectShiftMemos() {
   const keys = new Set();
@@ -58,7 +88,7 @@ function collectShiftMemos() {
     sw.cells.forEach(c => {
       const k = c.empId + '|' + c.date;
       keys.add(k);
-      (swapsByKey[k] = swapsByKey[k] || []).push({ partner: swapPartnerName(sw, c.empId), memo: sw.memo || '' });
+      (swapsByKey[k] = swapsByKey[k] || []).push({ text: _smSwapSentence(sw, c), memo: sw.memo || '' });
     });
   });
 
@@ -83,7 +113,7 @@ function collectShiftMemos() {
     if (!manual && !swaps.length && !ots.length) return;
     let base = null, cur = null;
     try { base = _smPatternShift(emp, date); cur = getShiftForDate(emp, date); } catch (e) { /* 직원 정보가 없을 때 */ }
-    const swapText = swaps.map(x => x.partner + ' 님과 근무 교환' + (x.memo ? ' (' + x.memo + ')' : '')).join('\n');
+    const swapText = swaps.map(x => x.text + (x.memo ? ' · 사유: ' + x.memo : '')).join('\n');
     const otText = ots.map(r => '추가근무 ' + (r.startTime || '') + '~' + (r.endTime || '') + ' (' + calcOtHours(r.startTime, r.endTime) + '시간)' + (r.reason ? ' ' + r.reason : '')).join('\n');
     out.push({ empId, emp, date, note: manual, swaps, swapText, otText, base, cur, changed: _smShiftText(base) !== _smShiftText(cur) });
   });
@@ -254,7 +284,7 @@ function _smFillModalInfo() {
   const cur = getShiftForDate(emp, date), base = _smPatternShift(emp, date);
   let txt = '이 날 근무: ' + (_smShiftText(base) !== _smShiftText(cur) ? _smShiftText(base) + ' → ' + _smShiftText(cur) : _smShiftText(cur));
   const sw = typeof getSwapForCell === 'function' ? getSwapForCell(emp, date) : null;
-  if (sw) txt += ' · ' + SM_ICON.swap + ' ' + _smEsc(swapPartnerName(sw, empId)) + ' 님과 근무 교환';
+  if (sw) { const c = sw.cells.find(x => x.empId === empId && x.date === date); txt += '<br>' + SM_ICON.swap + ' ' + _smEsc(c ? _smSwapSentence(sw, c) : swapPartnerName(sw, empId) + ' 님과 근무 교환'); }
   if (isDateConfirmed(date)) txt += ' · 확정된 주';
   info.innerHTML = txt;
   const ot = _smOtLines(empId, date);
