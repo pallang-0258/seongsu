@@ -411,10 +411,10 @@ function openShiftEdit(empId, di) {
   document.getElementById('shiftNote').value = manualLines;
   // 고정 메모: 이미 고정된 메모면 체크된 상태로 보여준다
   const pinned = manualLines && typeof isMemoPinned === 'function' && isMemoPinned(empId, manualLines);
-  document.getElementById('shiftPin').checked = !!pinned;
+  const pinBox = document.getElementById('shiftPin');
+  if (pinBox) pinBox.checked = !!pinned;
   const hint = document.getElementById('shiftPinnedHint');
-  hint.style.display = pinned ? '' : 'none';
-  hint.textContent = pinned ? '이 메모는 이미 고정 메모에 있어요 (근무 메모 탭에서 수정·삭제)' : '';
+  if (hint) { hint.style.display = pinned ? '' : 'none'; hint.textContent = pinned ? '이 메모는 이미 고정 메모에 있어요 (근무 메모 탭에서 수정·삭제)' : ''; }
   document.getElementById('shiftModal').classList.add('open');
 }
 function onShiftSelectChange() {
@@ -478,7 +478,8 @@ function applyShift() {
   const combined = otLines.join('\n') + (otLines.length && manualNote.trim() ? '\n' : '') + manualNote;
   setNote(empId, di, combined, ui.weekOffset);
   // "고정 메모로도 남기기"를 체크했으면 이 메모를 그 직원의 고정 메모에 붙인다 (날짜 메모는 그대로)
-  if (document.getElementById('shiftPin').checked && manualNote.trim() && typeof addToPinnedMemo === 'function') addToPinnedMemo(empId, manualNote);
+  const pinBox = document.getElementById('shiftPin');
+  if (pinBox && pinBox.checked && manualNote.trim() && typeof addToPinnedMemo === 'function') addToPinnedMemo(empId, manualNote);
   save(); closeModal('shiftModal'); renderSchedule();
 }
 
