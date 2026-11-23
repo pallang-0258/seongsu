@@ -19,6 +19,7 @@ function showFirstLoadBlocker() {
   document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
 
   checkMobile();
+  initEmpSearchBoxes();
   initHolidayReportSel();
 
   // 1) localStorage로 빠르게 먼저 표시

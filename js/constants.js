@@ -137,16 +137,43 @@ function writeJson(sh, json) {
   sh.getRange(1,4).setValue(chunks.length);
 }
 
+// ── 관리자 비밀번호 ──
+// Apps Script 편집기 > 프로젝트 설정(톱니바퀴) > 스크립트 속성에 ADMIN_KEY 를 추가하고 값으로 비밀번호를 넣는다.
+// ADMIN_KEY 가 있으면:
+//   - 관리자 페이지는 비밀번호를 보내야 전체 데이터를 받고(POST load) 저장할 수 있다(POST save).
+//   - 비밀번호 없이 주소로 직접 열거나 직원용 뷰어가 받는 데이터(GET load)에서는
+//     전화번호·주민번호·계좌번호·직원 메모를 뺀다 (뷰어 본인 확인용 전화번호 뒷 4자리만 남김).
+// ADMIN_KEY 가 없으면 예전처럼 비밀번호 없이 동작한다.
+function adminKey() { return PropertiesService.getScriptProperties().getProperty('ADMIN_KEY') || ''; }
+function isAdmin(key) { const k = adminKey(); return !k || String(key || '') === k; }
+
+function sanitizeForViewer(data) {
+  const d = JSON.parse(JSON.stringify(data || {}));
+  (d.employees || []).forEach(function (emp) {
+    const digits = String(emp.phone || '').replace(/\\D/g, '');
+    delete emp.phone; delete emp.rrn; delete emp.bankAccount;
+    if (digits.length >= 4) emp.phoneLast4 = digits.slice(-4);
+  });
+  delete d.empMemos;
+  delete d.pinnedMemos;
+  return d;
+}
+
+function readData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh || sh.getLastRow() < 1) return { data: {}, version: 0 };
+  const raw = readJson(sh);
+  return { data: raw ? JSON.parse(raw) : {}, version: Number(sh.getRange(1,3).getValue()) || 0 };
+}
+
 function doGet(e) {
   try {
     const action = e.parameter.action;
     if (action === 'load') {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sh = ss.getSheetByName(SHEET_NAME);
-      if (!sh || sh.getLastRow() < 1) return jsonRes({ok:true, data:{}, version:0});
-      const raw = readJson(sh);
-      const data = raw ? JSON.parse(raw) : {};
-      return jsonRes({ok:true, data, version:Number(sh.getRange(1,3).getValue()) || 0});
+      const r = readData();
+      const data = adminKey() ? sanitizeForViewer(r.data) : r.data;
+      return jsonRes({ok:true, data, version:r.version});
     }
     return jsonRes({ok:false, error:'unknown action'});
   } catch(err) { return jsonRes({ok:false, error:err.toString()}); }
@@ -156,7 +183,13 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
     const body = JSON.parse(e.postData.contents);
+    if (body.action === 'load') {
+      if (!isAdmin(body.key)) return jsonRes({ok:false, auth:true, error:'관리자 비밀번호가 맞지 않아요'});
+      const r = readData();
+      return jsonRes({ok:true, data:r.data, version:r.version});
+    }
     if (body.action === 'save') {
+      if (!isAdmin(body.key)) return jsonRes({ok:false, auth:true, error:'관리자 비밀번호가 맞지 않아요'});
       lock.waitLock(20000);
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       let sh = ss.getSheetByName(SHEET_NAME);
@@ -183,4 +216,5 @@ function doPost(e) {
 function jsonRes(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
-}`;
+}
+`;

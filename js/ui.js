@@ -356,8 +356,10 @@ function onWeekPick() { ui.weekOffset = +document.getElementById('weekPickSel').
 function goToThisWeek() { ui.weekOffset = 0; renderSchedule(); }
 function changeWeek(dir) { ui.weekOffset += dir; renderSchedule(); }
 function updateStats() {
-  document.getElementById('statTotal').textContent = state.employees.length;
-  DEPTS.forEach((dept, i) => { const el = document.getElementById('statDept' + i); if (el) el.textContent = state.employees.filter(e => e.dept === dept).length; });
+  // 퇴사한 직원(퇴사일이 오늘보다 이전)은 인원수에서 뺀다
+  const working = state.employees.filter(e => !isResigned(e));
+  document.getElementById('statTotal').textContent = working.length;
+  DEPTS.forEach((dept, i) => { const el = document.getElementById('statDept' + i); if (el) el.textContent = working.filter(e => e.dept === dept).length; });
 }
 
 // ── 확정/해제/초기화 UI 래퍼 ──
@@ -1224,7 +1226,7 @@ function renderEmpTable() {
     const pendingBadge = pendingChanges.length > 0 ? ' <span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:10px;cursor:pointer" onclick="showShiftHistory(' + e.id + ')" title="클릭하여 변경 예정 상세보기">📅 변경예정 ' + pendingChanges.length + '건</span>' : '';
     html += '<tr data-id="' + e.id + '" style="' + rowStyle + '">'
       + '<td style="text-align:center;cursor:grab;color:#ccc;font-size:14px;user-select:none" class="drag-handle" title="드래그하여 순서 변경">⠿</td>'
-      + '<td><strong>' + e.name + '</strong>' + (isFuture ? ' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px">입사예정</span>' : '') + (resigned ? ' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>' : '') + pendingBadge + (e.phone ? '<div style="font-size:10px;color:#90aac8"><a href="tel:' + e.phone + '" style="color:inherit;text-decoration:none">' + e.phone + '</a></div>' : '') + '</td>'
+      + '<td><strong>' + e.name + '</strong>' + (isFuture ? ' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px">입사예정</span>' : '') + (resigned ? ' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>' : '') + pendingBadge + (e.phone ? '<div style="font-size:10px;color:#90aac8"><a href="tel:' + e.phone + '" style="color:inherit;text-decoration:none">' + e.phone + '</a></div>' : '') + empPrivateInfoHtml(e) + '</td>'
       + '<td>' + e.dept + '</td>'
       + '<td>' + (isPT ? '<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:10px">파트타임</span>' : '<span style="font-size:11px;color:#888">정규직</span>') + '</td>'
       + '<td style="font-size:11px;color:#888">' + (e.joinDate || '-') + '</td>'
@@ -1250,6 +1252,11 @@ function renderEmpTable() {
   initEmpDragDrop();
 }
 
+// 직원 관리 표에서 이름 아래에 작게 보여주는 주민번호·계좌번호 (관리자 페이지에서만 받아오는 정보)
+function empPrivateInfoHtml(e) {
+  return (e.rrn ? '<div style="font-size:10px;color:#999;white-space:nowrap">주민 ' + swapEsc(e.rrn) + '</div>' : '')
+    + (e.bankAccount ? '<div style="font-size:10px;color:#999;white-space:nowrap">계좌 ' + swapEsc(e.bankAccount) + '</div>' : '');
+}
 // 모바일: 15열 표 대신 한 열짜리 카드 리스트로 렌더링 — 가로 스크롤이 생기지 않도록
 // (요일별 근무시간은 칩을 flex-wrap으로 감싸서 한 화면 폭 안에서 줄바꿈되게 함)
 function renderEmpTableMobile() {
@@ -1282,7 +1289,7 @@ function renderEmpTableMobile() {
       + (isFuture ? ' <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px">입사예정</span>' : '')
       + (resigned ? ' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>' : '')
       + '</div><div style="font-size:11px;color:#888;margin-top:2px">' + e.dept + ' · ' + (isPT ? '파트타임' : '정규직') + ' · ' + (resigned ? '퇴사' : (tm[getCurrentWorkType(e)] || getCurrentWorkType(e))) + pendingBadge + '</div>'
-      + (e.phone ? '<div style="font-size:11px;margin-top:2px"><a href="tel:' + e.phone + '" style="color:#1565c0;text-decoration:none">📞 ' + e.phone + '</a></div>' : '') + '</div>'
+      + (e.phone ? '<div style="font-size:11px;margin-top:2px"><a href="tel:' + e.phone + '" style="color:#1565c0;text-decoration:none">📞 ' + e.phone + '</a></div>' : '') + empPrivateInfoHtml(e) + '</div>'
       + '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
       + '<button class="btn sm" onclick="openEditEmp(' + e.id + ')">수정</button>'
       + '<button class="btn sm danger" onclick="removeEmp(' + e.id + ')">삭제</button>'
@@ -1394,4 +1401,56 @@ function pullFromSheets() {
     if (ok) { res.textContent = '✓ 데이터 가져오기 성공!'; res.style.color = '#2e7d32'; renderAll(); }
     else { res.textContent = '✗ 데이터 없음 또는 실패'; res.style.color = '#c0392b'; GAS_URL = prevUrl; }
   }, { overwriteUnsynced: true });
+}
+
+// ══════════════════════ 직원 선택칸 이름 검색 ══════════════════════
+// 직원 선택칸(<select>) 앞에 이름 입력칸을 붙인다. 글자를 치면 입력칸 바로 아래에 맞는 직원 목록이 펼쳐지고,
+// 누르면(또는 Enter로 첫 번째) 그 직원이 선택칸에 선택된다. 선택칸의 onchange는 그대로 실행된다.
+// 선택칸 목록을 코드가 새로 채우면(창을 다시 열 때 등) 검색어는 자동으로 지워진다.
+function attachEmpSearch(selectId, { inline = false } = {}) {
+  const sel = document.getElementById(selectId);
+  if (!sel || sel._empSearch) return;
+  const box = document.createElement('div');
+  box.style.cssText = 'position:relative;' + (inline ? 'display:inline-block;width:96px' : 'margin-bottom:6px');
+  const input = document.createElement('input');
+  input.type = 'text'; input.placeholder = '이름 검색'; input.autocomplete = 'off';
+  input.style.cssText = inline ? 'height:32px;font-size:12px;width:100%' : 'width:100%';
+  const panel = document.createElement('div');
+  panel.style.cssText = 'display:none;position:absolute;left:0;top:100%;margin-top:2px;z-index:1000;background:#fff;border:1px solid #d8d5cf;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;min-width:160px;width:100%';
+  box.appendChild(input); box.appendChild(panel);
+  sel.parentNode.insertBefore(box, sel);
+  sel._empSearch = true;
+  const norm = t => String(t).replace(/\s+/g, '').toLowerCase();
+  let hits = [];
+  const pick = opt => {
+    panel.style.display = 'none';
+    input.value = '';
+    if (sel.value !== opt.value) { sel.value = opt.value; sel.dispatchEvent(new Event('change')); }
+  };
+  const render = () => {
+    const q = norm(input.value);
+    if (!q) { panel.style.display = 'none'; return; }
+    hits = [...sel.options].filter(o => o.value && norm(o.text).includes(q));
+    panel.innerHTML = hits.length
+      ? hits.map((o, i) => '<div data-i="' + i + '" style="padding:8px 10px;font-size:13px;cursor:pointer;white-space:nowrap;' + (i === 0 ? 'background:#f0f6ff' : '') + '" onmouseover="this.style.background=\'#f0f6ff\'" onmouseout="this.style.background=\'' + (i === 0 ? '#f0f6ff' : '') + '\'">' + swapEsc(o.text) + '</div>').join('')
+      : '<div style="padding:8px 10px;font-size:12px;color:#aaa;white-space:nowrap">맞는 직원이 없어요</div>';
+    panel.style.display = '';
+  };
+  // mousedown: 입력칸 blur보다 먼저 처리해야 클릭이 먹힌다
+  panel.addEventListener('mousedown', e => {
+    const row = e.target.closest('[data-i]'); if (!row) return;
+    e.preventDefault(); pick(hits[+row.dataset.i]);
+  });
+  input.addEventListener('input', render);
+  input.addEventListener('focus', render);
+  input.addEventListener('blur', () => setTimeout(() => { panel.style.display = 'none'; }, 150));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); if (e.isComposing) return; render(); if (hits[0]) pick(hits[0]); }
+    if (e.key === 'Escape') { panel.style.display = 'none'; }
+  });
+  new MutationObserver(() => { input.value = ''; panel.style.display = 'none'; }).observe(sel, { childList: true });
+}
+function initEmpSearchBoxes() {
+  ['leaveEmpSel', 'otEmpSel', 'smmEmp'].forEach(id => attachEmpSearch(id));
+  ['leaveEmpFilter', 'otEmpFilter', 'swapEmpSel'].forEach(id => attachEmpSearch(id, { inline: true }));
 }
