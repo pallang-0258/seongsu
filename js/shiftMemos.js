@@ -45,6 +45,16 @@ function collectShiftMemos() {
   Object.keys(state.schedules || {}).forEach(wk => addWeek(wk, state.schedules[wk] && state.schedules[wk]._notes, x => x));
   Object.keys(state.confirmedSnapshots || {}).forEach(wk => addWeek(wk, state.confirmedSnapshots[wk], x => x && x.note));
 
+  // 근무 교환 기록도 교환한 두 직원의 그 날짜 메모로 함께 보여준다 (교환 내역 자체는 그대로 두고 읽기만 함)
+  const swapsByKey = {};
+  (typeof activeShiftSwaps === 'function' ? activeShiftSwaps() : []).forEach(sw => {
+    sw.cells.forEach(c => {
+      const k = c.empId + '|' + c.date;
+      keys.add(k);
+      (swapsByKey[k] = swapsByKey[k] || []).push({ partner: swapPartnerName(sw, c.empId), memo: sw.memo || '' });
+    });
+  });
+
   const out = [];
   keys.forEach(k => {
     const [empIdStr, date] = k.split('|');
@@ -52,10 +62,12 @@ function collectShiftMemos() {
     const emp = state.employees.find(e => e.id === empId) || { id: empId, name: '(삭제된 직원)', dept: '' };
     const note = getNoteForDate(emp, date) || '';
     const manual = note.split('\n').filter(l => !l.startsWith('[추가근무]')).join('\n').trim();
-    if (!manual) return;
+    const swaps = swapsByKey[k] || [];
+    if (!manual && !swaps.length) return;
     let base = null, cur = null;
     try { base = _smPatternShift(emp, date); cur = getShiftForDate(emp, date); } catch (e) { /* 직원 정보가 없을 때 */ }
-    out.push({ empId, emp, date, note: manual, base, cur, changed: base !== cur && !(_smShiftText(base) === _smShiftText(cur)) });
+    const swapText = swaps.map(x => x.partner + ' 님과 근무 교환' + (x.memo ? ' (' + x.memo + ')' : '')).join('\n');
+    out.push({ empId, emp, date, note: manual, swaps, swapText, base, cur, changed: _smShiftText(base) !== _smShiftText(cur) });
   });
   return out;
 }
@@ -93,7 +105,7 @@ function _smFiltered() {
     (!year || m.date.startsWith(year)) &&
     (!month || !year || m.date.startsWith(year + '-' + month)) &&
     (!empId || m.empId === empId) &&
-    (!q || m.note.toLowerCase().includes(q) || m.emp.name.toLowerCase().includes(q)));
+    (!q || m.note.toLowerCase().includes(q) || m.swapText.toLowerCase().includes(q) || m.emp.name.toLowerCase().includes(q)));
 }
 
 function _smShiftBadge(m) {
@@ -102,7 +114,10 @@ function _smShiftBadge(m) {
   }
   return '<span class="sm-shift">' + _smEsc(_smShiftText(m.cur)) + '</span>';
 }
-function _smNote(m) { return '<div class="sm-note">' + _smEsc(m.note) + '</div>'; }
+function _smNote(m) {
+  return (m.swapText ? '<div class="sm-swap">🔄 ' + _smEsc(m.swapText) + '</div>' : '')
+    + (m.note ? '<div class="sm-note">' + _smEsc(m.note) + '</div>' : '');
+}
 
 function renderShiftMemos() {
   const wrap = document.getElementById('shiftMemoList');
