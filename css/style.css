@@ -254,3 +254,7 @@ textarea { font-family: inherit; }
 }
 .sm-swap { font-size: 12px; color: #5931b8; white-space: pre-line; line-height: 1.5; }
 .sm-edit { margin-left: auto; font-size: 10px !important; padding: 2px 8px !important; }
+.sm-pinned { padding: 8px 12px; background: #fff8e1; border-bottom: 1px solid #f3e2b3; }
+.sm-pin-label { font-size: 11px; font-weight: 700; color: #b06a00; }
+.sm-pin-btn { font-size: 10px !important; padding: 2px 7px !important; }
+.sm-none { font-size: 11px; color: #aaa; }

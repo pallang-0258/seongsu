@@ -16,6 +16,7 @@ let state = {
   defaultShift: {}, // { [empId]: [7] } 각 원소는 null | '1020'|'1019'|'1323' | {alt:true, odd, even}
   holidayOverrides: {}, // { 'YYYY-MM-DD': true|false }
   shiftSwaps: [], // 근무 교환 내역 (swapEngine.js)
+  pinnedMemos: {}, // { [empId]: 문자열 } 직원별 고정 메모 (근무 메모 탭 맨 위, 근무표에는 안 보임)
 };
 
 let ui = {
@@ -84,6 +85,7 @@ function serializeState() {
     defaultShift: shiftToSave,
     holidayOverrides: state.holidayOverrides,
     shiftSwaps: state.shiftSwaps,
+    pinnedMemos: state.pinnedMemos,
   };
 }
 
@@ -100,6 +102,7 @@ function applyLoadedData(d) {
   if (d.defaultShift) state.defaultShift = d.defaultShift;
   if (d.holidayOverrides) state.holidayOverrides = d.holidayOverrides;
   if (d.shiftSwaps) state.shiftSwaps = d.shiftSwaps;
+  if (d.pinnedMemos) state.pinnedMemos = d.pinnedMemos;
   // 하위호환: employmentType 없는 기존 직원은 fulltime으로 간주
   (state.employees || []).forEach(e => { if (!e.employmentType) e.employmentType = 'fulltime'; });
 }

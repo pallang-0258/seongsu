@@ -269,7 +269,7 @@
             <button class="btn primary sm" onclick="openShiftMemoModal()">+ 메모 추가</button>
           </div>
         </div>
-        <div style="font-size:11px;color:#999;margin-bottom:10px">근무표에서 근무를 바꿀 때 남긴 메모와 근무 교환 내역(🔄)을 모아 보여줍니다. 메모는 여기서 바로 추가·수정할 수 있고, 근무표 칸에서 써도 같은 메모예요.</div>
+        <div style="font-size:11px;color:#999;margin-bottom:10px">근무표에서 근무를 바꿀 때 남긴 메모와 근무 교환 내역(🔄)을 모아 보여줍니다. 메모는 여기서 바로 추가·수정할 수 있고, 근무표 칸에서 써도 같은 메모예요. 📌 고정 메모는 직원별 보기에서 카드 맨 위에 항상 보이고 근무표에는 나오지 않아요.</div>
         <div id="shiftMemoList"></div>
       </div>
     </div>
@@ -548,8 +548,12 @@
     <div class="modal-title" id="smmTitle">근무 메모 추가</div>
     <div class="form-row" style="display:flex;gap:8px">
       <div style="flex:1"><label class="form-label">직원</label><select id="smmEmp" onchange="_smFillModalInfo()"></select></div>
-      <div style="flex:1"><label class="form-label">날짜</label><input type="date" id="smmDate" onchange="_smFillModalInfo()"></div>
+      <div style="flex:1" id="smmDateWrap"><label class="form-label">날짜</label><input type="date" id="smmDate" onchange="_smFillModalInfo()"></div>
     </div>
+    <div class="form-row" id="smmPinRow" style="margin-top:-4px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:#555"><input type="checkbox" id="smmPinned" onchange="onSmmPinnedToggle()" style="width:auto;height:auto"> 📌 날짜 없이 고정 메모로 쓰기</label>
+    </div>
+    <div id="smmPinHint" style="display:none;font-size:12px;color:#555;background:#fff8e1;border-radius:8px;padding:7px 10px;margin-bottom:12px">근무 메모 탭의 직원별 보기에서 이 직원 카드 맨 위에 항상 보여요. 근무표에는 보이지 않아요.</div>
     <div id="smmInfo" style="font-size:12px;color:#555;background:#f4f6fa;border-radius:8px;padding:7px 10px;margin-bottom:12px"></div>
     <div class="form-row">
       <label class="form-label">메모 <span id="smmExisting" style="display:none;font-size:11px;color:#f57f17">（이 날 이미 쓴 메모를 불러왔어요）</span></label>

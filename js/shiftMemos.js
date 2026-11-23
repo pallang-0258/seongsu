@@ -122,29 +122,51 @@ function _smNote(m) {
     + (m.note ? '<div class="sm-note">' + _smEsc(m.note) + '</div>' : '');
 }
 
+function _smPinned(empId) { return ((state.pinnedMemos || {})[empId] || '').trim(); }
+// 직원별 보기 맨 위에 붙는 고정 메모 (필터: 직원·검색만 적용, 기간과는 상관없음)
+function _smPinnedIds() {
+  const empId = +document.getElementById('smEmpFilter').value || 0;
+  const q = (document.getElementById('smSearch').value || '').trim().toLowerCase();
+  return Object.keys(state.pinnedMemos || {}).map(Number).filter(id => {
+    const t = _smPinned(id); if (!t) return false;
+    if (empId && id !== empId) return false;
+    if (!q) return true;
+    const emp = state.employees.find(e => e.id === id);
+    return t.toLowerCase().includes(q) || (emp && emp.name.toLowerCase().includes(q));
+  });
+}
+
 function renderShiftMemos() {
   const wrap = document.getElementById('shiftMemoList');
   const list = _smFiltered();
+  const pinnedIds = shiftMemoUi.view === 'emp' ? _smPinnedIds() : [];
   document.getElementById('smCount').textContent = list.length ? '메모 ' + list.length + '건' : '';
-  if (!list.length) { wrap.innerHTML = '<div class="sm-empty">이 기간에 근무 변경 메모가 없습니다</div>'; return; }
+  if (!list.length && !pinnedIds.length) { wrap.innerHTML = '<div class="sm-empty">이 기간에 근무 변경 메모가 없습니다</div>'; return; }
 
   if (shiftMemoUi.view === 'emp') {
     const order = state.employees.map(e => e.id);
     const groups = {};
     list.forEach(m => { (groups[m.empId] = groups[m.empId] || []).push(m); });
+    pinnedIds.forEach(id => { if (!groups[id]) groups[id] = []; });
     const ids = Object.keys(groups).map(Number).sort((a, b) => {
       const ia = order.indexOf(a), ib = order.indexOf(b);
       return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
     });
     wrap.innerHTML = '<div class="sm-grid">' + ids.map(id => {
       const items = groups[id].sort((a, b) => a.date.localeCompare(b.date));
-      const emp = items[0].emp;
+      const emp = state.employees.find(e => e.id === id) || (items[0] && items[0].emp) || { id, name: '(삭제된 직원)', dept: '' };
+      const pin = _smPinned(id);
       return '<div class="sm-group">'
-        + '<div class="sm-group-hd"><span><b>' + _smEsc(emp.name) + '</b>' + (emp.dept ? ' <span class="sm-dept">' + _smEsc(emp.dept) + '</span>' : '') + '</span><span class="sm-cnt">' + items.length + '건</span></div>'
+        + '<div class="sm-group-hd"><span><b>' + _smEsc(emp.name) + '</b>' + (emp.dept ? ' <span class="sm-dept">' + _smEsc(emp.dept) + '</span>' : '') + '</span>'
+        + '<span style="display:flex;align-items:center;gap:6px">' + (items.length ? '<span class="sm-cnt">' + items.length + '건</span>' : '')
+        + (pin ? '' : '<button class="btn sm sm-pin-btn" title="이 직원의 고정 메모 쓰기" onclick="openPinnedMemoModal(' + id + ')">📌 고정 메모</button>') + '</span></div>'
+        + (pin ? '<div class="sm-pinned"><div class="sm-row-hd"><span class="sm-pin-label">📌 고정 메모</span><button class="btn sm sm-edit" onclick="openPinnedMemoModal(' + id + ')">수정</button></div><div class="sm-note">' + _smEsc(pin) + '</div></div>' : '')
         + items.map(m => '<div class="sm-row"><div class="sm-row-hd"><span class="sm-date">' + _smDateLabel(m.date) + '</span>' + _smShiftBadge(m) + _smEditBtn(m) + '</div>' + _smNote(m) + '</div>').join('')
+        + (!items.length ? '<div class="sm-row sm-none">이 기간에 근무 변경 메모가 없어요</div>' : '')
         + '</div>';
     }).join('') + '</div>';
   } else {
+    if (!list.length) { wrap.innerHTML = '<div class="sm-empty">이 기간에 근무 변경 메모가 없습니다</div>'; return; }
     const groups = {};
     list.forEach(m => { (groups[m.date] = groups[m.date] || []).push(m); });
     const dates = Object.keys(groups).sort();
@@ -189,6 +211,21 @@ function saveShiftMemo(empId, dateStr, manualText) {
 
 function _smFillModalInfo() {
   const m = document.getElementById('shiftMemoModal');
+  const pinned = document.getElementById('smmPinned').checked;
+  document.getElementById('smmDateWrap').style.display = pinned ? 'none' : '';
+  document.getElementById('smmInfo').style.display = pinned ? 'none' : '';
+  document.getElementById('smmPinHint').style.display = pinned ? '' : 'none';
+  if (pinned) {
+    document.getElementById('smmOt').style.display = 'none';
+    const ta = document.getElementById('smmText');
+    const existing = _smPinned(+document.getElementById('smmEmp').value);
+    if (!m._editing) {
+      const typed = ta._loaded ? (ta.value.startsWith(ta._loaded) ? ta.value.slice(ta._loaded.length).trim() : ta.value.trim()) : ta.value.trim();
+      if (existing) { ta.value = existing + (typed ? '\n' + typed : ''); ta._loaded = existing; } else { ta.value = typed; ta._loaded = false; }
+      document.getElementById('smmExisting').style.display = existing ? '' : 'none';
+    }
+    return;
+  }
   const empId = +document.getElementById('smmEmp').value;
   const date = document.getElementById('smmDate').value;
   const info = document.getElementById('smmInfo');
@@ -214,11 +251,13 @@ function _smFillModalInfo() {
   }
 }
 
-function openShiftMemoModal(empId, date) {
+function openShiftMemoModal(empId, date, pinned) {
   const m = document.getElementById('shiftMemoModal');
-  const editing = !!(empId && date);
+  const editing = !!(empId && (date || pinned));
   m._editing = editing;
-  document.getElementById('smmTitle').textContent = editing ? '근무 메모 수정' : '근무 메모 추가';
+  document.getElementById('smmPinned').checked = !!pinned;
+  document.getElementById('smmPinRow').style.display = editing ? 'none' : '';
+  document.getElementById('smmTitle').textContent = pinned ? (editing ? '📌 고정 메모 수정' : '📌 고정 메모 추가') : (editing ? '근무 메모 수정' : '근무 메모 추가');
   const empSel = document.getElementById('smmEmp');
   empSel.innerHTML = state.employees.map(e => '<option value="' + e.id + '">' + _smEsc(e.name) + ' (' + _smEsc(e.dept) + ')</option>').join('');
   const filterEmp = document.getElementById('smEmpFilter').value;
@@ -228,7 +267,7 @@ function openShiftMemoModal(empId, date) {
   dateEl.value = editing ? date : toLocalDateStr(TODAY);
   dateEl.disabled = editing;
   const ta = document.getElementById('smmText');
-  ta.value = editing ? _smManualNote(empId, date) : ''; ta._loaded = false;
+  ta.value = editing ? (pinned ? _smPinned(empId) : _smManualNote(empId, date)) : ''; ta._loaded = false;
   document.getElementById('smmExisting').style.display = 'none';
   document.getElementById('smmDelete').style.display = editing && ta.value ? '' : 'none';
   _smFillModalInfo();
@@ -236,21 +275,45 @@ function openShiftMemoModal(empId, date) {
   setTimeout(() => ta.focus(), 50);
 }
 function openEditShiftMemo(empId, date) { openShiftMemoModal(empId, date); }
+function openPinnedMemoModal(empId) { openShiftMemoModal(empId, null, true); }
+function onSmmPinnedToggle() {
+  const pinned = document.getElementById('smmPinned').checked;
+  document.getElementById('smmTitle').textContent = pinned ? '📌 고정 메모 추가' : '근무 메모 추가';
+  const ta = document.getElementById('smmText');
+  if (ta._loaded && ta.value.startsWith(ta._loaded)) ta.value = ta.value.slice(ta._loaded.length).trim();
+  ta._loaded = false;
+  _smFillModalInfo();
+}
+function savePinnedMemo(empId, text) {
+  if (!state.pinnedMemos) state.pinnedMemos = {};
+  const t = (text || '').trim();
+  if (t) state.pinnedMemos[empId] = t; else delete state.pinnedMemos[empId];
+  save();
+}
 
 function submitShiftMemo() {
   const empId = +document.getElementById('smmEmp').value;
   const date = document.getElementById('smmDate').value;
   const text = document.getElementById('smmText').value;
-  if (!empId || !date) { alert('직원과 날짜를 골라주세요.'); return; }
+  const isPinned = document.getElementById('smmPinned').checked;
+  if (!empId || (!date && !isPinned)) { alert('직원과 날짜를 골라주세요.'); return; }
   const m = document.getElementById('shiftMemoModal');
   if (!m._editing && !text.trim()) { alert('메모 내용을 입력해주세요.'); return; }
+  if (isPinned) {
+    savePinnedMemo(empId, text);
+    closeModal('shiftMemoModal');
+    shiftMemoUi.view = 'emp';
+    initShiftMemoTab();
+    return;
+  }
   saveShiftMemo(empId, date, text);
   closeModal('shiftMemoModal');
   initShiftMemoTab();
   if (typeof renderSchedule === 'function') renderSchedule();
 }
 function deleteShiftMemo() {
-  if (!confirm('이 메모를 삭제할까요? (근무와 근무 교환 기록은 그대로예요)')) return;
+  const isPinned = document.getElementById('smmPinned').checked;
+  if (!confirm(isPinned ? '이 고정 메모를 삭제할까요?' : '이 메모를 삭제할까요? (근무와 근무 교환 기록은 그대로예요)')) return;
   document.getElementById('smmText').value = '';
   submitShiftMemo();
 }
