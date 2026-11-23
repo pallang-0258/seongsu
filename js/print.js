@@ -38,9 +38,9 @@ function doPrintFixed() {
         days.forEach((_, di) => {
           const sh = getFixedShift(emp, di, off);
           if (sh === '__off__') { h += '<td style="border:0.3pt solid #ccc;text-align:center;color:#ccc;font-size:7pt;vertical-align:middle">—</td>'; return; }
-          const lb = SHIFT_LABEL[sh] || '';
-          const bg = AM_KEYS.includes(sh) ? '#d4edda' : sh === '1323' ? '#e2d9f3' : '';
-          const fg = AM_KEYS.includes(sh) ? '#155724' : sh === '1323' ? '#3d1a78' : '#999';
+          const lb = shiftLabel(sh);
+          const bg = isAmShift(sh) ? '#d4edda' : isPmShift(sh) ? '#e2d9f3' : '';
+          const fg = isAmShift(sh) ? '#155724' : isPmShift(sh) ? '#3d1a78' : '#999';
           h += lb ? '<td style="border:0.3pt solid #ccc;text-align:center;vertical-align:middle"><span style="background:' + bg + ';color:' + fg + ';font-size:7pt;font-weight:700;padding:1pt 4pt;border-radius:2pt;display:inline-block">' + lb + '</span></td>' : '<td style="border:0.3pt solid #ccc;text-align:center;color:#ccc;font-size:7pt">—</td>';
         });
         h += '</tr>';
@@ -68,7 +68,7 @@ function doPrintFixed() {
         if (di === 0) h += '<td rowspan="' + rowDepts.length + '" style="border:0.4pt solid #bbb;background:#e8e8e8;text-align:center;vertical-align:middle;padding:2pt 2pt"><span style="background:' + lbBg + ';color:' + lbFg + ';padding:1pt 3pt;border-radius:2pt;font-weight:700;font-size:6pt">' + sd.label + '</span></td>';
         h += '<td style="border:0.4pt solid #bbb;background:#f5f5f5;text-align:center;font-size:6pt;font-weight:700;padding:2pt 2pt;white-space:nowrap">' + dept + '</td>';
         days.forEach((_, di2) => {
-          const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => ({ name: e.name, shiftKey: getFixedShift(e, di2, off) })).filter(x => sd.keys.includes(x.shiftKey));
+          const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => ({ name: e.name, shiftKey: getFixedShift(e, di2, off) })).filter(x => shiftInSummaryRow(sd.am, x.shiftKey, dept));
           const cell = entries.map(x => x.name).join('<br>');
           h += '<td style="border:0.4pt solid #bbb;padding:2pt 3pt;font-size:7pt;line-height:1.6;vertical-align:top">' + (cell || '-') + '</td>';
         });
@@ -125,9 +125,9 @@ function doPrint(withDetail) {
             const base = getBaseShift(emp, di, off);
             lb = getHalfLabel(base, sh); bg = '#f8d7da'; fg = '#721c24';
           } else {
-            lb = SHIFT_LABEL[sh] || '';
-            bg = AM_KEYS.includes(sh) ? '#d4edda' : sh === '1323' ? '#e2d9f3' : sh === 'annual' ? '#fff3cd' : '';
-            fg = AM_KEYS.includes(sh) ? '#155724' : sh === '1323' ? '#3d1a78' : sh === 'annual' ? '#856404' : '#999';
+            lb = shiftLabel(sh);
+            bg = isAmShift(sh) ? '#d4edda' : isPmShift(sh) ? '#e2d9f3' : sh === 'annual' ? '#fff3cd' : '';
+            fg = isAmShift(sh) ? '#155724' : isPmShift(sh) ? '#3d1a78' : sh === 'annual' ? '#856404' : '#999';
           }
           h += lb ? '<td style="border:0.3pt solid #ccc;text-align:center;vertical-align:middle"><span style="background:' + bg + ';color:' + fg + ';font-size:7pt;font-weight:700;padding:1pt 4pt;border-radius:2pt;display:inline-block">' + lb + '</span></td>' : '<td style="border:0.3pt solid #ccc;text-align:center;color:#ccc;font-size:7pt">—</td>';
         });
@@ -156,8 +156,8 @@ function doPrint(withDetail) {
         if (di === 0) h += '<td rowspan="' + rowDepts.length + '" style="border:0.4pt solid #bbb;background:#e8e8e8;text-align:center;vertical-align:middle;padding:2pt 2pt"><span style="background:' + lbBg + ';color:' + lbFg + ';padding:1pt 3pt;border-radius:2pt;font-weight:700;font-size:6pt">' + sd.label + '</span></td>';
         h += '<td style="border:0.4pt solid #bbb;background:#f5f5f5;text-align:center;font-size:6pt;font-weight:700;padding:2pt 2pt;white-space:nowrap">' + dept + '</td>';
         days.forEach((_, di2) => {
-          const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => sd.keys.includes(x.shiftKey));
-          const cell = entries.map(x => { if (x.isHalf) { const tl = getHalfLabel(x.shiftKey, x.halfType); return x.name + '<span style="font-size:5.5pt;color:#c0392b">(' + tl + ')</span>'; } return x.name; }).join('<br>');
+          const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => shiftInSummaryRow(sd.am, x.shiftKey, dept));
+          const cell = entries.map(x => { if (x.isHalf) { const tl = getHalfLabel(x.shiftKey, x.halfType); return x.name + '<span style="font-size:5.5pt;color:#c0392b">(' + tl + ')</span>'; } if (isCustomShiftKey(x.shiftKey)) return x.name + '<span style="font-size:5.5pt;color:#666">(' + shiftLabel(x.shiftKey) + ')</span>'; return x.name; }).join('<br>');
           h += '<td style="border:0.4pt solid #bbb;padding:2pt 3pt;font-size:7pt;line-height:1.6;vertical-align:top">' + (cell || '-') + '</td>';
         });
         h += '</tr>';

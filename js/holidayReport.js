@@ -16,7 +16,7 @@ function calcHolidayWorkedReport(year, month) {
       const sh = getShiftForDate(emp, dateStr);
       if (!isFullShiftKey(sh)) return; // off/annual/half/휴무 등은 "근무"로 집계하지 않음
       const range = getWorkedRangeForDate(emp, dateStr);
-      const hours = range ? (range.endMin - range.startMin) / 60 : (SHIFT_HOURS[sh] || 0);
+      const hours = range ? (range.endMin - range.startMin) / 60 : shiftHours(sh);
       if (!perEmp[emp.id]) perEmp[emp.id] = { emp, totalHours: 0, days: new Set() };
       perEmp[emp.id].totalHours += hours;
       perEmp[emp.id].days.add(dateStr);

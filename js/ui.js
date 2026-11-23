@@ -203,9 +203,9 @@ function buildSchTable(el, off) {
           lb = ''; cl = '';
         } else if (isFullShiftKey(sh) && otRange) {
           // 기능5: 추가근무가 있으면 실제 근무 구간을 표시 (예: 10-20 + 3h → 10-23)
-          lb = otRange.text; cl = SHIFT_CLS[sh] || '';
+          lb = otRange.text; cl = shiftCls(sh);
         } else {
-          cl = SHIFT_CLS[sh] || ''; lb = SHIFT_LABEL[sh] || '';
+          cl = shiftCls(sh); lb = shiftLabel(sh);
         }
 
         const noteText = getNote(emp.id, di, off);
@@ -256,9 +256,10 @@ function buildSummaryTable(el, off) {
       if (di === 0) html += '<td class="sum-shift-cell" rowspan="' + rowDepts.length + '"><div class="sum-shift-inner"><div class="shift-pill ' + sd.cls + '" style="font-size:10px">' + sd.label + '</div></div></td>';
       html += '<td class="sum-dept-cell" style="width:80px">' + dept + '</td>';
       days.forEach((_, di2) => {
-        const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => sd.keys.includes(x.shiftKey));
+        const entries = dEmps.filter(e => isActiveForWeek(e, off)).map(e => { const { shiftKey, isHalf, halfType } = getDisplayInfo(e, di2, off); return { name: e.name, shiftKey, isHalf, halfType }; }).filter(x => shiftInSummaryRow(sd.keys === AM_KEYS, x.shiftKey, dept));
         const cell = entries.map(x => {
           if (x.isHalf) { const timeLabel = getHalfLabel(x.shiftKey, x.halfType); return x.name + '<span style="font-size:9px;color:#c0392b">(' + timeLabel + ')</span>'; }
+          if (isCustomShiftKey(x.shiftKey)) return x.name + '<span style="font-size:9px;color:#666">(' + shiftLabel(x.shiftKey) + ')</span>';
           return x.name;
         }).join('<br>');
         html += '<td class="sum-name-cell">' + (cell || '<span style="color:#ddd">-</span>') + '</td>';
@@ -367,7 +368,14 @@ function openShiftEdit(empId, di) {
   document.getElementById('shiftModalTitle').innerHTML = emp.name + ' — ' + (d.getMonth() + 1) + '/' + d.getDate() + ' 근무 변경'
     + (isOrigOff ? ' <span style="font-size:11px;font-weight:400;color:#f57f17">(원래 비근무일)</span>' : '');
   const cur = getShift(emp, di, ui.weekOffset);
-  document.getElementById('shiftSelect').value = (cur === '__off__') ? 'off' : cur;
+  document.getElementById('shiftSelect').value = (cur === '__off__') ? 'off' : isCustomShiftKey(cur) ? 'custom' : cur;
+  // 직접 입력 칸에는 지금 근무 시간을 미리 채워둔다 (예: 10-20 근무에서 5시간만 하면 종료만 15:00으로)
+  const dateStr = toLocalDateStr(d);
+  const range = shiftRangeMin(cur) || shiftRangeMin(getBaseShiftForDate(emp, dateStr)) || SHIFT_RANGE_MIN['1020'];
+  const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  document.getElementById('customShiftStart').value = hhmm(range[0]);
+  document.getElementById('customShiftEnd').value = hhmm(range[1]);
+  onShiftSelectChange();
   const fullNote = getNote(empId, di, ui.weekOffset);
   const otLines = fullNote.split('\n').filter(l => l.startsWith('[추가근무]'));
   const manualLines = fullNote.split('\n').filter(l => !l.startsWith('[추가근무]')).join('\n').trim();
@@ -377,9 +385,38 @@ function openShiftEdit(empId, di) {
   document.getElementById('shiftNote').value = manualLines;
   document.getElementById('shiftModal').classList.add('open');
 }
+function onShiftSelectChange() {
+  const isCustom = document.getElementById('shiftSelect').value === 'custom';
+  document.getElementById('customShiftRow').style.display = isCustom ? '' : 'none';
+  if (isCustom) updateCustomShiftInfo();
+}
+function readCustomShiftInput() {
+  const toMin = v => { if (!v) return null; const [h, m] = v.split(':').map(Number); return h * 60 + m; };
+  const s = toMin(document.getElementById('customShiftStart').value);
+  const e = toMin(document.getElementById('customShiftEnd').value);
+  if (s === null || e === null) return { error: '시작 시간과 종료 시간을 모두 입력해 주세요.' };
+  if (e <= s) return { error: '종료 시간이 시작 시간보다 늦어야 해요.' };
+  return { start: s, end: e };
+}
+function updateCustomShiftInfo() {
+  const r = readCustomShiftInput();
+  const el = document.getElementById('customShiftInfo');
+  if (r.error) { el.style.color = '#c0392b'; el.textContent = r.error; return; }
+  const mins = r.end - r.start, h = Math.floor(mins / 60), m = mins % 60;
+  el.style.color = '#555';
+  el.textContent = '근무표 표시: ' + formatMinutesLabel(r.start) + '-' + formatMinutesLabel(r.end)
+    + ' · 총 ' + h + '시간' + (m ? ' ' + m + '분' : '') + ' · ' + (r.start < CUSTOM_PM_START_MIN ? '오전' : '오후') + ' 근무로 표시';
+}
 function applyShift() {
   const { empId, di } = ui.editingCell;
-  const sel = document.getElementById('shiftSelect').value;
+  let sel = document.getElementById('shiftSelect').value;
+  if (sel === 'custom') {
+    const r = readCustomShiftInput();
+    if (r.error) { alert(r.error); return; }
+    // 정해진 근무와 시간이 같으면 그 근무로 저장한다 (예: 10:00~20:00 → 10-20)
+    const preset = Object.keys(SHIFT_RANGE_MIN).find(k => SHIFT_RANGE_MIN[k][0] === r.start && SHIFT_RANGE_MIN[k][1] === r.end);
+    sel = preset || makeCustomShiftKey(r.start, r.end);
+  }
   const emp = state.employees.find(e => e.id === empId);
   const isOrigOff = !shouldWork(emp, di, ui.weekOffset);
   const dateStr = toLocalDateStr(getWeekDays(ui.weekOffset)[di]);
@@ -390,8 +427,9 @@ function applyShift() {
     if (existingIdx >= 0) { state.leaveRequests[existingIdx].type = sel; }
     else { state.leaveRequests.push({ id: nextId(state.leaveRequests), empId, type: sel, start: dateStr, end: dateStr, reason: '근무표에서 등록', status: 'approved', createdAt: toLocalDateStr(TODAY) }); }
     const k = weekKey(ui.weekOffset);
-    // 근무 교환한 날은 교환된 근무를 남겨둔다 (반차 시간 표시가 교환 후 근무 기준이 되도록)
-    if (state.schedules[k]?.[empId]?.[di] !== undefined && !getSwapForCell(emp, dateStr)) delete state.schedules[k][empId][di];
+    // 근무 교환한 날, 시간을 직접 입력한 날은 그 근무를 남겨둔다 (반차 시간이 그 근무 기준이 되도록)
+    const prevOv = state.schedules[k]?.[empId]?.[di];
+    if (prevOv !== undefined && !getSwapForCell(emp, dateStr) && !isCustomShiftKey(prevOv)) delete state.schedules[k][empId][di];
     state.confirmed[k] = false;
   } else {
     if (existingIdx >= 0) state.leaveRequests.splice(existingIdx, 1);

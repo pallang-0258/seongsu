@@ -296,15 +296,25 @@
   <div class="modal">
     <div class="modal-title" id="shiftModalTitle">근무 변경</div>
     <div class="form-row"><label class="form-label">근무 유형</label>
-      <select id="shiftSelect">
+      <select id="shiftSelect" onchange="onShiftSelectChange()">
         <option value="1020">오전 (10-20)</option>
         <option value="1019">오전 (10-19)</option>
         <option value="1323">오후 (13-23)</option>
+        <option value="custom">⏱ 시간 직접 입력</option>
         <option value="annual">연차</option>
         <option value="half">반차 (오전)</option>
         <option value="half_pm">반차 (오후)</option>
         <option value="off">휴무</option>
       </select>
+    </div>
+    <div class="form-row" id="customShiftRow" style="display:none">
+      <label class="form-label">근무 시간 <span style="font-size:11px;color:#bbb">（이 날만 적용）</span></label>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <input type="time" id="customShiftStart" step="600" oninput="updateCustomShiftInfo()" style="flex:1;min-width:110px">
+        <span style="color:#888">~</span>
+        <input type="time" id="customShiftEnd" step="600" oninput="updateCustomShiftInfo()" style="flex:1;min-width:110px">
+      </div>
+      <div id="customShiftInfo" style="font-size:12px;color:#555;margin-top:6px"></div>
     </div>
     <div class="form-row">
       <label class="form-label">메모 <span style="font-size:11px;color:#bbb">（근무표에 표시되지 않음）</span></label>

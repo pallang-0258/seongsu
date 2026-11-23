@@ -159,6 +159,8 @@ body {
 .s-1323 { background: #ece5fb; color: #5931b8; }
 .s-annual { background: #fef3d9; color: #b06a00; }
 .s-half { background: #fbe4ed; color: #a3155f; }
+/* 시간을 직접 입력한 근무: 같은 오전/오후 색 + 점선 테두리 */
+.s-custom { outline: 1.5px dashed currentColor; outline-offset: -2px; }
 
 .sum-wrap { overflow-x: auto; border-radius: var(--radius-md); }
 .sum-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }

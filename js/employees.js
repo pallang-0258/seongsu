@@ -142,7 +142,7 @@ function collectFutureManualOverrides(empId, fromDateStr) {
 }
 function manualOverrideValueLabel(v) {
   if (v === 'off') return '휴무(수동 지정)';
-  return SHIFT_LABEL[v] || String(v);
+  return shiftLabel(v) || String(v);
 }
 function showManualOverrideWarning(empName, overrides) {
   if (!overrides.length) return;
