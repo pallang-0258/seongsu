@@ -4,6 +4,12 @@
 
 const shiftMemoUi = { view: 'emp' }; // 'emp' | 'date'
 
+// 선 아이콘 (이모지 대신)
+const SM_ICON = {
+  pin: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>',
+  swap: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>',
+};
+
 function _smEsc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -118,7 +124,7 @@ function _smEditBtn(m) {
   return '<button class="btn sm sm-edit" onclick="openEditShiftMemo(' + m.empId + ',\'' + m.date + '\')">' + (m.note ? '수정' : '메모 쓰기') + '</button>';
 }
 function _smNote(m) {
-  return (m.swapText ? '<div class="sm-swap">🔄 ' + _smEsc(m.swapText) + '</div>' : '')
+  return (m.swapText ? '<div class="sm-swap">' + _smEsc(m.swapText).split("\n").map(l => SM_ICON.swap + ' ' + l).join("\n") + '</div>' : '')
     + (m.note ? '<div class="sm-note">' + _smEsc(m.note) + '</div>' : '');
 }
 
@@ -159,8 +165,8 @@ function renderShiftMemos() {
       return '<div class="sm-group">'
         + '<div class="sm-group-hd"><span><b>' + _smEsc(emp.name) + '</b>' + (emp.dept ? ' <span class="sm-dept">' + _smEsc(emp.dept) + '</span>' : '') + '</span>'
         + '<span style="display:flex;align-items:center;gap:6px">' + (items.length ? '<span class="sm-cnt">' + items.length + '건</span>' : '')
-        + (pin ? '' : '<button class="btn sm sm-pin-btn" title="이 직원의 고정 메모 쓰기" onclick="openPinnedMemoModal(' + id + ')">📌 고정 메모</button>') + '</span></div>'
-        + (pin ? '<div class="sm-pinned"><div class="sm-row-hd"><span class="sm-pin-label">📌 고정 메모</span><button class="btn sm sm-edit" onclick="openPinnedMemoModal(' + id + ')">수정</button></div><div class="sm-note">' + _smEsc(pin) + '</div></div>' : '')
+        + (pin ? '' : '<button class="btn sm sm-pin-btn" title="이 직원의 고정 메모 쓰기" onclick="openPinnedMemoModal(' + id + ')">' + SM_ICON.pin + ' 고정 메모</button>') + '</span></div>'
+        + (pin ? '<div class="sm-pinned"><div class="sm-row-hd"><span class="sm-pin-label">' + SM_ICON.pin + ' 고정 메모</span><button class="btn sm sm-edit" onclick="openPinnedMemoModal(' + id + ')">수정</button></div><div class="sm-note">' + _smEsc(pin) + '</div></div>' : '')
         + items.map(m => '<div class="sm-row"><div class="sm-row-hd"><span class="sm-date">' + _smDateLabel(m.date) + '</span>' + _smShiftBadge(m) + _smEditBtn(m) + '</div>' + _smNote(m) + '</div>').join('')
         + (!items.length ? '<div class="sm-row sm-none">이 기간에 근무 변경 메모가 없어요</div>' : '')
         + '</div>';
@@ -235,9 +241,9 @@ function _smFillModalInfo() {
   const cur = getShiftForDate(emp, date), base = _smPatternShift(emp, date);
   let txt = '이 날 근무: ' + (_smShiftText(base) !== _smShiftText(cur) ? _smShiftText(base) + ' → ' + _smShiftText(cur) : _smShiftText(cur));
   const sw = typeof getSwapForCell === 'function' ? getSwapForCell(emp, date) : null;
-  if (sw) txt += ' · 🔄 ' + swapPartnerName(sw, empId) + ' 님과 근무 교환';
+  if (sw) txt += ' · ' + SM_ICON.swap + ' ' + _smEsc(swapPartnerName(sw, empId)) + ' 님과 근무 교환';
   if (isDateConfirmed(date)) txt += ' · 확정된 주';
-  info.textContent = txt;
+  info.innerHTML = txt;
   const ot = _smOtLines(empId, date);
   if (ot.length) { otEl.style.display = ''; otEl.textContent = ot.join('\n'); } else { otEl.style.display = 'none'; otEl.textContent = ''; }
   // 추가 모드에서 이미 메모가 있는 날을 고르면 그 메모를 불러와서 덮어쓰지 않게 한다
@@ -257,7 +263,7 @@ function openShiftMemoModal(empId, date, pinned) {
   m._editing = editing;
   document.getElementById('smmPinned').checked = !!pinned;
   document.getElementById('smmPinRow').style.display = editing ? 'none' : '';
-  document.getElementById('smmTitle').textContent = pinned ? (editing ? '📌 고정 메모 수정' : '📌 고정 메모 추가') : (editing ? '근무 메모 수정' : '근무 메모 추가');
+  document.getElementById('smmTitle').innerHTML = pinned ? (editing ? SM_ICON.pin + ' 고정 메모 수정' : SM_ICON.pin + ' 고정 메모 추가') : (editing ? '근무 메모 수정' : '근무 메모 추가');
   const empSel = document.getElementById('smmEmp');
   empSel.innerHTML = state.employees.map(e => '<option value="' + e.id + '">' + _smEsc(e.name) + ' (' + _smEsc(e.dept) + ')</option>').join('');
   const filterEmp = document.getElementById('smEmpFilter').value;
@@ -278,7 +284,7 @@ function openEditShiftMemo(empId, date) { openShiftMemoModal(empId, date); }
 function openPinnedMemoModal(empId) { openShiftMemoModal(empId, null, true); }
 function onSmmPinnedToggle() {
   const pinned = document.getElementById('smmPinned').checked;
-  document.getElementById('smmTitle').textContent = pinned ? '📌 고정 메모 추가' : '근무 메모 추가';
+  document.getElementById('smmTitle').innerHTML = pinned ? SM_ICON.pin + ' 고정 메모 추가' : '근무 메모 추가';
   const ta = document.getElementById('smmText');
   if (ta._loaded && ta.value.startsWith(ta._loaded)) ta.value = ta.value.slice(ta._loaded.length).trim();
   ta._loaded = false;

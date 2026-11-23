@@ -258,3 +258,5 @@ textarea { font-family: inherit; }
 .sm-pin-label { font-size: 11px; font-weight: 700; color: #b06a00; }
 .sm-pin-btn { font-size: 10px !important; padding: 2px 7px !important; }
 .sm-none { font-size: 11px; color: #aaa; }
+/* 선 아이콘 */
+.ic { width: 1.1em; height: 1.1em; vertical-align: -0.2em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
