@@ -2,7 +2,7 @@
 // 근무표 칸 메모(schedules[wk]._notes, 확정된 주는 confirmedSnapshots[wk][empId].note)를
 // 직원별 / 날짜별로 모아서 보여준다. 자동으로 붙는 [추가근무] 줄은 빼고 직접 쓴 메모만 보여준다.
 
-const shiftMemoUi = { view: 'emp' }; // 'emp' | 'date'
+const shiftMemoUi = { view: 'emp', emps: new Set() }; // view: 'emp' | 'date', emps: 고른 직원 id (비어 있으면 전체)
 
 // 선 아이콘 (이모지 대신)
 const SM_ICON = {
@@ -103,10 +103,9 @@ function initShiftMemoTab() {
   yrEl.value = prevYear && years.has(prevYear) ? prevYear : cur;
   const mEl = document.getElementById('smMonth');
   if (!mEl._init) { mEl.value = String(TODAY.getMonth() + 1).padStart(2, '0'); mEl._init = true; }
-  const empEl = document.getElementById('smEmpFilter');
-  const prevEmp = empEl.value;
-  empEl.innerHTML = '<option value="">전체 직원</option>' + state.employees.map(e => '<option value="' + e.id + '">' + _smEsc(e.name) + ' (' + _smEsc(e.dept) + ')</option>').join('');
-  empEl.value = prevEmp;
+  // 없어진 직원은 선택에서 뺀다
+  shiftMemoUi.emps.forEach(id => { if (!state.employees.some(e => e.id === id)) shiftMemoUi.emps.delete(id); });
+  _smRenderEmpPicker();
   setShiftMemoView(shiftMemoUi.view);
 }
 
@@ -120,12 +119,12 @@ function setShiftMemoView(v) {
 function _smFiltered() {
   const year = document.getElementById('smYear').value;
   const month = document.getElementById('smMonth').value;
-  const empId = +document.getElementById('smEmpFilter').value || 0;
+  const sel = shiftMemoUi.emps;
   const q = (document.getElementById('smSearch').value || '').trim().toLowerCase();
   return collectShiftMemos().filter(m =>
     (!year || m.date.startsWith(year)) &&
     (!month || !year || m.date.startsWith(year + '-' + month)) &&
-    (!empId || m.empId === empId) &&
+    (!sel.size || sel.has(m.empId)) &&
     (!q || m.note.toLowerCase().includes(q) || m.swapText.toLowerCase().includes(q) || m.otText.toLowerCase().includes(q) || m.emp.name.toLowerCase().includes(q)));
 }
 
@@ -147,11 +146,11 @@ function _smNote(m) {
 function _smPinned(empId) { return ((state.pinnedMemos || {})[empId] || '').trim(); }
 // 직원별 보기 맨 위에 붙는 고정 메모 (필터: 직원·검색만 적용, 기간과는 상관없음)
 function _smPinnedIds() {
-  const empId = +document.getElementById('smEmpFilter').value || 0;
+  const sel = shiftMemoUi.emps;
   const q = (document.getElementById('smSearch').value || '').trim().toLowerCase();
   return Object.keys(state.pinnedMemos || {}).map(Number).filter(id => {
     const t = _smPinned(id); if (!t) return false;
-    if (empId && id !== empId) return false;
+    if (sel.size && !sel.has(id)) return false;
     if (!q) return true;
     const emp = state.employees.find(e => e.id === id);
     return t.toLowerCase().includes(q) || (emp && emp.name.toLowerCase().includes(q));
@@ -282,7 +281,7 @@ function openShiftMemoModal(empId, date, pinned) {
   document.getElementById('smmTitle').innerHTML = pinned ? (editing ? SM_ICON.pin + ' 고정 메모 수정' : SM_ICON.pin + ' 고정 메모 추가') : (editing ? '근무 메모 수정' : '근무 메모 추가');
   const empSel = document.getElementById('smmEmp');
   empSel.innerHTML = state.employees.map(e => '<option value="' + e.id + '">' + _smEsc(e.name) + ' (' + _smEsc(e.dept) + ')</option>').join('');
-  const filterEmp = document.getElementById('smEmpFilter').value;
+  const filterEmp = shiftMemoUi.emps.size === 1 ? [...shiftMemoUi.emps][0] : '';
   empSel.value = editing ? empId : (filterEmp || (state.employees[0] && state.employees[0].id) || '');
   empSel.disabled = editing;
   const dateEl = document.getElementById('smmDate');
@@ -339,3 +338,45 @@ function deleteShiftMemo() {
   document.getElementById('smmText').value = '';
   submitShiftMemo();
 }
+
+// ── 직원 여러 명 고르기 ──
+function _smEmpPickerLabel() {
+  const sel = shiftMemoUi.emps;
+  if (!sel.size) return '전체 직원';
+  const names = state.employees.filter(e => sel.has(e.id)).map(e => e.name);
+  return names.length <= 2 ? names.join(', ') : names[0] + ' 외 ' + (names.length - 1) + '명';
+}
+function _smRenderEmpPicker() {
+  document.getElementById('smEmpBtnLabel').textContent = _smEmpPickerLabel();
+  const panel = document.getElementById('smEmpPanel');
+  const sel = shiftMemoUi.emps;
+  const depts = [...new Set(state.employees.map(e => e.dept))];
+  panel.innerHTML = '<div class="sm-pick-top"><button class="btn sm" onclick="smPickAll()">전체 보기</button>'
+    + depts.map(d => '<button class="btn sm" onclick="smPickDept(\'' + _smEsc(d) + '\')">' + _smEsc(d) + '</button>').join('')
+    + '<button class="btn sm primary" style="margin-left:auto" onclick="smToggleEmpPanel(false)">닫기</button></div>'
+    + depts.map(d => '<div class="sm-pick-dept">' + _smEsc(d) + '</div><div class="sm-pick-list">'
+      + state.employees.filter(e => e.dept === d).map(e => '<label class="sm-pick' + (sel.has(e.id) ? ' on' : '') + '"><input type="checkbox"' + (sel.has(e.id) ? ' checked' : '') + ' onchange="smPickEmp(' + e.id + ', this.checked)">' + _smEsc(e.name) + '</label>').join('')
+      + '</div>').join('');
+}
+function smToggleEmpPanel(open) {
+  const panel = document.getElementById('smEmpPanel');
+  const show = open === undefined ? panel.style.display === 'none' : open;
+  panel.style.display = show ? '' : 'none';
+}
+function smPickEmp(id, on) {
+  if (on) shiftMemoUi.emps.add(id); else shiftMemoUi.emps.delete(id);
+  _smRenderEmpPicker(); renderShiftMemos();
+}
+function smPickAll() { shiftMemoUi.emps.clear(); _smRenderEmpPicker(); renderShiftMemos(); }
+// 부서 버튼: 그 부서가 다 골라져 있으면 빼고, 아니면 다 고른다
+function smPickDept(dept) {
+  const ids = state.employees.filter(e => e.dept === dept).map(e => e.id);
+  const allOn = ids.every(id => shiftMemoUi.emps.has(id));
+  ids.forEach(id => allOn ? shiftMemoUi.emps.delete(id) : shiftMemoUi.emps.add(id));
+  _smRenderEmpPicker(); renderShiftMemos();
+}
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('smEmpPickWrap');
+  const panel = document.getElementById('smEmpPanel');
+  if (wrap && panel && panel.style.display !== 'none' && !wrap.contains(e.target)) panel.style.display = 'none';
+});

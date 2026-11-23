@@ -264,7 +264,10 @@
               <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
               <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
             </select>
-            <select id="smEmpFilter" onchange="renderShiftMemos()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
+            <div id="smEmpPickWrap" style="position:relative">
+              <button class="btn sm" onclick="smToggleEmpPanel()" style="height:32px;min-width:120px;display:flex;align-items:center;justify-content:space-between;gap:6px"><span id="smEmpBtnLabel">전체 직원</span><span style="color:#999;font-size:10px">▼</span></button>
+              <div id="smEmpPanel" class="sm-pick-panel" style="display:none"></div>
+            </div>
             <input id="smSearch" type="search" placeholder="메모 검색" oninput="renderShiftMemos()" style="height:32px;font-size:12px;width:130px">
             <button class="btn primary sm" onclick="openShiftMemoModal()">+ 메모 추가</button>
           </div>
