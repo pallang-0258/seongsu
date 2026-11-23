@@ -7,6 +7,7 @@ const shiftMemoUi = { view: 'emp' }; // 'emp' | 'date'
 // 선 아이콘 (이모지 대신)
 const SM_ICON = {
   pin: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>',
+  clock: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   swap: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>',
 };
 
@@ -61,6 +62,15 @@ function collectShiftMemos() {
     });
   });
 
+  // 추가근무 기록도 그 날짜 메모로 함께 보여준다 (추가근무 탭의 기록을 읽기만 함)
+  const otByKey = {};
+  (state.overtimeRecords || []).forEach(r => {
+    if (!r || !r.date) return;
+    const k = (+r.empId) + '|' + r.date;
+    keys.add(k);
+    (otByKey[k] = otByKey[k] || []).push(r);
+  });
+
   const out = [];
   keys.forEach(k => {
     const [empIdStr, date] = k.split('|');
@@ -69,11 +79,13 @@ function collectShiftMemos() {
     const note = getNoteForDate(emp, date) || '';
     const manual = note.split('\n').filter(l => !l.startsWith('[추가근무]')).join('\n').trim();
     const swaps = swapsByKey[k] || [];
-    if (!manual && !swaps.length) return;
+    const ots = (otByKey[k] || []).slice().sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+    if (!manual && !swaps.length && !ots.length) return;
     let base = null, cur = null;
     try { base = _smPatternShift(emp, date); cur = getShiftForDate(emp, date); } catch (e) { /* 직원 정보가 없을 때 */ }
     const swapText = swaps.map(x => x.partner + ' 님과 근무 교환' + (x.memo ? ' (' + x.memo + ')' : '')).join('\n');
-    out.push({ empId, emp, date, note: manual, swaps, swapText, base, cur, changed: _smShiftText(base) !== _smShiftText(cur) });
+    const otText = ots.map(r => '추가근무 ' + (r.startTime || '') + '~' + (r.endTime || '') + ' (' + calcOtHours(r.startTime, r.endTime) + '시간)' + (r.reason ? ' ' + r.reason : '')).join('\n');
+    out.push({ empId, emp, date, note: manual, swaps, swapText, otText, base, cur, changed: _smShiftText(base) !== _smShiftText(cur) });
   });
   return out;
 }
@@ -111,7 +123,7 @@ function _smFiltered() {
     (!year || m.date.startsWith(year)) &&
     (!month || !year || m.date.startsWith(year + '-' + month)) &&
     (!empId || m.empId === empId) &&
-    (!q || m.note.toLowerCase().includes(q) || m.swapText.toLowerCase().includes(q) || m.emp.name.toLowerCase().includes(q)));
+    (!q || m.note.toLowerCase().includes(q) || m.swapText.toLowerCase().includes(q) || m.otText.toLowerCase().includes(q) || m.emp.name.toLowerCase().includes(q)));
 }
 
 function _smShiftBadge(m) {
@@ -124,7 +136,8 @@ function _smEditBtn(m) {
   return '<button class="btn sm sm-edit" onclick="openEditShiftMemo(' + m.empId + ',\'' + m.date + '\')">' + (m.note ? '수정' : '메모 쓰기') + '</button>';
 }
 function _smNote(m) {
-  return (m.swapText ? '<div class="sm-swap">' + _smEsc(m.swapText).split("\n").map(l => SM_ICON.swap + ' ' + l).join("\n") + '</div>' : '')
+  return (m.otText ? '<div class="sm-ot">' + _smEsc(m.otText).split("\n").map(l => SM_ICON.clock + ' ' + l).join("\n") + '</div>' : '')
+    + (m.swapText ? '<div class="sm-swap">' + _smEsc(m.swapText).split("\n").map(l => SM_ICON.swap + ' ' + l).join("\n") + '</div>' : '')
     + (m.note ? '<div class="sm-note">' + _smEsc(m.note) + '</div>' : '');
 }
 
