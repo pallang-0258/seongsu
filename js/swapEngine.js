@@ -141,6 +141,10 @@ function planShiftSwap(empAId, empBId, dates) {
         if (!snap[emp.id]) errors.push(md + ': ' + emp.name + ' 님이 확정된 근무표에 없어서 교환할 수 없어요.');
       });
     }
+    // 같은 날 교환은 그 날 둘 다 근무하는 경우에만 (휴무인 사람과는 바꿀 수 없음)
+    if (dates.length === 1) [[empA, shA], [empB, shB]].forEach(([emp, sh]) => {
+      if (swapNorm(sh) === 'off') errors.push(md + ': ' + emp.name + ' 님은 이 날 휴무라서 같은 날 교환을 할 수 없어요. 그 날 근무하는 사람끼리만 바꿀 수 있어요.');
+    });
     if (swapNorm(shA) !== swapNorm(shB)) anyChange = true;
     cells.push({ empId: empA.id, date: dateStr, before: shA, after: shB });
     cells.push({ empId: empB.id, date: dateStr, before: shB, after: shA });
