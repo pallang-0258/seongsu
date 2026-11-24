@@ -361,3 +361,28 @@ textarea { font-family: inherit; }
   .lv-table.wrap-hd th { white-space: normal !important; vertical-align: bottom; }
   .lv-table.wrap-hd th, .lv-table.wrap-hd td { padding-left: 3px !important; padding-right: 3px !important; }
 }
+
+/* 추가근무 탭: 파트 직원 추가근무 접기 */
+.ot-part { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; background: #fafafa; }
+.ot-part > summary { cursor: pointer; font-weight: 600; font-size: 13px; color: #555; list-style: revert; }
+.ot-part-meta { font-weight: 400; font-size: 12px; color: #999; margin-left: 4px; }
+@media (max-width: 600px) { .ot-part-meta { display: block; margin: 4px 0 0 16px; } }
+
+/* 연차/반차·추가근무 목록: 필요할 때만 펼쳐 보기 */
+.card.fold > .card-header { margin-bottom: 0; }
+.card.fold.open > .card-header { margin-bottom: 12px; }
+.fold-toggle { display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 4px 0; font: inherit; font-size: 14px; font-weight: 700; letter-spacing: -.01em; color: inherit; cursor: pointer; text-align: left; }
+.fold-toggle:focus-visible { outline: 2px solid #1565c0; outline-offset: 2px; border-radius: 4px; }
+.fold-arrow { font-size: 10px; color: #999; display: inline-block; transition: transform .15s; }
+.card.fold.open .fold-arrow { transform: rotate(90deg); }
+.fold-count { font-size: 12px; font-weight: 400; color: #999; }
+.card.fold .fold-body { display: none; }
+.card.fold.open .fold-body { display: block; }
+.fold-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+/* 달력 날짜 창 (그날 등록된 내용 수정·삭제) */
+.cal-day-list { display: flex; flex-direction: column; gap: 8px; }
+.cal-day-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; }
+.cal-day-info { min-width: 0; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+.cal-day-sub { font-size: 11px; color: #999; overflow-wrap: anywhere; }
+.cal-day-acts { display: flex; gap: 4px; flex-shrink: 0; }
