@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>근무관리 시스템</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="css/style.css?v=20261124g">
+<link rel="stylesheet" href="css/style.css?v=20261124h">
 </head>
 <body>
 <div class="header">
@@ -143,23 +143,6 @@
     <div id="tabLeave" style="display:none">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">연차 / 반차 신청 현황</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <select id="leaveTableYear" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:80px"></select>
-            <select id="leaveTableMonth" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:70px">
-              <option value="">전체</option>
-              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
-              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
-              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
-              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
-            </select>
-            <button class="btn primary sm" onclick="openLeaveModal()">+ 신청 등록</button>
-          </div>
-        </div>
-        <div id="leaveTableWrap" style="overflow:visible"><table class="lv-table" id="leaveTable"></table></div>
-      </div>
-      <div class="card">
-        <div class="card-header">
           <div class="card-title">연차/반차 달력</div>
           <div style="display:flex;align-items:center;gap:6px">
             <button class="btn sm" onclick="calChangeMonth(-1)">◀</button>
@@ -174,6 +157,25 @@
           <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차(오전)</div>
           <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#ede7f6"></div>반차(오후)</div>
           <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8f7;border:1px solid #f5c6c2"></div>공휴일</div>
+        </div>
+      </div>
+      <div class="card fold" id="leaveListCard">
+        <div class="card-header">
+          <button type="button" class="fold-toggle" onclick="toggleFold('leaveListCard')" aria-expanded="false"><span class="fold-arrow">▶</span> 연차 / 반차 신청 현황 <span class="fold-count" id="leaveListCount"></span></button>
+          <button class="btn primary sm" onclick="openLeaveModal()">+ 신청 등록</button>
+        </div>
+        <div class="fold-body">
+          <div class="fold-filters">
+            <select id="leaveTableYear" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="leaveTableMonth" onchange="renderLeaveTable()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+          </div>
+          <div id="leaveTableWrap" style="overflow:visible"><table class="lv-table" id="leaveTable"></table></div>
         </div>
       </div>
       <div class="card">
@@ -201,25 +203,6 @@
     <div id="tabOvertime" style="display:none">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">추가근무 기록</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <select id="otYear" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:80px"></select>
-            <select id="otMonth" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:70px">
-              <option value="">전체</option>
-              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
-              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
-              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
-              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
-            </select>
-            <select id="otEmpFilter" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
-            <button class="btn primary sm" onclick="openOvertimeModal()">+ 추가근무 등록</button>
-          </div>
-        </div>
-        <div id="overtimeTableWrap"><table class="lv-table" id="overtimeTable"></table></div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
           <div class="card-title">일자별 추가근무 현황</div>
           <div style="display:flex;align-items:center;gap:6px">
             <button class="btn sm" onclick="otCalChangeMonth(-1)">◀</button>
@@ -233,6 +216,26 @@
         </div>
       </div>
 
+      <div class="card fold" id="otListCard">
+        <div class="card-header">
+          <button type="button" class="fold-toggle" onclick="toggleFold('otListCard')" aria-expanded="false"><span class="fold-arrow">▶</span> 추가근무 기록 <span class="fold-count" id="otListCount"></span></button>
+          <button class="btn primary sm" onclick="openOvertimeModal()">+ 추가근무 등록</button>
+        </div>
+        <div class="fold-body">
+          <div class="fold-filters">
+            <select id="otYear" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:80px"></select>
+            <select id="otMonth" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:70px">
+              <option value="">전체</option>
+              <option value="01">1월</option><option value="02">2월</option><option value="03">3월</option>
+              <option value="04">4월</option><option value="05">5월</option><option value="06">6월</option>
+              <option value="07">7월</option><option value="08">8월</option><option value="09">9월</option>
+              <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+            </select>
+            <select id="otEmpFilter" onchange="renderOvertimeTable()" style="height:32px;font-size:12px;width:120px"><option value="">전체 직원</option></select>
+          </div>
+          <div id="overtimeTableWrap"><table class="lv-table" id="overtimeTable"></table></div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-header">
           <div class="card-title">직원별 추가근무 합계 (급여 참고용)</div>
@@ -611,20 +614,20 @@
   </div>
 </div>
 
-<script src="js/constants.js?v=20261124g"></script>
-<script src="js/dateUtils.js?v=20261124g"></script>
-<script src="js/holidays.js?v=20261124g"></script>
-<script src="js/state.js?v=20261124g"></script>
-<script src="js/scheduleEngine.js?v=20261124g"></script>
-<script src="js/swapEngine.js?v=20261124g"></script>
-<script src="js/leaveEngine.js?v=20261124g"></script>
-<script src="js/overtimeEngine.js?v=20261124g"></script>
-<script src="js/holidayReport.js?v=20261124g"></script>
-<script src="js/partTimeReport.js?v=20261124g"></script>
-<script src="js/employees.js?v=20261124g"></script>
-<script src="js/ui.js?v=20261124g"></script>
-<script src="js/shiftMemos.js?v=20261124g"></script>
-<script src="js/print.js?v=20261124g"></script>
-<script src="js/main.js?v=20261124g"></script>
+<script src="js/constants.js?v=20261124h"></script>
+<script src="js/dateUtils.js?v=20261124h"></script>
+<script src="js/holidays.js?v=20261124h"></script>
+<script src="js/state.js?v=20261124h"></script>
+<script src="js/scheduleEngine.js?v=20261124h"></script>
+<script src="js/swapEngine.js?v=20261124h"></script>
+<script src="js/leaveEngine.js?v=20261124h"></script>
+<script src="js/overtimeEngine.js?v=20261124h"></script>
+<script src="js/holidayReport.js?v=20261124h"></script>
+<script src="js/partTimeReport.js?v=20261124h"></script>
+<script src="js/employees.js?v=20261124h"></script>
+<script src="js/ui.js?v=20261124h"></script>
+<script src="js/shiftMemos.js?v=20261124h"></script>
+<script src="js/print.js?v=20261124h"></script>
+<script src="js/main.js?v=20261124h"></script>
 </body>
 </html>

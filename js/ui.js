@@ -85,6 +85,19 @@ function loadSiteTitle() {
   } catch (e) {}
 }
 
+// 연차/반차 신청 현황·추가근무 기록 목록은 접어두고, 제목을 누를 때만 펼친다
+function toggleFold(cardId) {
+  const card = document.getElementById(cardId); if (!card) return;
+  const open = card.classList.toggle('open');
+  const btn = card.querySelector('.fold-toggle'); if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) setTimeout(fitTableToScreen, 0);
+}
+// 접힌 목록 제목 옆에 지금 고른 기간의 건수를 보여준다 (예: "11월 · 3건")
+function setFoldCount(id, year, month, n) {
+  const el = document.getElementById(id); if (!el) return;
+  el.textContent = (month ? (+month) + '월' : year ? year + '년' : '전체') + ' · ' + n + '건';
+}
+
 // 모바일 화면에서 표가 넘칠 때 비율 축소
 function fitTableToScreen() {
   if (window.innerWidth > 768) return;
@@ -819,6 +832,7 @@ function renderLeaveTable() {
   if (year) filtered = filtered.filter(r => r.start.startsWith(year) || (month === '' && r.end.startsWith(year)));
   if (month && year) { const ym = year + '-' + month; filtered = filtered.filter(r => r.start.startsWith(ym) || r.end.startsWith(ym) || (r.start < ym + '-01' && r.end >= ym + '-01')); }
   filtered = filtered.sort((a, b) => b.start.localeCompare(a.start));
+  setFoldCount('leaveListCount', year, month, filtered.filter(lr => state.employees.some(e => e.id === lr.empId)).length);
   let html = '<thead><tr><th>직원</th><th>유형</th><th>신청일</th><th>기간</th><th>사유</th><th>관리</th></tr></thead><tbody>';
   if (!filtered.length) html += '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
   else filtered.forEach(lr => {
@@ -1072,6 +1086,7 @@ function renderOvertimeTable() {
   if (month && year) filtered = filtered.filter(r => r.date.startsWith(year + '-' + month));
   if (empId) filtered = filtered.filter(r => r.empId === empId);
   filtered.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  setFoldCount('otListCount', year, month, filtered.filter(r => state.employees.some(e => e.id === r.empId)).length);
   const tbl = document.getElementById('overtimeTable'); tbl.innerHTML = '';
   const thead = tbl.createTHead();
   thead.innerHTML = '<tr><th>직원</th><th>날짜</th><th>시간</th><th>근무 시간</th><th>사유</th><th>관리</th></tr>';
