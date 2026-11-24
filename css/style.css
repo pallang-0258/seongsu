@@ -173,7 +173,10 @@ button, input, select, textarea { font-family: inherit; }
    (가로 스크롤 상자 안에서는 붙지 않으므로, 넘치는 부분은 스크롤 대신 잘라낸다 — 표 최소 너비가 화면보다 작아 실제로 잘리는 일은 거의 없다) */
 .sch-wrap { overflow-x: clip; }
 .sch-table thead th { position: sticky; top: -22px; z-index: 3; } /* 화면 여백(22px)만큼 위로 올려 맨 위에 딱 붙게 */
-@media (max-width: 768px) { .sch-table thead th { top: -12px; } }
+/* 휴대폰은 표를 줄여 보여줘서 sticky가 제자리에 안 붙는다 → js/stickyHead.js가 복사한 줄을 화면 위에 띄운다 */
+@media (max-width: 768px) { .sch-table thead th { position: static; } }
+.sch-float-head { display: none; position: fixed; z-index: 90; overflow: hidden; pointer-events: none; background: #f6f8fc; border-bottom: 1px solid var(--border); box-shadow: 0 4px 10px -4px rgba(17, 38, 80, .18); }
+.sch-float-head table { margin: 0; }
 .sch-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; table-layout: fixed; min-width: 520px; }
 /* PC: 부서·이름 칸은 고정 너비, 요일 칸은 남은 너비를 똑같이 나눈다 (화면이 아주 좁으면 가로 스크롤) */
 .sch-table th, .sch-table td { border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); padding: 0; text-align: center; }

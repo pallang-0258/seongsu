@@ -100,7 +100,7 @@ function setFoldCount(id, year, month, n) {
 
 // 모바일 화면에서 표가 넘칠 때 비율 축소
 function fitTableToScreen() {
-  if (window.innerWidth > 768) return;
+  if (window.innerWidth > 768) { if (window.refreshSchFloatHead) refreshSchFloatHead(); return; }
   const targets = [
     { tblId: 'screenSchTable', wrapSel: '.sch-wrap' },
     { tblId: 'screenSummary', wrapSel: '.sum-wrap' },
@@ -110,16 +110,16 @@ function fitTableToScreen() {
   targets.forEach(({ tblId, wrapSel, wrapId }) => {
     const tbl = document.getElementById(tblId); if (!tbl) return;
     const wrap = wrapId ? document.getElementById(wrapId) : tbl.closest(wrapSel); if (!wrap) return;
-    tbl.style.transform = ''; tbl.style.transformOrigin = ''; tbl.style.zoom = ''; wrap.style.height = ''; wrap.style.overflow = 'visible';
+    tbl.style.transform = ''; tbl.style.transformOrigin = ''; tbl.dataset.scale = '1'; wrap.style.height = ''; wrap.style.overflow = 'visible';
     const tblW = tbl.scrollWidth, wrapW = wrap.clientWidth;
     if (tblW > wrapW && wrapW > 0) {
       const scale = wrapW / tblW;
-      // 근무표는 transform 대신 zoom으로 줄인다: transform으로 줄이면 위에 붙어 따라오는 요일·날짜 줄이 엉뚱한 곳에 붙는다
-      if (tblId === 'screenSchTable' && 'zoom' in tbl.style) { tbl.style.zoom = scale; return; }
+      tbl.dataset.scale = String(scale);
       tbl.style.transform = 'scale(' + scale + ')'; tbl.style.transformOrigin = 'top left';
       wrap.style.height = (tbl.scrollHeight * scale) + 'px';
     }
   });
+  if (window.refreshSchFloatHead) refreshSchFloatHead();
 }
 // 휴대폰 브라우저의 "실제로 보이는" 화면 높이를 CSS 변수(--app-h)로 넘긴다. 아이폰 사파리의 100vh는 주소창이
 // 숨었을 때 기준이라 화면보다 커서, 맨 아래 내용이 가려지거나 손을 떼면 화면이 위로 튕겼다.
