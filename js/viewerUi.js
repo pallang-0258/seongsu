@@ -25,10 +25,12 @@ function fitTableToScreen() {
   targets.forEach(({ tblId, wrapSel, wrapId }) => {
     const tbl = document.getElementById(tblId); if (!tbl) return;
     const wrap = wrapId ? document.getElementById(wrapId) : tbl.closest(wrapSel); if (!wrap) return;
-    tbl.style.transform = ''; tbl.style.transformOrigin = ''; wrap.style.height = ''; wrap.style.overflow = 'visible';
+    tbl.style.transform = ''; tbl.style.transformOrigin = ''; tbl.style.zoom = ''; wrap.style.height = ''; wrap.style.overflow = 'visible';
     const tblW = tbl.scrollWidth, wrapW = wrap.clientWidth;
     if (tblW > wrapW && wrapW > 0) {
       const scale = wrapW / tblW;
+      // 근무표는 transform 대신 zoom으로 줄인다: transform으로 줄이면 위에 붙어 따라오는 요일·날짜 줄이 엉뚱한 곳에 붙는다
+      if (tblId === 'screenSchTable' && 'zoom' in tbl.style) { tbl.style.zoom = scale; return; }
       tbl.style.transform = 'scale(' + scale + ')'; tbl.style.transformOrigin = 'top left';
       wrap.style.height = (tbl.scrollHeight * scale) + 'px';
     }
