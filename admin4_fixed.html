@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>근무관리 시스템</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="css/style.css?v=20261124d">
+<link rel="stylesheet" href="css/style.css?v=20261124e">
 </head>
 <body>
 <div class="header">
@@ -22,7 +22,7 @@
   </div>
   <div style="display:flex;align-items:center;gap:10px">
     <span id="syncIndicator" style="font-size:11px;color:#2e7d32;min-width:70px;text-align:right"></span>
-    <button class="btn sm" onclick="openSheetsSettingModal()" title="Google Sheets 연동 설정" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)">⚙ 연동 설정</button>
+    <button class="btn sm" onclick="openSheetsSettingModal()" title="Google Sheets 연동 설정" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)">⚙<span class="hide-m"> 연동 설정</span></button>
   </div>
 </div>
 
@@ -82,9 +82,12 @@
             <button class="btn sm danger" id="unconfirmScheduleBtn" onclick="unconfirmScheduleUI()" style="display:none">🔓 확정 해제</button>
             <button class="btn sm" onclick="openSwapModal()" title="두 직원의 근무를 서로 맞바꿉니다"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg> 근무 교환</button>
             <button class="btn sm danger" id="resetWeekBtn" onclick="resetWeekScheduleUI()" title="이 주의 수동 변경을 모두 취소하고 기본 근무표로 되돌립니다">↩ 이 주 초기화</button>
+            <button class="btn sm print-toggle" onclick="this.parentElement.classList.toggle('show-print')" title="출력 메뉴 열기/닫기">🖨 출력</button>
+            <span class="print-btns">
             <button class="btn sm" onclick="doPrint(false)">🖨 요약표만</button>
             <button class="btn primary sm" onclick="doPrint(true)">🖨 전체출력</button>
             <button class="btn sm" onclick="doPrintFixed()">🖨 고정근무표</button>
+            </span>
           </div>
         </div>
         <div class="sch-wrap"><table class="sch-table" id="screenSchTable"></table></div>
@@ -103,7 +106,7 @@
             <button class="btn primary sm" onclick="openSwapModal()">+ 교환 등록</button>
           </div>
         </div>
-        <div style="overflow-x:auto"><table class="lv-table" id="swapHistoryTable"></table></div>
+        <div style="overflow-x:auto"><table class="lv-table m-cards" id="swapHistoryTable"></table></div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">공휴일 관리</div></div>
@@ -245,7 +248,7 @@
             <button class="btn sm" onclick="exportOvertimeMonthCsvUI()">⬇ 월별 내보내기 (CSV)</button>
           </div>
         </div>
-        <table class="lv-table" id="overtimeSummaryTable"></table>
+        <div style="overflow-x:auto"><table class="lv-table wrap-hd" id="overtimeSummaryTable"></table></div>
       </div>
     </div>
 
@@ -607,20 +610,20 @@
   </div>
 </div>
 
-<script src="js/constants.js?v=20261124d"></script>
-<script src="js/dateUtils.js?v=20261124d"></script>
-<script src="js/holidays.js?v=20261124d"></script>
-<script src="js/state.js?v=20261124d"></script>
-<script src="js/scheduleEngine.js?v=20261124d"></script>
-<script src="js/swapEngine.js?v=20261124d"></script>
-<script src="js/leaveEngine.js?v=20261124d"></script>
-<script src="js/overtimeEngine.js?v=20261124d"></script>
-<script src="js/holidayReport.js?v=20261124d"></script>
-<script src="js/partTimeReport.js?v=20261124d"></script>
-<script src="js/employees.js?v=20261124d"></script>
-<script src="js/ui.js?v=20261124d"></script>
-<script src="js/shiftMemos.js?v=20261124d"></script>
-<script src="js/print.js?v=20261124d"></script>
-<script src="js/main.js?v=20261124d"></script>
+<script src="js/constants.js?v=20261124e"></script>
+<script src="js/dateUtils.js?v=20261124e"></script>
+<script src="js/holidays.js?v=20261124e"></script>
+<script src="js/state.js?v=20261124e"></script>
+<script src="js/scheduleEngine.js?v=20261124e"></script>
+<script src="js/swapEngine.js?v=20261124e"></script>
+<script src="js/leaveEngine.js?v=20261124e"></script>
+<script src="js/overtimeEngine.js?v=20261124e"></script>
+<script src="js/holidayReport.js?v=20261124e"></script>
+<script src="js/partTimeReport.js?v=20261124e"></script>
+<script src="js/employees.js?v=20261124e"></script>
+<script src="js/ui.js?v=20261124e"></script>
+<script src="js/shiftMemos.js?v=20261124e"></script>
+<script src="js/print.js?v=20261124e"></script>
+<script src="js/main.js?v=20261124e"></script>
 </body>
 </html>
