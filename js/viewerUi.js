@@ -3,6 +3,9 @@
 // 여기서는 데이터를 수정하는 함수(save 등)를 절대 호출하지 않는다. 모달/편집 기능 없음.
 
 function switchViewerTab(tab) {
+  // 지금 보고 있는 탭(아래 탭·위 탭)을 한 번 더 누르면 맨 위로 부드럽게 올라간다
+  const _curTab = document.getElementById('mtab-' + tab);
+  if (_curTab && _curTab.classList.contains('active')) { const m = document.querySelector('.main'); if (m) m.scrollTo({ top: 0, behavior: 'smooth' }); }
   ['schedule', 'leave'].forEach(t => {
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
     const tabBtns = document.querySelectorAll('.header-tabs .tab');
@@ -12,6 +15,7 @@ function switchViewerTab(tab) {
     if (mt) mt.className = 'mobile-tab' + (t === tab ? ' active' : '');
   });
   if (tab === 'leave') { initLeaveFilters(); initLeaveTableFilters(); renderLeaveTable(); renderLeaveHistoryViewer(); initCalendar(); setTimeout(fitTableToScreen, 100); }
+  if (tab === 'schedule') setTimeout(fitTableToScreen, 50); // 숨겨져 있던 동안엔 폭을 잴 수 없어서 돌아올 때 다시 맞춤
 }
 
 // ── 화면 폭에 맞춰 표/달력 축소 (가로 스크롤 방지) ──
@@ -25,6 +29,8 @@ function fitTableToScreen() {
   targets.forEach(({ tblId, wrapSel, wrapId }) => {
     const tbl = document.getElementById(tblId); if (!tbl) return;
     const wrap = wrapId ? document.getElementById(wrapId) : tbl.closest(wrapSel); if (!wrap) return;
+    // 다른 탭에 가려져 있는 표는 폭을 잴 수 없으니 건드리지 않는다 (예전엔 여기서 줄인 크기를 풀어버려서 돌아오면 표가 화면 밖으로 넘쳤다)
+    if (!wrap.offsetParent) return;
     tbl.style.transform = ''; tbl.style.transformOrigin = ''; tbl.dataset.scale = '1'; wrap.style.height = ''; wrap.style.overflow = 'visible';
     const tblW = tbl.scrollWidth, wrapW = wrap.clientWidth;
     if (tblW > wrapW && wrapW > 0) {
