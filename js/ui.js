@@ -1095,38 +1095,28 @@ function renderOvertimeTable() {
     tbody.appendChild(tr);
   });
 }
-// 기능5: 정규근무 + 추가근무 합산 월간 요약 (급여 참고용)
+// 직원별 추가근무 합계 — 정규직은 기본급에 추가근무만 더하므로 추가근무 시간만 보여준다.
+// 그 기간에 추가근무한 직원만 나오고, 파트 직원은 근무표 탭 파트 리포트에 이미 반영되므로 접어둔다.
 function renderOvertimeSummary() {
   const year = document.getElementById('otSumYear')?.value || String(TODAY.getFullYear());
   const month = document.getElementById('otSumMonth')?.value || '';
   const el = document.getElementById('overtimeSummaryTable');
-  if (!month) {
-    // 전체(연도)인 경우 기존처럼 추가근무만 합산해서 표시
-    let filtered = [...state.overtimeRecords];
-    if (year) filtered = filtered.filter(r => r.date.startsWith(year));
-    const empMap = {};
-    filtered.forEach(r => { if (!empMap[r.empId]) empMap[r.empId] = { total: 0, count: 0 }; empMap[r.empId].total += calcOtHours(r.startTime, r.endTime); empMap[r.empId].count++; });
-    let html = '<thead><tr><th>직원</th><th>부서</th><th>추가근무 횟수</th><th>총 추가근무 시간</th></tr></thead><tbody>';
-    const sorted = state.employees.filter(e => empMap[e.id]).sort((a, b) => (empMap[b.id]?.total || 0) - (empMap[a.id]?.total || 0));
-    if (!sorted.length) html += '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:16px">해당 기간 추가근무 내역이 없습니다</td></tr>';
-    else sorted.forEach(e => { const d = empMap[e.id]; html += '<tr><td><strong>' + e.name + '</strong></td><td style="color:#888">' + e.dept + '</td><td style="text-align:center">' + d.count + '회</td><td style="font-weight:600;color:#1565c0">' + d.total + '시간</td></tr>'; });
-    el.innerHTML = html + '</tbody>';
-    return;
-  }
-  const monthIdx = +month - 1;
-  const summary = calcMonthlyPayrollSummary(+year, monthIdx);
-  let html = '<thead><tr><th>직원</th><th>부서</th><th>정규근무시간</th><th>추가근무 횟수</th><th>추가근무시간</th><th>합계(급여참고)</th></tr></thead><tbody>';
-  const sorted = state.employees.filter(e => summary[e.id] && (summary[e.id].regular > 0 || summary[e.id].overtime > 0)).sort((a, b) => (summary[b.id]?.total || 0) - (summary[a.id]?.total || 0));
-  if (!sorted.length) html += '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 월 근무/추가근무 내역이 없습니다</td></tr>';
-  else sorted.forEach(e => {
-    const s = summary[e.id];
-    html += '<tr><td><strong>' + e.name + '</strong></td><td style="color:#888">' + e.dept + '</td>'
-      + '<td style="text-align:center">' + s.regular + '시간</td>'
-      + '<td style="text-align:center">' + s.otCount + '회</td>'
-      + '<td style="text-align:center;color:#1565c0">' + s.overtime + '시간</td>'
-      + '<td style="text-align:center;font-weight:700">' + s.total + '시간</td></tr>';
-  });
-  el.innerHTML = html + '</tbody>';
+  const partEl = document.getElementById('overtimePartSummary');
+  const { regular, part } = calcOvertimeSummaryByEmp(year, month);
+  const periodLabel = month ? '해당 월' : '해당 연도';
+  const head = '<thead><tr><th>직원</th><th>부서</th><th>추가근무 횟수</th><th>추가근무 시간</th></tr></thead>';
+  const rows = list => list.map(d => '<tr><td><strong>' + d.emp.name + '</strong></td><td style="color:#888">' + d.emp.dept + '</td>'
+    + '<td style="text-align:center">' + d.count + '회</td>'
+    + '<td style="text-align:center;font-weight:700;color:#1565c0">' + d.hours + '시간</td></tr>').join('');
+  el.innerHTML = head + '<tbody>' + (regular.length ? rows(regular)
+    : '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:16px">' + periodLabel + ' 정규직 추가근무 내역이 없습니다</td></tr>') + '</tbody>';
+  if (!partEl) return;
+  if (!part.length) { partEl.style.display = 'none'; partEl.innerHTML = ''; return; }
+  const wasOpen = partEl.querySelector('details')?.open || false;
+  const partTotal = Math.round(part.reduce((s, d) => s + d.hours, 0) * 10) / 10;
+  partEl.style.display = '';
+  partEl.innerHTML = '<details class="ot-part"' + (wasOpen ? ' open' : '') + '><summary>파트 직원 추가근무 <span class="ot-part-meta">' + part.length + '명 · ' + partTotal + '시간 · 근무표 탭 파트 리포트에 이미 반영됨</span></summary>'
+    + '<div style="overflow-x:auto;margin-top:8px"><table class="lv-table wrap-hd">' + head + '<tbody>' + rows(part) + '</tbody></table></div></details>';
 }
 function exportOvertimeMonthCsvUI() {
   const year = +(document.getElementById('otSumYear')?.value || TODAY.getFullYear());

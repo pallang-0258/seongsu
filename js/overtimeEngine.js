@@ -53,36 +53,20 @@ function syncOvertimeNoteForDate(empId, dateStr) {
   } catch (e) { console.warn('syncOvertimeNoteForDate 오류:', e); }
 }
 
-// ── 정규 근무시간 계산 (월별 합산용) ──
-function calcScheduledHoursForDate(emp, dateStr) {
-  const sh = getShiftForDate(emp, dateStr);
-  if (sh === 'off' || sh === '__off__' || sh === 'annual') return 0;
-  if (sh === 'half' || sh === 'half_pm') {
-    const base = getBaseShiftForDate(emp, dateStr);
-    return getHalfHours(base, sh);
-  }
-  if (isFullShiftKey(sh)) return shiftHours(sh);
-  return 0;
-}
-
-// 월별 직원별 "정규근무 + 추가근무" 합산 (급여 참고용)
-function calcMonthlyPayrollSummary(year, month) {
-  const dates = getDatesInMonth(year, month);
-  const result = {}; // empId -> {regular, overtime, otCount, total}
-  state.employees.forEach(e => { result[e.id] = { regular: 0, overtime: 0, otCount: 0 }; });
-  dates.forEach(dateStr => {
-    state.employees.forEach(e => {
-      result[e.id].regular += calcScheduledHoursForDate(e, dateStr);
-    });
-  });
+// 직원별 추가근무 합계 (month가 ''이면 그 해 전체). 추가근무한 직원만, 정규직/파트로 나눠서 시간 많은 순으로.
+function calcOvertimeSummaryByEmp(year, month) {
+  const prefix = String(year) + (month ? '-' + String(month).padStart(2, '0') : '');
+  const map = {};
   state.overtimeRecords.forEach(r => {
-    if (!r.date.startsWith(year + '-' + String(month + 1).padStart(2, '0'))) return;
-    if (!result[r.empId]) result[r.empId] = { regular: 0, overtime: 0, otCount: 0 };
-    result[r.empId].overtime += calcOtHours(r.startTime, r.endTime);
-    result[r.empId].otCount++;
+    if (!r.date.startsWith(prefix)) return;
+    if (!map[r.empId]) map[r.empId] = { hours: 0, count: 0 };
+    map[r.empId].hours += calcOtHours(r.startTime, r.endTime);
+    map[r.empId].count++;
   });
-  Object.keys(result).forEach(id => { result[id].total = Math.round((result[id].regular + result[id].overtime) * 10) / 10; result[id].regular = Math.round(result[id].regular * 10) / 10; });
-  return result;
+  const list = state.employees.filter(e => map[e.id])
+    .map(e => ({ emp: e, count: map[e.id].count, hours: Math.round(map[e.id].hours * 10) / 10 }))
+    .sort((a, b) => b.hours - a.hours);
+  return { regular: list.filter(d => d.emp.employmentType !== 'parttime'), part: list.filter(d => d.emp.employmentType === 'parttime') };
 }
 
 // ── CSV 내보내기 (클라이언트 사이드) ──
@@ -109,12 +93,15 @@ function exportOvertimeMonthCsv(year, month) {
     rows.push([emp ? emp.name : r.empId, emp ? emp.dept : '', r.date, r.startTime, r.endTime, calcOtHours(r.startTime, r.endTime), r.reason || '']);
   });
   rows.push([]);
-  rows.push(['— 직원별 월간 합계 (정규근무 + 추가근무) —']);
-  rows.push(['직원', '부서', '정규근무시간', '추가근무시간', '합계시간']);
-  const summary = calcMonthlyPayrollSummary(year, month);
-  state.employees.forEach(e => {
-    const s = summary[e.id]; if (!s || (s.regular === 0 && s.overtime === 0)) return;
-    rows.push([e.name, e.dept, s.regular, s.overtime, s.total]);
-  });
+  const { regular, part } = calcOvertimeSummaryByEmp(year, month + 1);
+  rows.push(['— 직원별 월간 추가근무 합계 —']);
+  rows.push(['직원', '부서', '추가근무 횟수', '추가근무시간']);
+  regular.forEach(d => rows.push([d.emp.name, d.emp.dept, d.count, d.hours]));
+  if (part.length) {
+    rows.push([]);
+    rows.push(['— 파트 직원 추가근무 합계 (근무표 파트 리포트에 이미 반영됨) —']);
+    rows.push(['직원', '부서', '추가근무 횟수', '추가근무시간']);
+    part.forEach(d => rows.push([d.emp.name, d.emp.dept, d.count, d.hours]));
+  }
   downloadCsv('overtime_' + monthStr + '.csv', rows);
 }
