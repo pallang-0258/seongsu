@@ -16,6 +16,9 @@ function renderAll() {
 }
 
 function switchTab(tab) {
+  // 지금 보고 있는 탭(아래 탭·위 탭)을 한 번 더 누르면 맨 위로 부드럽게 올라간다
+  const _curTab = document.getElementById('mtab-' + tab);
+  if (_curTab && _curTab.classList.contains('active')) { const m = document.querySelector('.main'); if (m) m.scrollTo({ top: 0, behavior: 'smooth' }); }
   ['schedule', 'leave', 'overtime', 'memos', 'employees'].forEach((t, i) => {
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
     const tabBtns = document.querySelectorAll('.header-tabs .tab');
