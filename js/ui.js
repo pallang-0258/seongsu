@@ -106,6 +106,17 @@ function fitTableToScreen() {
     }
   });
 }
+// 휴대폰 브라우저의 "실제로 보이는" 화면 높이를 CSS 변수(--app-h)로 넘긴다. 아이폰 사파리의 100vh는 주소창이
+// 숨었을 때 기준이라 화면보다 커서, 맨 아래 내용이 가려지거나 손을 떼면 화면이 위로 튕겼다.
+function setAppHeight() { document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px'); }
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
+window.addEventListener('orientationchange', setAppHeight);
+// 글꼴(Pretendard)이 늦게 받아지면 표 높이가 달라져 줄여 둔 표의 아래쪽이 잘릴 수 있어, 글꼴을 받은 뒤와
+// 화면 크기가 바뀐 뒤(가로/세로 회전 등)에 한 번 더 맞춘다.
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitTableToScreen());
+let _fitResizeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(_fitResizeTimer); _fitResizeTimer = setTimeout(fitTableToScreen, 150); });
 function fitCalToScreen() {
   if (window.innerWidth > 768) return;
   [['calGrid', 'calGridWrap'], ['otCalGrid', 'otCalGridWrap']].forEach(([gridId, wrapId]) => {
@@ -606,19 +617,19 @@ function renderSwapHistory() {
     .sort((x, y) => y.dates[0].localeCompare(x.dates[0]) || y.id - x.id);
   const name = id => { const e = state.employees.find(x => x.id === id); return e ? swapEsc(e.name) : '(삭제된 직원)'; };
   let html = '<thead><tr><th>교환 날짜</th><th>직원</th><th>근무교환</th><th>메모</th><th>등록일</th><th>관리</th></tr></thead><tbody>';
-  if (!list.length) html += '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
+  if (!list.length) html += '<tr class="m-card-empty"><td colspan="6" style="text-align:center;color:#aaa;padding:16px">해당 내역이 없습니다</td></tr>';
   list.forEach(s => {
     const changes = swapEsc(swapSummaryText(s));
     const changedSince = swapChangedSince(s).length;
-    const manage = (changedSince ? '<div style="font-size:10px;color:#f57f17;margin-bottom:2px" title="교환 후에 같은 칸이 다시 수정되었어요">⚠ 이후 수정됨</div>' : '')
+    const manage = (changedSince ? '<div style="font-size:10px;color:#f57f17;margin-bottom:2px" title="교환 후에 같은 칸이 다시 수정되었어요">⚠<span class="hide-m"> 이후 수정됨</span></div>' : '')
         + '<button class="btn sm danger" onclick="cancelSwapUI(' + s.id + ')">교환 취소</button>';
     html += '<tr>'
-      + '<td>' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
-      + '<td>' + (isSelfSwap(s) ? '<strong>' + name(s.empA) + '</strong> <span style="font-size:11px;color:#888">날짜 변경</span>' : '<strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong>') + '</td>'
-      + '<td style="white-space:nowrap">' + changes + '</td>'
-      + '<td style="color:#888">' + (s.memo ? swapEsc(s.memo) : '-') + '</td>'
-      + '<td style="font-size:11px;color:#888">' + (s.createdAt || '-') + '</td>'
-      + '<td style="white-space:nowrap">' + manage + '</td></tr>';
+      + '<td data-label="교환 날짜">' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
+      + '<td data-label="직원">' + (isSelfSwap(s) ? '<strong>' + name(s.empA) + '</strong> <span style="font-size:11px;color:#888">날짜 변경</span>' : '<strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong>') + '</td>'
+      + '<td data-label="근무교환" style="white-space:nowrap">' + changes + '</td>'
+      + '<td data-label="메모" style="color:#888">' + (s.memo ? swapEsc(s.memo) : '<span class="hide-m">-</span>') + '</td>'
+      + '<td data-label="등록일" style="font-size:11px;color:#888">' + (s.createdAt || '-') + '</td>'
+      + '<td class="m-card-actions" style="white-space:nowrap">' + manage + '</td></tr>';
   });
   table.innerHTML = html + '</tbody>';
 }
@@ -1302,7 +1313,7 @@ function renderEmpTableMobile() {
       + (resigned ? ' <span style="font-size:10px;background:#fce4ec;color:#880e4f;padding:1px 6px;border-radius:10px">퇴사</span>' : '')
       + '</div><div style="font-size:11px;color:#888;margin-top:2px">' + e.dept + ' · ' + (isPT ? '파트타임' : '정규직') + ' · ' + (resigned ? '퇴사' : (tm[getCurrentWorkType(e)] || getCurrentWorkType(e))) + pendingBadge + '</div>'
       + (e.phone ? '<div style="font-size:11px;margin-top:2px"><a href="tel:' + e.phone + '" style="color:#1565c0;text-decoration:none">📞 ' + e.phone + '</a></div>' : '') + empPrivateInfoHtml(e) + '</div>'
-      + '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
+      + '<div style="display:flex;gap:6px;flex-shrink:0">'
       + '<button class="btn sm" onclick="openEditEmp(' + e.id + ')">수정</button>'
       + '<button class="btn sm danger" onclick="removeEmp(' + e.id + ')">삭제</button>'
       + '</div></div>'
