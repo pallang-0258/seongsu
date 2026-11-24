@@ -610,13 +610,13 @@ function renderSwapHistory() {
   list.forEach(s => {
     const changes = swapEsc(swapSummaryText(s));
     const changedSince = swapChangedSince(s).length;
-    const manage = (changedSince ? '<div style="font-size:10px;color:#f57f17;margin-bottom:2px" title="교환 후에 같은 칸이 다시 수정되었어요">⚠ 이후 수정됨</div>' : '')
+    const manage = (changedSince ? '<div style="font-size:10px;color:#f57f17;margin-bottom:2px" title="교환 후에 같은 칸이 다시 수정되었어요">⚠<span class="hide-m"> 이후 수정됨</span></div>' : '')
         + '<button class="btn sm danger" onclick="cancelSwapUI(' + s.id + ')">교환 취소</button>';
     html += '<tr>'
       + '<td data-label="교환 날짜">' + s.dates.map(d => d.slice(5).replace('-', '/')).join(', ') + '</td>'
       + '<td data-label="직원">' + (isSelfSwap(s) ? '<strong>' + name(s.empA) + '</strong> <span style="font-size:11px;color:#888">날짜 변경</span>' : '<strong>' + name(s.empA) + '</strong> ↔ <strong>' + name(s.empB) + '</strong>') + '</td>'
       + '<td data-label="근무교환" style="white-space:nowrap">' + changes + '</td>'
-      + '<td data-label="메모" style="color:#888">' + (s.memo ? swapEsc(s.memo) : '-') + '</td>'
+      + '<td data-label="메모" style="color:#888">' + (s.memo ? swapEsc(s.memo) : '<span class="hide-m">-</span>') + '</td>'
       + '<td data-label="등록일" style="font-size:11px;color:#888">' + (s.createdAt || '-') + '</td>'
       + '<td class="m-card-actions" style="white-space:nowrap">' + manage + '</td></tr>';
   });
