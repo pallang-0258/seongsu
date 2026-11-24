@@ -4,12 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>근무표 뷰어</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="css/style.css?v=20261124i">
+<link rel="icon" type="image/png" href="img/mascot.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sun-typeface/suit@2.0.5/fonts/variable/woff2/SUIT-Variable.css">
+<link rel="stylesheet" href="css/style.css?v=20261125a">
 </head>
 <body>
 <div class="header">
-  <div class="header-title">📋 근무표 뷰어</div>
+  <div style="display:flex;align-items:center;gap:10px"><img class="brand-mark" src="img/mascot.png" alt="" aria-hidden="true"><div class="header-title">근무표 뷰어</div></div>
   <div class="header-tabs">
     <button class="tab active" onclick="switchViewerTab('schedule')">근무표</button>
     <button class="tab" onclick="switchViewerTab('leave')">연차/반차</button>
@@ -20,8 +21,8 @@
 </div>
 
 <div class="mobile-tabbar">
-  <button class="mobile-tab active" id="mtab-schedule" onclick="switchViewerTab('schedule')"><span class="mt-icon">📋</span>근무표</button>
-  <button class="mobile-tab" id="mtab-leave" onclick="switchViewerTab('leave')"><span class="mt-icon">📅</span>연차/반차</button>
+  <button class="mobile-tab active" id="mtab-schedule" onclick="switchViewerTab('schedule')"><span class="mt-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9.5h18M9 9.5V21M16 2.5v3M8 2.5v3"/></svg></span>근무표</button>
+  <button class="mobile-tab" id="mtab-leave" onclick="switchViewerTab('leave')"><span class="mt-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9.5h18M16 2.5v3M8 2.5v3"/><path d="m9 15 2 2 4-4"/></svg></span>연차/반차</button>
 </div>
 
 <div class="layout">
@@ -79,9 +80,9 @@
         <div class="cal-emp-filter" id="calEmpFilter"></div>
         <div id="calGridWrap" style="overflow:visible"><div class="cal-grid" id="calGrid"></div></div>
         <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
-          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8e1"></div>연차</div>
-          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fce4ec"></div>반차(오전)</div>
-          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#ede7f6"></div>반차(오후)</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:var(--annual-bg)"></div>연차</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:var(--half-bg)"></div>반차(오전)</div>
+          <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:var(--pm-bg)"></div>반차(오후)</div>
           <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888"><div style="width:10px;height:10px;border-radius:2px;background:#fff8f7;border:1px solid #f5c6c2"></div>공휴일</div>
         </div>
       </div>
@@ -100,14 +101,14 @@
   </div>
 </div>
 
-<script src="js/constants.js?v=20261124i"></script>
-<script src="js/dateUtils.js?v=20261124i"></script>
-<script src="js/holidays.js?v=20261124i"></script>
-<script src="js/state.js?v=20261124i"></script>
-<script src="js/scheduleEngine.js?v=20261124i"></script>
-<script src="js/swapEngine.js?v=20261124i"></script>
-<script src="js/leaveEngine.js?v=20261124i"></script>
-<script src="js/viewerUi.js?v=20261124i"></script>
-<script src="js/viewerMain.js?v=20261124i"></script>
+<script src="js/constants.js?v=20261125a"></script>
+<script src="js/dateUtils.js?v=20261125a"></script>
+<script src="js/holidays.js?v=20261125a"></script>
+<script src="js/state.js?v=20261125a"></script>
+<script src="js/scheduleEngine.js?v=20261125a"></script>
+<script src="js/swapEngine.js?v=20261125a"></script>
+<script src="js/leaveEngine.js?v=20261125a"></script>
+<script src="js/viewerUi.js?v=20261125a"></script>
+<script src="js/viewerMain.js?v=20261125a"></script>
 </body>
 </html>

@@ -63,14 +63,14 @@ function startEditTitle() {
   const cur = el.textContent;
   const input = document.createElement('input');
   input.value = cur;
-  input.style.cssText = 'font-size:15px;font-weight:600;border:none;border-bottom:2px solid #fff;outline:none;background:transparent;color:#fff;font-family:inherit;width:220px;padding:0';
+  input.className = 'header-title-input';
   el.replaceWith(input);
   input.focus(); input.select();
   function commit() {
     const val = input.value.trim() || cur;
     const div = document.createElement('div');
     div.className = 'header-title'; div.id = 'siteTitle'; div.title = '클릭하여 이름 수정'; div.style.cursor = 'pointer';
-    div.textContent = val; div.onclick = startEditTitle;
+    div.textContent = val.replace(/^📋\s*/, ''); div.onclick = startEditTitle;
     input.replaceWith(div);
     document.title = val.replace(/^📋\s*/, '');
     try { localStorage.setItem('wms_sitename', val); } catch (e) {}
@@ -81,7 +81,7 @@ function startEditTitle() {
 function loadSiteTitle() {
   try {
     const saved = localStorage.getItem('wms_sitename');
-    if (saved) { const el = document.getElementById('siteTitle'); if (el) { el.textContent = saved; document.title = saved.replace(/^📋\s*/, ''); } }
+    if (saved) { const el = document.getElementById('siteTitle'); if (el) { el.textContent = saved.replace(/^📋\s*/, ''); document.title = saved.replace(/^📋\s*/, ''); } }
   } catch (e) {}
 }
 
