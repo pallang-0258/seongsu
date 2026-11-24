@@ -306,8 +306,12 @@ textarea { font-family: inherit; }
 @media (max-width: 768px) {
   /* 아이폰 홈바·주소창에 맨 아래 내용이 가려지지 않게 */
   .mobile-tabbar { height: calc(58px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
-  .layout { height: calc(100vh - 50px - 58px); height: calc(100dvh - 50px - 58px - env(safe-area-inset-bottom)); }
+  .layout { height: calc(100vh - 50px - 58px); height: calc(var(--app-h, 100vh) - 50px - 58px - env(safe-area-inset-bottom)); }
   .sidebar { bottom: calc(58px + env(safe-area-inset-bottom)); }
+  /* 맨 아래 표(요일별 요약 등)가 탭바에 붙어 잘려 보이지 않게 여유를 둔다 */
+  .main { padding-bottom: 28px; overscroll-behavior-y: contain; }
+  /* 화면 전체(body)는 움직이지 않게 — 아이폰에서 주소창 높이만큼 body가 따로 스크롤되면 손을 뗄 때 화면이 위로 튕긴다 */
+  html, body { height: 100%; overflow: hidden; }
 
   /* 머리줄: 제목이 두 줄로 깨지지 않게, 연동 설정은 아이콘만 */
   .header-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

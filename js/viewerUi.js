@@ -34,6 +34,17 @@ function fitTableToScreen() {
     }
   });
 }
+// 휴대폰 브라우저의 "실제로 보이는" 화면 높이를 CSS 변수(--app-h)로 넘긴다. 아이폰 사파리의 100vh는 주소창이
+// 숨었을 때 기준이라 화면보다 커서, 맨 아래 내용이 가려지거나 손을 떼면 화면이 위로 튕겼다.
+function setAppHeight() { document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px'); }
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
+window.addEventListener('orientationchange', setAppHeight);
+// 글꼴(Pretendard)이 늦게 받아지면 표 높이가 달라져 줄여 둔 표의 아래쪽이 잘릴 수 있어, 글꼴을 받은 뒤와
+// 화면 크기가 바뀐 뒤(가로/세로 회전 등)에 한 번 더 맞춘다.
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitTableToScreen());
+let _fitResizeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(_fitResizeTimer); _fitResizeTimer = setTimeout(fitTableToScreen, 150); });
 function fitCalToScreen() {
   if (window.innerWidth > 768) return;
   const grid = document.getElementById('calGrid');
