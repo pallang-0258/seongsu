@@ -856,7 +856,7 @@ function openEditLeave(id) {
   document.getElementById('lvEnd').value = lr.end;
   document.getElementById('lvReason').value = lr.reason || '';
   document.getElementById('leaveModal')._editId = id;
-  document.getElementById('leaveModal').classList.add('open');
+  document.getElementById('leaveModal').classList.add('open'); setEditMode('leaveModal');
 }
 function deleteLeaveUI(id) {
   if (!confirm('신청을 삭제하시겠습니까?')) return;
@@ -869,14 +869,19 @@ function openLeaveModal() {
   const t = toLocalDateStr(TODAY);
   document.getElementById('lvStart').value = t; document.getElementById('lvEnd').value = t; document.getElementById('lvReason').value = '';
   document.getElementById('leaveModal')._editId = null;
-  document.getElementById('leaveModal').classList.add('open');
+  document.getElementById('leaveModal').classList.add('open'); setEditMode('leaveModal');
 }
 function openCalLeaveModal(dateStr) {
+  const entries = leaveEntriesOnDate(dateStr);
+  if (entries.length) { openCalDay('leave', dateStr); return; }
+  openCalLeaveNew(dateStr);
+}
+function openCalLeaveNew(dateStr) {
   document.getElementById('leaveModalTitle').textContent = '연차 / 반차 신청 — ' + dateStr;
   document.getElementById('leaveEmpSel').innerHTML = fulltimeEmployees().map(e => '<option value="' + e.id + '">' + e.name + ' (' + e.dept + ')</option>').join('');
   document.getElementById('lvStart').value = dateStr; document.getElementById('lvEnd').value = dateStr; document.getElementById('lvReason').value = '';
   document.getElementById('leaveModal')._editId = null;
-  document.getElementById('leaveModal').classList.add('open');
+  document.getElementById('leaveModal').classList.add('open'); setEditMode('leaveModal');
 }
 function submitLeave() {
   const empId = +document.getElementById('leaveEmpSel').value;
@@ -1062,6 +1067,62 @@ function renderCalendar() {
   setTimeout(fitCalToScreen, 50);
 }
 
+// ── 달력 날짜 창: 그날 등록된 연차/반차·추가근무를 보고 수정·삭제한다 ──
+// 휴대폰에서는 달력이 작게 줄어 이름표를 정확히 누르기 어려워서, 날짜 칸 전체를 누르면 이 창이 뜬다.
+function leaveEntriesOnDate(dateStr) {
+  return ftLeaveRequests().filter(r => r.status !== 'rejected' && r.start <= dateStr && r.end >= dateStr && state.employees.some(e => e.id === r.empId));
+}
+function setEditMode(modalId) {
+  const m = document.getElementById(modalId); if (!m) return;
+  const isEdit = !!m._editId;
+  const [delId, subId] = modalId === 'leaveModal' ? ['leaveDeleteBtn', 'leaveSubmitBtn'] : ['otDeleteBtn', 'otSubmitBtn'];
+  const del = document.getElementById(delId), sub = document.getElementById(subId);
+  if (del) del.style.display = isEdit ? '' : 'none';
+  if (sub) sub.textContent = isEdit ? '저장' : '등록';
+}
+function deleteFromEditModal(modalId) {
+  const id = document.getElementById(modalId)?._editId; if (!id) return;
+  const before = modalId === 'leaveModal' ? state.leaveRequests.length : state.overtimeRecords.length;
+  if (modalId === 'leaveModal') deleteLeaveUI(id); else deleteOvertimeUI(id);
+  const after = modalId === 'leaveModal' ? state.leaveRequests.length : state.overtimeRecords.length;
+  if (after < before) { document.getElementById(modalId)._editId = null; closeModal(modalId); }
+}
+function openCalDay(kind, dateStr) {
+  const modal = document.getElementById('calDayModal'); if (!modal) return;
+  modal._kind = kind; modal._date = dateStr;
+  const d = parseLocalDate(dateStr);
+  const label = (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + '일월화수목금토'[d.getDay()] + ')';
+  document.getElementById('calDayTitle').textContent = label + (kind === 'leave' ? ' 연차 / 반차' : ' 추가근무');
+  const list = document.getElementById('calDayList');
+  const empOf = id => state.employees.find(e => e.id === id);
+  let rows = [];
+  if (kind === 'leave') {
+    rows = leaveEntriesOnDate(dateStr).map(r => {
+      const emp = empOf(r.empId);
+      const tl = r.type === 'annual' ? '연차' : r.type === 'half' ? '반차(오전)' : '반차(오후)';
+      const tc = r.type === 'annual' ? 'annual' : r.type === 'half' ? 'half' : 'half_pm';
+      const period = r.start === r.end ? '' : ' · ' + r.start.slice(5).replace('-', '/') + '~' + r.end.slice(5).replace('-', '/');
+      return { id: r.id, main: '<strong>' + emp.name + '</strong> <span class="cal-tag ' + tc + '" style="display:inline-block;margin:0;vertical-align:middle">' + tl + '</span>', sub: emp.dept + period + (r.reason ? ' · ' + r.reason : '') };
+    });
+  } else {
+    rows = state.overtimeRecords.filter(r => r.date === dateStr && empOf(r.empId)).map(r => {
+      const emp = empOf(r.empId);
+      return { id: r.id, main: '<strong>' + emp.name + '</strong> <span style="color:#1565c0;font-weight:600">' + r.startTime + '~' + r.endTime + ' (' + calcOtHours(r.startTime, r.endTime) + '시간)</span>', sub: emp.dept + (r.reason ? ' · ' + r.reason : '') };
+    });
+  }
+  if (!rows.length) { closeModal('calDayModal'); return; }
+  list.innerHTML = rows.map(r => '<div class="cal-day-row"><div class="cal-day-info"><div>' + r.main + '</div><div class="cal-day-sub">' + r.sub + '</div></div>'
+    + '<div class="cal-day-acts"><button class="btn sm" data-act="edit" data-id="' + r.id + '">수정</button><button class="btn sm danger" data-act="del" data-id="' + r.id + '">삭제</button></div></div>').join('');
+  list.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const id = +b.dataset.id;
+    if (b.dataset.act === 'edit') { closeModal('calDayModal'); kind === 'leave' ? openEditLeave(id) : openEditOvertime(id); return; }
+    if (kind === 'leave') deleteLeaveUI(id); else deleteOvertimeUI(id);
+    openCalDay(kind, dateStr); // 남은 내용으로 다시 그림 (다 지웠으면 닫힘)
+  });
+  document.getElementById('calDayAddBtn').onclick = () => { closeModal('calDayModal'); kind === 'leave' ? openCalLeaveNew(dateStr) : openOvertimeModalWithDate(dateStr); };
+  modal.classList.add('open');
+}
+
 // ══════════════════════ 추가근무 탭 ══════════════════════
 function initOvertimeTab() {
   const years = new Set(state.overtimeRecords.map(r => r.date.slice(0, 4)));
@@ -1159,7 +1220,7 @@ function renderOtCalendar() {
     const tagsHtml = entries.slice(0, 3).map(en => '<span class="cal-tag" style="background:#e3f2fd;color:#1565c0">' + en.name + ' ' + en.startTime + '~' + en.endTime + '</span>').join('');
     const moreHtml = entries.length > 3 ? '<span style="font-size:10px;color:#aaa">+' + (entries.length - 3) + '명 더</span>' : '';
     const hrsHtml = entries.length > 0 ? '<div style="font-size:9px;color:#1565c0;font-weight:600;margin-top:2px">총 ' + totalHrs + '시간</div>' : '';
-    html += '<div class="cal-cell' + (isToday ? ' today' : '') + (hol ? ' holiday' : '') + '" onclick="openOvertimeModalWithDate(\'' + dateStr + '\')">'
+    html += '<div class="cal-cell' + (isToday ? ' today' : '') + (hol ? ' holiday' : '') + '" onclick="openOtCalDay(\'' + dateStr + '\')">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' + dateNumHtml + '<span class="cal-add-btn">+</span></div>'
       + tagsHtml + moreHtml + hrsHtml + '</div>';
   }
@@ -1177,7 +1238,11 @@ function openOvertimeModal() {
   document.getElementById('otStartTime').value = ''; document.getElementById('otEndTime').value = ''; document.getElementById('otReason').value = '';
   document.getElementById('otCalcHours').textContent = '';
   document.getElementById('overtimeModal')._editId = null;
-  document.getElementById('overtimeModal').classList.add('open');
+  document.getElementById('overtimeModal').classList.add('open'); setEditMode('overtimeModal');
+}
+function openOtCalDay(dateStr) {
+  if (state.overtimeRecords.some(r => r.date === dateStr && state.employees.some(e => e.id === r.empId))) openCalDay('ot', dateStr);
+  else openOvertimeModalWithDate(dateStr);
 }
 function openOvertimeModalWithDate(dateStr) { openOvertimeModal(); document.getElementById('otDate').value = dateStr; }
 function openEditOvertime(id) {
@@ -1189,7 +1254,7 @@ function openEditOvertime(id) {
   const hrs = calcOtHours(r.startTime, r.endTime);
   document.getElementById('otCalcHours').textContent = hrs > 0 ? '(' + hrs + '시간)' : '';
   document.getElementById('overtimeModal')._editId = id;
-  document.getElementById('overtimeModal').classList.add('open');
+  document.getElementById('overtimeModal').classList.add('open'); setEditMode('overtimeModal');
 }
 function submitOvertime() {
   const empId = +document.getElementById('otEmpSel').value;
