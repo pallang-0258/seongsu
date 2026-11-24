@@ -12,6 +12,7 @@ function switchViewerTab(tab) {
     if (mt) mt.className = 'mobile-tab' + (t === tab ? ' active' : '');
   });
   if (tab === 'leave') { initLeaveFilters(); initLeaveTableFilters(); renderLeaveTable(); renderLeaveHistoryViewer(); initCalendar(); setTimeout(fitTableToScreen, 100); }
+  if (tab === 'schedule') setTimeout(fitTableToScreen, 50); // 숨겨져 있던 동안엔 폭을 잴 수 없어서 돌아올 때 다시 맞춤
 }
 
 // ── 화면 폭에 맞춰 표/달력 축소 (가로 스크롤 방지) ──
@@ -25,6 +26,8 @@ function fitTableToScreen() {
   targets.forEach(({ tblId, wrapSel, wrapId }) => {
     const tbl = document.getElementById(tblId); if (!tbl) return;
     const wrap = wrapId ? document.getElementById(wrapId) : tbl.closest(wrapSel); if (!wrap) return;
+    // 다른 탭에 가려져 있는 표는 폭을 잴 수 없으니 건드리지 않는다 (예전엔 여기서 줄인 크기를 풀어버려서 돌아오면 표가 화면 밖으로 넘쳤다)
+    if (!wrap.offsetParent) return;
     tbl.style.transform = ''; tbl.style.transformOrigin = ''; tbl.dataset.scale = '1'; wrap.style.height = ''; wrap.style.overflow = 'visible';
     const tblW = tbl.scrollWidth, wrapW = wrap.clientWidth;
     if (tblW > wrapW && wrapW > 0) {
