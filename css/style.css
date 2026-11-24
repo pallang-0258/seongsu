@@ -169,6 +169,11 @@ button, input, select, textarea { font-family: inherit; }
 .unconfirmed { background: #fef3d9; color: #b06a00; }
 
 .sch-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid var(--border); }
+/* 스크롤을 내려도 요일·날짜 줄이 화면 위에 붙어 따라온다.
+   (가로 스크롤 상자 안에서는 붙지 않으므로, 넘치는 부분은 스크롤 대신 잘라낸다 — 표 최소 너비가 화면보다 작아 실제로 잘리는 일은 거의 없다) */
+.sch-wrap { overflow-x: clip; }
+.sch-table thead th { position: sticky; top: -22px; z-index: 3; } /* 화면 여백(22px)만큼 위로 올려 맨 위에 딱 붙게 */
+@media (max-width: 768px) { .sch-table thead th { top: -12px; } }
 .sch-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; table-layout: fixed; min-width: 520px; }
 /* PC: 부서·이름 칸은 고정 너비, 요일 칸은 남은 너비를 똑같이 나눈다 (화면이 아주 좁으면 가로 스크롤) */
 .sch-table th, .sch-table td { border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); padding: 0; text-align: center; }
