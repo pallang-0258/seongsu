@@ -98,6 +98,16 @@ function buildSchTable(el, off) {
       days.forEach((dayDate, di) => {
         const dateStr = toLocalDateStr(dayDate);
         const sh = getShift(emp, di, off);
+        // 추가근무 기록 — 원래 쉬는 날에 한 추가근무는 그 시간을 파란 칸으로 보여준다 (관리자 근무표와 같게)
+        const otRecs = (state.overtimeRecords || []).filter(r => r.empId === emp.id && r.date === dateStr);
+        const otOnlyPill = () => {
+          const t = otRecs.filter(r => r.startTime && r.endTime).map(r => r.startTime.replace(/:00$/, '').replace(/^0/, '') + '-' + r.endTime.replace(/:00$/, '').replace(/^0/, '')).join(', ');
+          return '<div class="shift-pill" style="background:#e3f2fd;color:#1565c0">' + (t || '추가근무') + '</div>';
+        };
+        if (sh === '__off__' && otRecs.length) {
+          html += '<td><div class="shift-cell" style="flex-direction:column;gap:0;position:relative;cursor:default">' + otOnlyPill() + '</div></td>';
+          return;
+        }
         if (sh === '__off__') {
           html += '<td><div style="width:100%;height:40px;display:flex;align-items:center;justify-content:center;background:#f7f7f7"><span style="font-size:10px;color:#ccc">—</span></div></td>';
           return;
@@ -113,8 +123,11 @@ function buildSchTable(el, off) {
           extraLabel = '<div style="font-size:9px;color:#880e4f;margin-top:1px">' + (sh === 'half' ? '오전반차' : '오후반차') + '</div>';
         } else if (sh === 'off' && isManuallySet) {
           lb = ''; cl = '';
+          if (otRecs.length) { lb = null; extraLabel = otOnlyPill(); }
         } else if (isFullShiftKey(sh) && otRange) {
           lb = otRange.text; cl = shiftCls(sh);
+        } else if (sh === 'off' && otRecs.length) {
+          lb = null; extraLabel = otOnlyPill();
         } else {
           cl = shiftCls(sh); lb = shiftLabel(sh);
         }
@@ -134,7 +147,7 @@ function buildSchTable(el, off) {
           + '<div class="shift-cell" style="flex-direction:column;gap:0;position:relative;cursor:default">'
           + noteDot
           + (swap ? '<span style="position:absolute;top:3px;left:4px;width:7px;height:7px;border-radius:50%;background:#1e88e5"></span>' : '')
-          + (lb ? '<div class="shift-pill ' + cl + '">' + lb + '</div>' : '<span style="font-size:10px;color:#ccc">-</span>')
+          + (lb ? '<div class="shift-pill ' + cl + '">' + lb + '</div>' : lb === null ? '' : '<span style="font-size:10px;color:#ccc">-</span>')
           + extraLabel
           + '</div></td>';
       });
